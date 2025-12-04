@@ -1,0 +1,17 @@
+# Core dependencies for Jira Maturity Evaluator Service
+jira>=3.5.2
+openai>=1.12.0
+python-dotenv>=1.0.0
+requests>=2.26.0
+
+# Dependencies for original chatbot (optional - only needed if using chatbot.py)
+Flask>=2.0.1
+transformers>=4.11.3
+numpy>=1.21.2
+
+# PyTorch - Install separately if needed for the chatbot
+# Note: PyTorch installation varies by platform. Install using one of these methods:
+# Windows CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Windows GPU: pip install torch --index-url https://download.pytorch.org/whl/cu118
+# Or simply: pip install torch (pip will auto-select compatible version)
+# PyTorch is NOT required for the Jira Maturity Evaluator service

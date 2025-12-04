@@ -1,0 +1,8 @@
+# Minimal requirements for Jira Maturity Evaluator Service only
+# This excludes chatbot dependencies (torch, transformers, Flask)
+
+jira>=3.5.2
+openai>=1.12.0
+python-dotenv>=1.0.0
+requests>=2.26.0
+
