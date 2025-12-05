@@ -8,8 +8,8 @@ to evaluate the maturity score of requirements based on various criteria.
 import os
 from typing import List, Dict, Optional
 from jira import JIRA
-from openai import OpenAI
 import json
+from src.llm import LLMRouter, LLMProvider
 
 
 class JiraMaturityEvaluator:
@@ -18,7 +18,7 @@ class JiraMaturityEvaluator:
     """
     
     def __init__(self, jira_url: str, jira_email: str, jira_api_token: str, 
-                 openai_api_key: str, project_key: str, openai_model: str = "gpt-3.5-turbo"):
+                 project_key: str, llm_provider: LLMProvider):
         """
         Initialize the Jira Maturity Evaluator.
         
@@ -26,23 +26,18 @@ class JiraMaturityEvaluator:
             jira_url: Jira instance URL (e.g., 'https://yourcompany.atlassian.net')
             jira_email: Email address for Jira authentication
             jira_api_token: Jira API token
-            openai_api_key: OpenAI API key for LLM evaluation
             project_key: Jira project key (e.g., 'PROJ')
-            openai_model: OpenAI model to use (default: 'gpt-3.5-turbo')
-                          Options: 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo-preview', etc.
+            llm_provider: LLM provider instance (from LLMRouter)
         """
         self.jira_url = jira_url
         self.project_key = project_key
-        self.openai_model = openai_model
+        self.llm_provider = llm_provider
         
         # Initialize Jira client
         self.jira = JIRA(
             server=jira_url,
             basic_auth=(jira_email, jira_api_token)
         )
-        
-        # Initialize OpenAI client
-        self.llm_client = OpenAI(api_key=openai_api_key)
         
         # Maturity evaluation criteria
         self.maturity_criteria = {
@@ -116,32 +111,23 @@ class JiraMaturityEvaluator:
         prompt = self._create_evaluation_prompt(issue)
         
         try:
-            # Prepare API call parameters
-            api_params = {
-                "model": self.openai_model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are an expert requirement analyst. Evaluate requirement maturity based on the provided criteria and return a JSON response with scores (0-100) and explanations."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0.3
-            }
+            # System prompt for evaluation
+            system_prompt = (
+                "You are an expert requirement analyst. "
+                "Evaluate requirement maturity based on the provided criteria "
+                "and return a JSON response with scores (0-100) and explanations."
+            )
             
-            # JSON mode is supported by gpt-3.5-turbo and gpt-4
-            # Add it if the model supports it
-            if "gpt-3.5" in self.openai_model or "gpt-4" in self.openai_model:
-                api_params["response_format"] = {"type": "json_object"}
+            # Use JSON mode if supported by the provider
+            json_mode = self.llm_provider.supports_json_mode()
             
-            # Call LLM for evaluation
-            response = self.llm_client.chat.completions.create(**api_params)
-            
-            # Parse LLM response
-            response_content = response.choices[0].message.content.strip()
+            # Call LLM provider for evaluation
+            response_content = self.llm_provider.generate_response(
+                system_prompt=system_prompt,
+                user_prompt=prompt,
+                temperature=0.3,
+                json_mode=json_mode
+            )
             
             # Try to extract JSON if response_format wasn't used
             if not response_content.startswith('{'):
@@ -170,9 +156,11 @@ class JiraMaturityEvaluator:
             print(f"Error evaluating maturity for {issue['key']}: {error_msg}")
             
             # Provide helpful error message for model access issues
+            provider_name = self.llm_provider.get_provider_name()
+            model_name = self.llm_provider.model
             if 'model' in error_msg.lower() and ('not exist' in error_msg.lower() or 'not found' in error_msg.lower()):
-                print(f"  → Model '{self.openai_model}' is not available or you don't have access.")
-                print(f"  → Try setting OPENAI_MODEL=gpt-3.5-turbo (default) or check your OpenAI account access.")
+                print(f"  → Model '{model_name}' from provider '{provider_name}' is not available or you don't have access.")
+                print(f"  → Try using a different model or provider.")
             
             return {
                 'issue_key': issue['key'],

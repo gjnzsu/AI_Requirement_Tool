@@ -64,39 +64,55 @@ The Jira Requirement Maturity Evaluation Service uses LLM models (OpenAI GPT-4) 
 
 ### Configuration
 
+#### Multi-Provider LLM Support
+
+The service supports multiple LLM providers through a flexible router pattern:
+- **OpenAI**: GPT-3.5-turbo, GPT-4, GPT-4-turbo-preview
+- **Google Gemini**: gemini-pro, gemini-1.5-pro, gemini-1.5-flash
+- **DeepSeek**: deepseek-chat, deepseek-coder
+
+#### Environment Variables
+
 1. **Set Environment Variables** (recommended):
    ```bash
+   # Jira Configuration
    export JIRA_URL="https://yourcompany.atlassian.net"
    export JIRA_EMAIL="your-email@example.com"
    export JIRA_API_TOKEN="your-jira-api-token"
    export JIRA_PROJECT_KEY="PROJ"
+   
+   # LLM Provider Selection
+   export LLM_PROVIDER="openai"  # Options: 'openai', 'gemini', 'deepseek'
+   
+   # Provider-specific API Keys (set the one for your chosen provider)
    export OPENAI_API_KEY="your-openai-api-key"
-   export OPENAI_MODEL="gpt-3.5-turbo"  # Optional: defaults to gpt-3.5-turbo
+   export GEMINI_API_KEY="your-gemini-api-key"
+   export DEEPSEEK_API_KEY="your-deepseek-api-key"
+   
+   # Provider-specific Models (optional, defaults shown)
+   export OPENAI_MODEL="gpt-3.5-turbo"
+   export GEMINI_MODEL="gemini-pro"
+   export DEEPSEEK_MODEL="deepseek-chat"
+   
    export MAX_BACKLOG_ITEMS="50"
    ```
 
-   **Note:** The default model is `gpt-3.5-turbo` which is more accessible. If you have access to GPT-4, you can set `OPENAI_MODEL="gpt-4"` for potentially better results.
-
    Or on Windows PowerShell:
    ```powershell
-   $env:JIRA_URL="https://yourcompany.atlassian.net"
-   $env:JIRA_EMAIL="your-email@example.com"
-   $env:JIRA_API_TOKEN="your-jira-api-token"
-   $env:JIRA_PROJECT_KEY="PROJ"
+   $env:LLM_PROVIDER="openai"
    $env:OPENAI_API_KEY="your-openai-api-key"
-   $env:OPENAI_MODEL="gpt-3.5-turbo"  # Optional: defaults to gpt-3.5-turbo
+   $env:OPENAI_MODEL="gpt-3.5-turbo"
+   # ... other variables
    ```
 
 2. **Or Update config/config.py** directly with your credentials
 
 3. **Or create a `.env` file** in the project root (automatically loaded):
    ```
-   JIRA_URL=https://yourcompany.atlassian.net
-   JIRA_EMAIL=your-email@example.com
-   JIRA_API_TOKEN=your-jira-api-token
-   JIRA_PROJECT_KEY=PROJ
+   LLM_PROVIDER=openai
    OPENAI_API_KEY=your-openai-api-key
    OPENAI_MODEL=gpt-3.5-turbo
+   # ... other variables
    ```
 
 ### Getting API Credentials
@@ -106,8 +122,20 @@ The Jira Requirement Maturity Evaluation Service uses LLM models (OpenAI GPT-4) 
 2. Click "Create API token"
 3. Copy the generated token
 
-#### OpenAI API Key
+#### LLM Provider API Keys
+
+**OpenAI:**
 1. Go to https://platform.openai.com/api-keys
+2. Create a new API key
+3. Copy the key (keep it secure!)
+
+**Google Gemini:**
+1. Go to https://makersuite.google.com/app/apikey
+2. Create a new API key
+3. Copy the key (keep it secure!)
+
+**DeepSeek:**
+1. Go to https://platform.deepseek.com/api_keys
 2. Create a new API key
 3. Copy the key (keep it secure!)
 
@@ -180,6 +208,60 @@ Recommendations:
 ## Usage
 
 Once the chatbot is running, you can interact with it by typing your messages. The chatbot will generate responses based on its underlying AI model.
+
+## Multi-Provider LLM Architecture
+
+The service uses a flexible router pattern to support multiple LLM providers:
+
+### Architecture Overview
+
+```
+┌─────────────────────┐
+│ Jira Evaluator      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   LLM Router        │
+└──────────┬──────────┘
+           │
+    ┌──────┴──────┬──────────┐
+    ▼             ▼           ▼
+┌─────────┐  ┌─────────┐  ┌─────────┐
+│ OpenAI  │  │ Gemini  │  │DeepSeek │
+└─────────┘  └─────────┘  └─────────┘
+```
+
+### Adding New Providers
+
+To add a new LLM provider:
+
+1. Create a new provider class inheriting from `LLMProvider`:
+   ```python
+   from src.llm.base_provider import LLMProvider
+   
+   class MyProvider(LLMProvider):
+       def generate_response(self, system_prompt, user_prompt, 
+                            temperature=0.3, json_mode=False):
+           # Implement your provider's API call
+           pass
+       
+       def supports_json_mode(self):
+           return True  # or False
+       
+       def get_provider_name(self):
+           return "myprovider"
+   ```
+
+2. Register it with the router:
+   ```python
+   from src.llm import LLMRouter
+   LLMRouter.register_provider("myprovider", MyProvider)
+   ```
+
+3. Update configuration to support the new provider's API key.
+
+See `examples/multi_provider_example.py` for usage examples.
 
 ## Functionality
 

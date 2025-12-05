@@ -1,11 +1,13 @@
 # Core dependencies for Jira Maturity Evaluator Service
 jira>=3.5.2
 openai>=1.12.0
+google-generativeai>=0.3.0  # For Gemini support
 python-dotenv>=1.0.0
 requests>=2.26.0
 
 # Dependencies for original chatbot (optional - only needed if using chatbot.py)
 Flask>=2.0.1
+flask-cors>=3.1.0
 transformers>=4.11.3
 numpy>=1.21.2
 

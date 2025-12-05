@@ -3,6 +3,7 @@
 
 jira>=3.5.2
 openai>=1.12.0
+google-generativeai>=0.3.0  # For Gemini support
 python-dotenv>=1.0.0
 requests>=2.26.0
 

@@ -15,6 +15,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
+from src.llm import LLMRouter
 from config.config import Config
 
 
@@ -25,25 +26,52 @@ def main():
     if not Config.validate():
         print("ERROR: Configuration not set properly.")
         print("\nPlease set the following environment variables:")
+        print("\nJira Configuration:")
         print("  - JIRA_URL")
         print("  - JIRA_EMAIL")
         print("  - JIRA_API_TOKEN")
         print("  - JIRA_PROJECT_KEY")
-        print("  - OPENAI_API_KEY")
+        print("\nLLM Provider Configuration:")
+        print("  - LLM_PROVIDER (options: 'openai', 'gemini', 'deepseek')")
+        print("\nProvider-specific API keys:")
+        print("  - OPENAI_API_KEY (if using OpenAI)")
+        print("  - GEMINI_API_KEY (if using Gemini)")
+        print("  - DEEPSEEK_API_KEY (if using DeepSeek)")
         print("\nOr update config/config.py with your credentials.")
         print("\nYou can also create a .env file in the project root with these variables.")
         return 1
     
     try:
+        # Initialize LLM provider
+        provider_name = Config.LLM_PROVIDER
+        api_key = Config.get_llm_api_key()
+        model = Config.get_llm_model()
+        
+        # Prepare provider kwargs (e.g., proxy for Gemini)
+        provider_kwargs = {}
+        if provider_name.lower() == 'gemini':
+            # Use GEMINI_PROXY if set, otherwise fall back to HTTP_PROXY/HTTPS_PROXY
+            proxy = Config.GEMINI_PROXY or Config.HTTPS_PROXY or Config.HTTP_PROXY
+            if proxy:
+                provider_kwargs['proxy'] = proxy
+                print(f"Using proxy: {proxy}")
+        
+        print(f"Initializing LLM Provider: {provider_name} (model: {model})...")
+        llm_provider = LLMRouter.get_provider(
+            provider_name=provider_name,
+            api_key=api_key,
+            model=model,
+            **provider_kwargs
+        )
+        
         # Initialize evaluator
-        print(f"Initializing Jira Maturity Evaluator (using model: {Config.OPENAI_MODEL})...")
+        print(f"Initializing Jira Maturity Evaluator...")
         evaluator = JiraMaturityEvaluator(
             jira_url=Config.JIRA_URL,
             jira_email=Config.JIRA_EMAIL,
             jira_api_token=Config.JIRA_API_TOKEN,
-            openai_api_key=Config.OPENAI_API_KEY,
             project_key=Config.JIRA_PROJECT_KEY,
-            openai_model=Config.OPENAI_MODEL
+            llm_provider=llm_provider
         )
         
         # Evaluate backlog
