@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAT A.I+</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">CHAT A.I+</h1>
+            </div>
+            
+            <button class="btn-new-chat" id="newChatBtn">
+                <i class="fas fa-plus"></i> New chat
+            </button>
+            
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search conversations..." id="searchInput">
+            </div>
+            
+            <div class="conversations-section">
+                <div class="section-header">
+                    <span>Your conversations</span>
+                    <button class="btn-clear" id="clearAllBtn">Clear All</button>
+                </div>
+                <div class="conversations-list" id="conversationsList">
+                    <!-- Conversations will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <button class="btn-settings">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+                <div class="user-profile">
+                    <div class="avatar">RG</div>
+                    <span>Raymond Gao</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <h2>Welcome to CHAT A.I+</h2>
+                    <p>Start a conversation by typing a message below</p>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input 
+                        type="text" 
+                        id="chatInput" 
+                        placeholder="What's in your mind?..."
+                        autocomplete="off"
+                    >
+                    <button class="btn-send" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Right Sidebar (Upgrade) -->
+        <aside class="upgrade-sidebar">
+            <div class="upgrade-content">
+                <i class="fas fa-star"></i>
+                <p>Upgrade to Pro</p>
+            </div>
+        </aside>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
