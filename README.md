@@ -7,15 +7,30 @@ This project is a simple generative AI chatbot that interacts with users and gen
 ```
 generative-ai-chatbot
 ├── src
-│   ├── chatbot.py          # Main entry point for the chatbot application
+│   ├── chatbot.py          # Enhanced LLM-powered chatbot with conversation memory
+│   ├── llm/                # Multi-provider LLM infrastructure
+│   │   ├── base_provider.py
+│   │   ├── openai_provider.py
+│   │   ├── gemini_provider.py
+│   │   ├── deepseek_provider.py
+│   │   └── router.py
 │   ├── services
 │   │   └── jira_maturity_evaluator.py  # Jira requirement maturity evaluation service
 │   ├── utils
 │   │   └── helpers.py      # Utility functions for input validation and response formatting
 │   └── models
 │       └── model.py        # Defines the structure of the generative AI model
+├── web/                    # Web UI frontend
+│   ├── templates/
+│   │   └── index.html      # Main HTML template
+│   └── static/
+│       ├── css/
+│       │   └── style.css   # Stylesheet
+│       └── js/
+│           └── app.js      # JavaScript for interactions
 ├── config
 │   └── config.py           # Configuration for Jira and LLM settings
+├── app.py                  # Flask web server for chatbot UI
 ├── evaluate_jira_maturity.py  # Main script to run maturity evaluation
 ├── requirements.txt         # Lists dependencies required for the project
 ├── .gitignore               # Specifies files and directories to be ignored by Git
@@ -39,6 +54,112 @@ generative-ai-chatbot
    ```
    python src/chatbot.py
    ```
+
+## Chatbot Web UI
+
+### Overview
+
+The project includes a modern, beautiful web-based chatbot interface that provides an intuitive way to interact with the AI chatbot. The UI features a clean design with a sidebar for conversation management and a main chat area for messaging.
+
+### UI Design
+
+The web interface features:
+
+- **Left Sidebar**:
+  - Brand logo "CHAT A.I+"
+  - "New chat" button for creating new conversations
+  - Search functionality to find conversations
+  - Conversation history list with titles
+  - Settings button
+  - User profile section (default: Raymond Gao)
+
+- **Main Chat Area**:
+  - Welcome message on first load
+  - Chat messages with user and assistant avatars
+  - Message actions (copy, regenerate)
+  - Input field with send button
+  - Smooth scrolling and animations
+
+- **Right Sidebar**:
+  - Upgrade to Pro prompt
+
+### Features
+
+✅ **Conversation Management**
+- Create new conversations
+- View conversation history
+- Search conversations by title
+- Edit conversation titles
+- Delete individual conversations
+- Clear all conversations
+
+✅ **Chat Features**
+- Real-time messaging with AI
+- Conversation context maintained across messages
+- Copy message functionality
+- Regenerate responses
+- Loading indicators during AI processing
+- Smooth animations and transitions
+
+✅ **Multi-Provider Support**
+- Works with OpenAI (GPT-3.5, GPT-4, GPT-4o, GPT-4.1)
+- Supports Google Gemini
+- Supports DeepSeek
+- Automatic fallback to backup providers
+
+✅ **Modern Design**
+- Clean, professional interface
+- Purple theme (#8b5cf6)
+- Responsive layout
+- Smooth animations
+- User-friendly interactions
+
+### Running the Web UI
+
+1. **Start the Flask server**:
+   ```bash
+   python app.py
+   ```
+
+2. **Open your browser** and navigate to:
+   ```
+   http://localhost:5000
+   ```
+
+3. **Start chatting**:
+   - Click "+ New chat" to create a conversation
+   - Type your message and press Enter or click send
+   - View conversation history in the sidebar
+   - Use search to find specific conversations
+
+### Web UI API Endpoints
+
+The Flask backend provides REST API endpoints:
+
+- `POST /api/chat` - Send a message and get AI response
+- `GET /api/conversations` - Get list of all conversations
+- `GET /api/conversations/<id>` - Get a specific conversation
+- `DELETE /api/conversations/<id>` - Delete a conversation
+- `DELETE /api/conversations` - Clear all conversations
+- `POST /api/new-chat` - Create a new chat
+- `PUT /api/conversations/<id>/title` - Update conversation title
+
+For detailed API documentation, see `WEB_UI_README.md`.
+
+### Command Line vs Web UI
+
+**Command Line Interface** (`python src/chatbot.py`):
+- Simple, text-based interface
+- Quick interactions
+- Good for scripts and automation
+- Supports `/clear` and `/history` commands
+
+**Web UI** (`python app.py`):
+- Modern, visual interface
+- Conversation management
+- Better for extended conversations
+- Search and organize conversations
+- User-friendly experience
 
 ## Jira Requirement Maturity Evaluation Service
 
@@ -67,9 +188,11 @@ The Jira Requirement Maturity Evaluation Service uses LLM models (OpenAI GPT-4) 
 #### Multi-Provider LLM Support
 
 The service supports multiple LLM providers through a flexible router pattern:
-- **OpenAI**: GPT-3.5-turbo, GPT-4, GPT-4-turbo-preview
+- **OpenAI**: GPT-3.5-turbo, GPT-4, GPT-4-turbo, GPT-4o, GPT-4o-mini, GPT-4.1
 - **Google Gemini**: gemini-pro, gemini-1.5-pro, gemini-1.5-flash
 - **DeepSeek**: deepseek-chat, deepseek-coder
+
+See `OPENAI_MODELS.md` for a complete list of available OpenAI models.
 
 #### Environment Variables
 
@@ -205,9 +328,51 @@ Recommendations:
   → Refine acceptance criteria with measurable outcomes
 ```
 
-## Usage
+## Chatbot Usage
 
-Once the chatbot is running, you can interact with it by typing your messages. The chatbot will generate responses based on its underlying AI model.
+### Command Line Interface
+
+Run the chatbot in command line mode:
+```bash
+python src/chatbot.py
+```
+
+**Features:**
+- Interactive conversation
+- Conversation history (last 10 turns)
+- Commands: `/clear`, `/history`
+- Multi-provider LLM support
+- Automatic fallback to backup providers
+
+**Example Session:**
+```
+You: What is Python?
+Chatbot: Python is a high-level programming language...
+
+You: /history
+Chatbot: Conversation has 1 turn(s) in history.
+
+You: bye
+Chatbot: Goodbye! It was great chatting with you.
+```
+
+### Web Interface
+
+Run the web UI:
+```bash
+python app.py
+```
+
+Then open `http://localhost:5000` in your browser.
+
+**Features:**
+- Modern web interface
+- Conversation management
+- Search functionality
+- Message copy/regenerate
+- Visual conversation history
+
+See `CHATBOT_USAGE.md` for detailed usage instructions.
 
 ## Multi-Provider LLM Architecture
 
@@ -263,6 +428,21 @@ To add a new LLM provider:
 
 See `examples/multi_provider_example.py` for usage examples.
 
-## Functionality
+## Documentation
 
-The chatbot is designed to provide engaging conversations and can be extended with additional features and improvements.
+- **CHATBOT_USAGE.md** - Detailed guide for using the chatbot
+- **WEB_UI_README.md** - Web UI setup and API documentation
+- **OPENAI_MODELS.md** - Complete list of OpenAI models and recommendations
+- **SWITCH_TO_OPENAI.md** - Guide for switching to OpenAI provider
+
+## Summary
+
+This project provides:
+
+1. **Enhanced LLM Chatbot** - Multi-provider support with conversation memory
+2. **Modern Web UI** - Beautiful, user-friendly interface for chat interactions
+3. **Jira Integration** - Requirement maturity evaluation service
+4. **Flexible Architecture** - Easy to add new LLM providers
+5. **Comprehensive Documentation** - Guides for all features
+
+The chatbot can be used via command line or web interface, supporting multiple LLM providers (OpenAI, Gemini, DeepSeek) with automatic fallback capabilities. The web UI provides an intuitive way to manage conversations and interact with the AI, while the command line interface offers quick access for scripts and automation.
