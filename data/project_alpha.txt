@@ -1,0 +1,19 @@
+
+    Project Alpha - Technical Specifications
+    
+    Project Alpha is a chatbot system built using Python and Flask.
+    The project uses OpenAI GPT-4 for language processing.
+    Database: PostgreSQL version 14.2
+    Deployment: Docker containers on AWS EC2
+    
+    Key Features:
+    - RAG (Retrieval-Augmented Generation) support
+    - Multi-provider LLM integration
+    - Persistent conversation memory
+    - Jira and Confluence integration
+    
+    Project Timeline:
+    - Started: January 2024
+    - Current Phase: Production deployment
+    - Team Size: 5 developers
+    

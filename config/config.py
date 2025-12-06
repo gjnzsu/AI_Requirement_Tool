@@ -51,6 +51,31 @@ class Config:
     # Optional: Custom field ID to store maturity score in Jira
     JIRA_MATURITY_SCORE_FIELD: Optional[str] = os.getenv('JIRA_MATURITY_SCORE_FIELD', None)
     
+    # Confluence Configuration
+    CONFLUENCE_URL: str = os.getenv('CONFLUENCE_URL', 'https://yourcompany.atlassian.net/wiki')
+    CONFLUENCE_SPACE_KEY: str = os.getenv('CONFLUENCE_SPACE_KEY', 'SPACE')
+    # Note: Confluence uses the same credentials as Jira (same Atlassian instance)
+    
+    # Memory Management Configuration
+    USE_PERSISTENT_MEMORY: bool = os.getenv('USE_PERSISTENT_MEMORY', 'true').lower() == 'true'
+    MEMORY_DB_PATH: Optional[str] = os.getenv('MEMORY_DB_PATH', None)
+    MAX_CONTEXT_MESSAGES: int = int(os.getenv('MAX_CONTEXT_MESSAGES', '50'))
+    MEMORY_SUMMARY_THRESHOLD: int = int(os.getenv('MEMORY_SUMMARY_THRESHOLD', '30'))
+    
+    # RAG (Retrieval-Augmented Generation) Configuration
+    USE_RAG: bool = os.getenv('USE_RAG', 'true').lower() == 'true'
+    RAG_CHUNK_SIZE: int = int(os.getenv('RAG_CHUNK_SIZE', '1000'))
+    RAG_CHUNK_OVERLAP: int = int(os.getenv('RAG_CHUNK_OVERLAP', '200'))
+    RAG_EMBEDDING_MODEL: str = os.getenv('RAG_EMBEDDING_MODEL', 'text-embedding-ada-002')
+    RAG_TOP_K: int = int(os.getenv('RAG_TOP_K', '3'))
+    RAG_VECTOR_STORE_PATH: Optional[str] = os.getenv('RAG_VECTOR_STORE_PATH', None)
+    RAG_ENABLE_CACHE: bool = os.getenv('RAG_ENABLE_CACHE', 'true').lower() == 'true'
+    RAG_CACHE_TTL_HOURS: int = int(os.getenv('RAG_CACHE_TTL_HOURS', '24'))
+    
+    # MCP Tools Configuration
+    ENABLE_MCP_TOOLS: bool = os.getenv('ENABLE_MCP_TOOLS', 'true').lower() == 'true'
+    LAZY_LOAD_TOOLS: bool = os.getenv('LAZY_LOAD_TOOLS', 'true').lower() == 'true'
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""

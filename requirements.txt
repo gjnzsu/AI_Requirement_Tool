@@ -11,6 +11,9 @@ flask-cors>=3.1.0
 transformers>=4.11.3
 numpy>=1.21.2
 
+# RAG (Retrieval-Augmented Generation) dependencies
+PyPDF2>=3.0.0  # For PDF document support
+
 # PyTorch - Install separately if needed for the chatbot
 # Note: PyTorch installation varies by platform. Install using one of these methods:
 # Windows CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu

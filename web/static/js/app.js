@@ -126,7 +126,9 @@ function addMessageToUI(role, content, isLoading = false) {
     if (isLoading) {
         contentDiv.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
     } else {
-        contentDiv.textContent = content;
+        // Format content with proper line breaks and preserve formatting
+        const formattedContent = formatMessageContent(content);
+        contentDiv.innerHTML = formattedContent;
         
         // Add actions for assistant messages
         if (role === 'assistant') {
@@ -413,5 +415,47 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Format message content with proper line breaks and markdown-like formatting
+function formatMessageContent(content) {
+    if (!content) return '';
+    
+    // Escape HTML first
+    let formatted = escapeHtml(content);
+    
+    // Convert markdown-style formatting
+    // Bold text: **text** -> <strong>text</strong>
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    
+    // Headers: ### Header -> <h3>Header</h3>
+    formatted = formatted.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    formatted = formatted.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    formatted = formatted.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    
+    // Links: [text](url) -> <a href="url">text</a>
+    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Bullet points: - item or → item -> <li>item</li>
+    formatted = formatted.replace(/^[-•→]\s+(.+)$/gm, '<li>$1</li>');
+    
+    // Wrap consecutive list items in <ul>
+    formatted = formatted.replace(/(<li>.*<\/li>\n?)+/g, function(match) {
+        return '<ul>' + match + '</ul>';
+    });
+    
+    // Numbered lists: 1. item -> <li>item</li>
+    formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+    
+    // Code blocks: ```code``` -> <pre><code>code</code></pre>
+    formatted = formatted.replace(/```(\w+)?\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    
+    // Inline code: `code` -> <code>code</code>
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Preserve line breaks
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    return formatted;
 }
 

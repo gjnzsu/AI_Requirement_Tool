@@ -41,6 +41,19 @@ chatbot.log
 # Results
 maturity_evaluation_results.json
 
+# Database files (memory storage and RAG cache)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Keep data directory structure
+!data/.gitkeep
+
+# RAG vector store files
+data/rag_*.index
+data/rag_*.pkl
+
 # OS
 .DS_Store
 Thumbs.db

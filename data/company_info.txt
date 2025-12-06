@@ -1,0 +1,16 @@
+
+    Acme Corporation - Company Information
+    
+    Acme Corporation was founded in 2020 and specializes in AI technology.
+    Our headquarters is located at 123 Innovation Drive, Tech City.
+    The company has 150 employees and focuses on machine learning solutions.
+    
+    Key Products:
+    - AI Assistant Platform
+    - Machine Learning Framework
+    - Data Analytics Tools
+    
+    Contact Information:
+    Email: contact@acmecorp.com
+    Phone: +1-555-0123
+    
