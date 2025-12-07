@@ -13,6 +13,7 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 import json
 import sys
+import concurrent.futures
 from pathlib import Path
 
 # Add project root to path
@@ -50,7 +51,7 @@ class ChatbotAgent:
                  temperature: float = 0.7,
                  enable_tools: bool = True,
                  rag_service: Optional[Any] = None,
-                 use_mcp: bool = True):
+                 use_mcp: Optional[bool] = None):
         """
         Initialize the LangGraph agent.
         
@@ -60,36 +61,21 @@ class ChatbotAgent:
             temperature: Sampling temperature
             enable_tools: Whether to enable Jira/Confluence tools
             rag_service: Optional RAG service instance
-            use_mcp: Whether to use MCP protocol for tools (default: True)
+            use_mcp: Whether to use MCP protocol for tools (None = use Config.USE_MCP)
         """
         self.provider_name = provider_name.lower()
         self.temperature = temperature
         self.enable_tools = enable_tools
-        self.use_mcp = use_mcp
+        # Use config value if not explicitly provided
+        self.use_mcp = use_mcp if use_mcp is not None else Config.USE_MCP
         self._rag_service = rag_service
         
         # Initialize LLM
         self.llm = self._initialize_llm(model)
         
-        # Initialize MCP integration
+        # MCP integration disabled
         self.mcp_integration = None
-        if self.use_mcp:
-            try:
-                self.mcp_integration = MCPIntegration(use_mcp=True)
-                # Initialize MCP asynchronously
-                import asyncio
-                try:
-                    asyncio.run(self.mcp_integration.initialize())
-                    # If MCP failed to initialize, disable it
-                    if not self.mcp_integration._initialized:
-                        self.use_mcp = False
-                except Exception as e:
-                    print(f"⚠ MCP initialization failed: {e}")
-                    print("   Falling back to custom tools")
-                    self.use_mcp = False
-            except Exception as e:
-                print(f"⚠ MCP not available: {e}")
-                self.use_mcp = False
+        self.use_mcp = False
         
         # Initialize tools (always initialize custom tools as fallback)
         self.jira_tool = None
@@ -109,21 +95,61 @@ class ChatbotAgent:
             model_name = model or Config.OPENAI_MODEL
             if not api_key:
                 raise ValueError("OPENAI_API_KEY not found in configuration")
-            return ChatOpenAI(
-                model=model_name,
-                temperature=self.temperature,
-                api_key=api_key
-            )
+            
+            # Validate API key format (should start with 'sk-')
+            if not api_key.startswith('sk-'):
+                print(f"⚠ Warning: OpenAI API key format may be invalid (should start with 'sk-')")
+            
+            # Validate model name (fix common issues)
+            if model_name == "gpt-4.1":
+                print(f"⚠ Warning: Model 'gpt-4.1' may be invalid. Using 'gpt-4' instead.")
+                model_name = "gpt-4"
+            elif "gpt-4" not in model_name.lower() and "gpt-3.5" not in model_name.lower():
+                print(f"⚠ Warning: Model '{model_name}' may not be valid. Common models: gpt-4, gpt-4-turbo, gpt-3.5-turbo")
+            
+            try:
+                # Try with timeout and max_retries (LangChain 0.1.0+)
+                llm = ChatOpenAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    api_key=api_key,
+                    timeout=15.0,  # Reduced timeout to 15 seconds
+                    max_retries=1  # Reduced retries to 1 to avoid long waits
+                )
+                print(f"✓ LLM initialized: {self.provider_name} ({model_name})")
+                return llm
+            except TypeError:
+                # Fallback if parameters not supported
+                print(f"⚠ LLM timeout parameter not supported, using default")
+                return ChatOpenAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    api_key=api_key
+                )
+            except Exception as e:
+                print(f"⚠ LLM initialization error: {e}")
+                raise
         elif self.provider_name == "gemini":
             api_key = Config.GEMINI_API_KEY
             model_name = model or Config.GEMINI_MODEL
             if not api_key:
                 raise ValueError("GEMINI_API_KEY not found in configuration")
-            return ChatGoogleGenerativeAI(
-                model=model_name,
-                temperature=self.temperature,
-                google_api_key=api_key
-            )
+            try:
+                # Try with timeout and max_retries
+                return ChatGoogleGenerativeAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    google_api_key=api_key,
+                    timeout=30.0,  # Add timeout to LLM calls
+                    max_retries=2  # Limit retries to avoid long waits
+                )
+            except TypeError:
+                # Fallback if parameters not supported
+                return ChatGoogleGenerativeAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    google_api_key=api_key
+                )
         else:
             raise ValueError(f"Unsupported provider: {self.provider_name}")
     
@@ -204,43 +230,57 @@ class ChatbotAgent:
         return graph.compile()
     
     def _detect_intent(self, state: AgentState) -> AgentState:
-        """Detect user intent from the input."""
-        user_input = state.get("user_input", "")
+        """Detect user intent from the input with comprehensive keyword-based detection."""
+        user_input = state.get("user_input", "").lower()
         messages = state.get("messages", [])
+        print(f"🔍 LangGraph: Detecting intent for input: '{user_input[:50]}...'")
         
-        # Use LLM to detect intent
-        intent_prompt = f"""
-        Analyze the user's input and determine their intent. Respond with ONLY one of these options:
-        - "jira_creation" if the user wants to create a Jira issue/ticket/backlog
-        - "rag_query" if the user is asking a question that might benefit from document retrieval
-        - "general_chat" for normal conversation
+        # Comprehensive keyword-based detection (avoid LLM call when possible)
+        jira_creation_keywords = ['create jira', 'create issue', 'create ticket', 'create backlog', 
+                                  'new jira', 'new issue', 'new ticket', 'add jira', 'add issue',
+                                  'make jira', 'make issue', 'make ticket']
         
-        User input: {user_input}
+        # Expanded RAG keywords for knowledge/documentation queries
+        rag_keywords = ['what is', 'what are', 'how to', 'how do', 'explain', 'tell me about',
+                       'document', 'documentation', 'guide', 'help with', 'information about',
+                       'describe', 'definition', 'meaning', 'example']
         
-        Recent conversation context:
-        {self._format_messages_for_context(messages[-4:]) if messages else "No previous context"}
+        # General chat keywords (simple questions, greetings)
+        general_chat_keywords = ['hello', 'hi', 'hey', 'who are you', 'what are you',
+                                'how are you', 'thanks', 'thank you', 'bye', 'goodbye',
+                                'help', 'assist', 'chat', 'talk']
         
-        Respond with ONLY the intent keyword (jira_creation, rag_query, or general_chat):
-        """
+        # Check for Jira creation intent keywords
+        if any(keyword in user_input for keyword in jira_creation_keywords):
+            if self.jira_tool:
+                state["intent"] = "jira_creation"
+                print(f"  → Intent: jira_creation (keyword match)")
+                return state
         
-        try:
-            response = self.llm.invoke([HumanMessage(content=intent_prompt)])
-            intent = response.content.strip().lower()
-            
-            # Validate intent
-            if intent not in ["jira_creation", "rag_query", "general_chat"]:
-                intent = "general_chat"  # Default fallback
-        except Exception as e:
-            print(f"Error detecting intent: {e}")
-            intent = "general_chat"
+        # Check for RAG intent keywords (knowledge/documentation queries)
+        if any(keyword in user_input for keyword in rag_keywords):
+            state["intent"] = "rag_query"
+            print(f"  → Intent: rag_query (keyword match)")
+            return state
         
-        state["intent"] = intent
+        # Check for general chat keywords (simple questions, greetings)
+        if any(keyword in user_input for keyword in general_chat_keywords):
+            state["intent"] = "general_chat"
+            print(f"  → Intent: general_chat (keyword match)")
+            return state
+        
+        # For ambiguous cases, default to general_chat (skip LLM to avoid timeout)
+        # LLM-based detection is unreliable and slow, so we use keyword-based only
+        state["intent"] = "general_chat"
+        print(f"  → Intent: general_chat (default)")
         return state
     
     def _route_after_intent(self, state: AgentState) -> str:
         """Route to appropriate node based on detected intent."""
         intent = state.get("intent", "general_chat")
         
+        # Only route to jira_creation if we have tools available
+        # MCP disabled - only use custom tools
         if intent == "jira_creation" and self.jira_tool:
             return "jira_creation"
         elif intent == "rag_query":
@@ -264,13 +304,33 @@ class ChatbotAgent:
         # Add user message
         messages.append(HumanMessage(content=user_input))
         
-        # Generate response
+        # Generate response with timeout
         try:
-            response = self.llm.invoke(messages)
-            messages.append(response)
-            state["messages"] = messages
+            # Test if LLM is working with a simple call first
+            import time
+            start_time = time.time()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(self.llm.invoke, messages)
+                try:
+                    response = future.result(timeout=20.0)  # 20 second timeout (reduced from 30s)
+                    elapsed = time.time() - start_time
+                    print(f"✓ LLM response received in {elapsed:.2f}s")
+                    messages.append(response)
+                    state["messages"] = messages
+                except concurrent.futures.TimeoutError:
+                    elapsed = time.time() - start_time
+                    print(f"⚠ LLM response timeout ({elapsed:.2f}s) for general chat")
+                    print(f"   Check: API key validity, network connection, model name")
+                    error_msg = AIMessage(content="I apologize, but the request timed out. Please check your OpenAI API key and network connection. The API may be slow or unavailable.")
+                    messages.append(error_msg)
+                    state["messages"] = messages
         except Exception as e:
-            error_msg = AIMessage(content=f"I apologize, but I encountered an error: {str(e)}")
+            print(f"⚠ LLM call error: {e}")
+            print(f"   Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            error_msg = AIMessage(content=f"I apologize, but I encountered an error: {str(e)}. Please check your API key and network connection.")
             messages.append(error_msg)
             state["messages"] = messages
         
@@ -278,11 +338,8 @@ class ChatbotAgent:
     
     def _handle_jira_creation(self, state: AgentState) -> AgentState:
         """Handle Jira issue creation."""
-        # Try MCP tools first, fall back to custom tools
-        use_mcp = (self.use_mcp and 
-                   self.mcp_integration and 
-                   self.mcp_integration._initialized and
-                   self.mcp_integration.has_tool('create_issue'))
+        # MCP disabled - only use custom tools
+        use_mcp = False
         
         if not use_mcp and not self.jira_tool:
             error_msg = "Jira tool is not configured. Please check your Jira credentials."
@@ -330,11 +387,21 @@ class ChatbotAgent:
         """
         
         try:
-            # Use LLM to generate backlog data
-            response = self.llm.invoke([
-                SystemMessage(content="You are a Jira Product Owner assistant. Always respond with valid JSON."),
-                HumanMessage(content=generation_prompt)
-            ])
+            # Use LLM to generate backlog data with timeout
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    self.llm.invoke,
+                    [
+                        SystemMessage(content="You are a Jira Product Owner assistant. Always respond with valid JSON."),
+                        HumanMessage(content=generation_prompt)
+                    ]
+                )
+                try:
+                    response = future.result(timeout=60.0)  # 60 second timeout for backlog generation
+                except concurrent.futures.TimeoutError:
+                    error_msg = "LLM request timed out while generating Jira backlog. Please try again."
+                    state["messages"].append(AIMessage(content=error_msg))
+                    return state
             
             # Parse JSON from response
             content = response.content.strip()
@@ -345,43 +412,12 @@ class ChatbotAgent:
             
             backlog_data = json.loads(content)
             
-            # Create Jira issue (use MCP if available, otherwise custom tool)
-            if use_mcp:
-                try:
-                    # Use MCP tool
-                    mcp_tool = self.mcp_integration.get_tool('create_issue')
-                    if mcp_tool:
-                        tool_result = mcp_tool.run(
-                            summary=backlog_data.get('summary', 'Untitled Issue'),
-                            description=backlog_data.get('description', ''),
-                            priority=backlog_data.get('priority', 'Medium')
-                        )
-                        # Parse MCP result (format may vary)
-                        # MCP tools return text, so we need to parse it
-                        result = {'success': True, 'key': 'MCP-ISSUE', 'link': tool_result}
-                    else:
-                        # Fall back to custom tool
-                        result = self.jira_tool.create_issue(
-                            summary=backlog_data.get('summary', 'Untitled Issue'),
-                            description=backlog_data.get('description', ''),
-                            priority=backlog_data.get('priority', 'Medium')
-                        )
-                except Exception as e:
-                    print(f"⚠ MCP tool execution failed: {e}")
-                    print("   Falling back to custom tool")
-                    # Fall back to custom tool
-                    result = self.jira_tool.create_issue(
-                        summary=backlog_data.get('summary', 'Untitled Issue'),
-                        description=backlog_data.get('description', ''),
-                        priority=backlog_data.get('priority', 'Medium')
-                    )
-            else:
-                # Use custom tool
-                result = self.jira_tool.create_issue(
-                    summary=backlog_data.get('summary', 'Untitled Issue'),
-                    description=backlog_data.get('description', ''),
-                    priority=backlog_data.get('priority', 'Medium')
-                )
+            # Create Jira issue using custom tool (MCP disabled)
+            result = self.jira_tool.create_issue(
+                summary=backlog_data.get('summary', 'Untitled Issue'),
+                description=backlog_data.get('description', ''),
+                priority=backlog_data.get('priority', 'Medium')
+            )
             
             if result.get('success'):
                 state["jira_result"] = {
@@ -552,8 +588,15 @@ class ChatbotAgent:
         
         if rag_service:
             try:
-                # Retrieve relevant context using RAG service
-                context_str = rag_service.get_context(user_input, top_k=3)
+                # Retrieve relevant context using RAG service with timeout
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(rag_service.get_context, user_input, 3)
+                    try:
+                        context_str = future.result(timeout=15.0)  # 15 second timeout for RAG retrieval
+                    except concurrent.futures.TimeoutError:
+                        print("⚠ RAG retrieval timeout (15s), proceeding without context")
+                        context_str = None
                 
                 if context_str and context_str.strip():
                     # Add context to prompt
@@ -717,14 +760,30 @@ class ChatbotAgent:
                 elif role == 'assistant':
                     initial_state["messages"].append(AIMessage(content=content))
         
-        # Run the graph
+        # Run the graph (LangGraph execution)
+        print(f"🔄 LangGraph: Processing input through agent graph...")
         final_state = self.graph.invoke(initial_state)
+        
+        # Log the intent that was detected
+        detected_intent = final_state.get("intent", "unknown")
+        print(f"✓ LangGraph: Intent detected = '{detected_intent}'")
+        
+        # Log which nodes were executed
+        if detected_intent == "jira_creation":
+            print(f"  → Executed nodes: intent_detection → jira_creation → evaluation")
+            if final_state.get("jira_result", {}).get("success"):
+                print(f"  → Jira issue created: {final_state.get('jira_result', {}).get('key', 'N/A')}")
+        elif detected_intent == "rag_query":
+            print(f"  → Executed nodes: intent_detection → rag_query")
+        elif detected_intent == "general_chat":
+            print(f"  → Executed nodes: intent_detection → general_chat")
         
         # Extract the last assistant message
         messages = final_state.get("messages", [])
         if messages:
             last_msg = messages[-1]
             if isinstance(last_msg, AIMessage):
+                print(f"✓ LangGraph: Response generated successfully")
                 return last_msg.content
         
         return "I apologize, but I couldn't generate a response."

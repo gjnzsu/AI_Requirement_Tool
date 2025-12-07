@@ -174,11 +174,9 @@ class Chatbot:
                     temperature=self.temperature,
                     enable_tools=self.enable_mcp_tools,
                     rag_service=self.rag_service if self.use_rag else None,
-                    use_mcp=use_mcp  # Use MCP protocol if available
+                    use_mcp=False  # MCP disabled
                 )
                 print("✓ Initialized LangGraph Agent")
-                if use_mcp and self.agent.mcp_integration and self.agent.mcp_integration._initialized:
-                    print("✓ MCP protocol enabled")
             except Exception as e:
                 print(f"⚠ Failed to initialize LangGraph Agent: {e}")
                 print("   Falling back to keyword-based routing")

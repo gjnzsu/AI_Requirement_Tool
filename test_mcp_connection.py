@@ -1,5 +1,9 @@
 """
 Test script to verify MCP server connection.
+
+This script tests the updated Jira MCP integration with actual working packages:
+- mcp-jira (by Warzuponus)
+- mcp-atlassian (by Sooperset)
 """
 
 import sys
@@ -107,6 +111,16 @@ async def test_mcp_connection():
     print("- If MCP servers connect: MCP protocol is working!")
     print("- If MCP servers fail: Chatbot will use custom tools (still works!)")
     print("- Custom tools are always available as fallback")
+    print()
+    print("Available MCP Server Packages:")
+    print("  ⭐ Atlassian Rovo MCP Server (Official - Recommended)")
+    print("     npm install -g mcp-remote")
+    print("     https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/")
+    print()
+    print("  - mcp-jira (npm install -g mcp-jira)")
+    print("  - mcp-atlassian (npm install -g mcp-atlassian)")
+    print()
+    print("See JIRA_MCP_INTEGRATION.md for detailed setup instructions.")
 
 if __name__ == "__main__":
     asyncio.run(test_mcp_connection())

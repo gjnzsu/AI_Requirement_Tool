@@ -51,6 +51,9 @@ class Config:
     # Optional: Custom field ID to store maturity score in Jira
     JIRA_MATURITY_SCORE_FIELD: Optional[str] = os.getenv('JIRA_MATURITY_SCORE_FIELD', None)
     
+    # MCP Settings
+    USE_MCP: bool = os.getenv('USE_MCP', 'true').lower() in ('true', '1', 'yes')
+    
     # Confluence Configuration
     CONFLUENCE_URL: str = os.getenv('CONFLUENCE_URL', 'https://yourcompany.atlassian.net/wiki')
     CONFLUENCE_SPACE_KEY: str = os.getenv('CONFLUENCE_SPACE_KEY', 'SPACE')

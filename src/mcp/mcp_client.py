@@ -40,6 +40,7 @@ class MCPClient:
     MCP Client for connecting to MCP servers.
     
     This client connects to MCP servers and provides access to their tools.
+    Note: MCP connections are managed per-call to handle stdio properly.
     """
     
     def __init__(self, server_name: str, command: List[str], env: Optional[Dict] = None):
@@ -48,7 +49,7 @@ class MCPClient:
         
         Args:
             server_name: Name of the MCP server
-            command: Command to start the MCP server (e.g., ['npx', '-y', '@modelcontextprotocol/server-jira'])
+            command: Command to start the MCP server (e.g., ['npx', '-y', 'mcp-jira'])
             env: Environment variables for the server
         """
         if not MCP_AVAILABLE:
@@ -57,62 +58,190 @@ class MCPClient:
         self.server_name = server_name
         self.command = command
         self.env = env or {}
-        self.session: Optional[ClientSession] = None
         self.tools: Dict[str, Any] = {}
         self._initialized = False
+        self._server_params = None
+        self._cached_tools: Dict[str, Any] = {}
     
-    async def connect(self):
-        """Connect to the MCP server."""
-        if self._initialized:
-            return
-        
-        try:
-            # Create server parameters
-            # Handle Windows .cmd extension
+    def _get_server_params(self):
+        """Get or create server parameters."""
+        if self._server_params is None:
             import platform
+            import os
+            
             command_exec = self.command[0]
             if platform.system() == 'Windows' and command_exec == 'npx':
                 command_exec = 'npx.cmd'
             
-            server_params = StdioServerParameters(
+            # Merge environment variables with system environment
+            merged_env = os.environ.copy()
+            merged_env.update(self.env)
+            
+            self._server_params = StdioServerParameters(
                 command=command_exec,
                 args=self.command[1:] if len(self.command) > 1 else [],
-                env=self.env
+                env=merged_env
             )
+        return self._server_params
+    
+    async def connect(self):
+        """Connect to the MCP server and discover tools."""
+        if self._initialized:
+            return
+        
+        # First, verify the command can be executed
+        import subprocess
+        import platform
+        is_windows = platform.system() == 'Windows'
+        
+        # Test if the command exists and can be run
+        test_command = self.command[:2] if len(self.command) >= 2 else self.command
+        if test_command[0] in ['npx', 'npx.cmd']:
+            # Test npx availability
+            try:
+                result = subprocess.run(
+                    [test_command[0], '--version'],
+                    capture_output=True,
+                    timeout=5,
+                    text=True,
+                    shell=is_windows
+                )
+                if result.returncode != 0:
+                    raise Exception(f"npx not available: {result.stderr}")
+            except FileNotFoundError:
+                raise Exception(f"npx not found. Please install Node.js from https://nodejs.org/")
+            except subprocess.TimeoutExpired:
+                raise Exception("npx command timed out")
+        
+        # Check if the package exists (for npx -y commands)
+        if len(self.command) > 2 and self.command[1] == '-y':
+            package_name = self.command[2]
+            # Try to check if package exists (this is best-effort)
+            try:
+                check_cmd = [test_command[0], 'view', package_name, '--json']
+                result = subprocess.run(
+                    check_cmd,
+                    capture_output=True,
+                    timeout=5,
+                    text=True,
+                    shell=is_windows
+                )
+                if result.returncode != 0 and '404' in result.stderr:
+                    print(f"⚠ Package '{package_name}' may not exist in npm registry")
+                    print(f"   Error: {result.stderr.strip()}")
+            except Exception:
+                # Ignore check errors - package might still work
+                pass
+        
+        try:
+            server_params = self._get_server_params()
             
-            # Create stdio client and connect
-            async with stdio_client(server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    self.session = session
-                    
-                    # Initialize the session
-                    await session.initialize()
-                    
-                    # List available tools
-                    try:
-                        tools_result = await session.list_tools()
-                        if hasattr(tools_result, 'tools'):
-                            self.tools = {tool.name: tool for tool in tools_result.tools}
-                        else:
-                            # Handle different response formats
-                            self.tools = {tool.name: tool for tool in tools_result}
-                    except Exception as e:
-                        print(f"⚠ Could not list tools from {self.server_name}: {e}")
-                        self.tools = {}
-                    
-                    self._initialized = True
-                    tool_names = ', '.join(self.tools.keys()) if self.tools else 'none'
-                    print(f"✓ Connected to MCP server: {self.server_name}")
-                    print(f"  Available tools: {tool_names}")
+            # Create stdio client and connect with timeout
+            try:
+                # Use a longer timeout for initial connection
+                # Try using asyncio.timeout for Python 3.11+, fallback to wait_for for older versions
+                try:
+                    timeout_context = asyncio.timeout(20.0)
+                except AttributeError:
+                    # Python < 3.11, use wait_for wrapper
+                    timeout_context = None
+                
+                # Common connection logic
+                async def _connect_and_discover():
+                    async with stdio_client(server_params) as (read, write):
+                        async with ClientSession(read, write) as session:
+                            # Initialize the session with longer timeout
+                            try:
+                                await asyncio.wait_for(session.initialize(), timeout=15.0)
+                            except asyncio.TimeoutError:
+                                raise Exception(
+                                    f"Server initialization timeout. "
+                                    f"The MCP server '{self.server_name}' may not be responding. "
+                                    f"Check if the package is installed: npm install -g {self.command[-1] if len(self.command) > 1 else 'package-name'}"
+                                )
+                            
+                            # List available tools
+                            try:
+                                tools_result = await asyncio.wait_for(session.list_tools(), timeout=10.0)
+                                
+                                # Handle different response formats
+                                if hasattr(tools_result, 'tools'):
+                                    tools_list = tools_result.tools
+                                elif isinstance(tools_result, list):
+                                    tools_list = tools_result
+                                elif hasattr(tools_result, '__iter__'):
+                                    tools_list = list(tools_result)
+                                else:
+                                    tools_list = getattr(tools_result, 'tools', [])
+                                
+                                # Cache tool schemas
+                                self._cached_tools = {}
+                                for tool in tools_list:
+                                    tool_name = tool.name if hasattr(tool, 'name') else str(tool)
+                                    self._cached_tools[tool_name] = {
+                                        'name': tool_name,
+                                        'description': getattr(tool, 'description', f'MCP tool: {tool_name}'),
+                                        'inputSchema': getattr(tool, 'inputSchema', {})
+                                    }
+                                
+                                self.tools = {name: info for name, info in self._cached_tools.items()}
+                                
+                            except asyncio.TimeoutError:
+                                print(f"⚠ Timeout listing tools from {self.server_name}")
+                                self.tools = {}
+                            except Exception as e:
+                                print(f"⚠ Could not list tools from {self.server_name}: {e}")
+                                self.tools = {}
+                            
+                            self._initialized = True
+                            tool_names = ', '.join(self.tools.keys()) if self.tools else 'none'
+                            print(f"✓ Connected to MCP server: {self.server_name}")
+                            print(f"  Available tools: {tool_names}")
+                
+                # Execute with appropriate timeout mechanism
+                if timeout_context:
+                    async with timeout_context:
+                        await _connect_and_discover()
+                else:
+                    # Fallback for older Python versions
+                    await asyncio.wait_for(_connect_and_discover(), timeout=20.0)
+                
+                return
+            except asyncio.TimeoutError:
+                raise Exception(
+                    f"Connection timeout to {self.server_name} MCP server. "
+                    f"The server may not be installed or may require additional setup. "
+                    f"Command: {' '.join(self.command)}"
+                )
+            except FileNotFoundError:
+                package_name = self.command[-1] if len(self.command) > 1 else 'unknown'
+                raise Exception(
+                    f"MCP server package '{package_name}' not found. "
+                    f"Install with: npm install -g {package_name}"
+                )
         except Exception as e:
-            print(f"✗ Failed to connect to MCP server {self.server_name}: {e}")
-            import traceback
-            traceback.print_exc()
+            error_msg = str(e)
+            # Provide helpful error messages
+            if "not found" in error_msg.lower() or "cannot find" in error_msg.lower():
+                package_name = self.command[-1] if len(self.command) > 1 else 'unknown'
+                print(f"✗ MCP server package '{package_name}' not available")
+                print(f"   Try installing: npm install -g {package_name}")
+            elif "timeout" in error_msg.lower():
+                print(f"✗ Failed to connect to MCP server {self.server_name}: {error_msg}")
+                print(f"   This may indicate:")
+                print(f"   - The package is not installed")
+                print(f"   - The server requires additional configuration")
+                print(f"   - Network connectivity issues")
+            else:
+                print(f"✗ Failed to connect to MCP server {self.server_name}: {error_msg}")
             raise
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Call a tool on the MCP server.
+        
+        Note: Each call creates a new connection since MCP stdio connections
+        are managed per-session. Tools are cached from initial discovery.
         
         Args:
             tool_name: Name of the tool to call
@@ -121,18 +250,34 @@ class MCPClient:
         Returns:
             Tool execution result
         """
-        if not self._initialized or not self.session:
+        if not self._initialized:
             await self.connect()
         
         if tool_name not in self.tools:
             raise ValueError(f"Tool '{tool_name}' not found. Available tools: {list(self.tools.keys())}")
         
         try:
-            result = await self.session.call_tool(tool_name, arguments)
+            server_params = self._get_server_params()
+            
+            # Create a new connection for this tool call
+            # MCP stdio connections are session-based
+            async with stdio_client(server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    # Increase timeout for Jira operations (they can take longer)
+                    result = await asyncio.wait_for(
+                        session.call_tool(tool_name, arguments),
+                        timeout=60.0  # Increased from 30 to 60 seconds
+                    )
+                    return {
+                        'success': True,
+                        'content': result.content,
+                        'isError': result.isError if hasattr(result, 'isError') else False
+                    }
+        except asyncio.TimeoutError:
             return {
-                'success': True,
-                'content': result.content,
-                'isError': result.isError if hasattr(result, 'isError') else False
+                'success': False,
+                'error': f'Tool call timeout for {tool_name}'
             }
         except Exception as e:
             return {
@@ -243,10 +388,13 @@ class MCPClientManager:
         self.adapters[name] = adapter
     
     async def initialize_all(self):
-        """Initialize all MCP servers."""
+        """Initialize all MCP servers with individual timeouts."""
         for name, adapter in self.adapters.items():
             try:
-                await adapter.initialize()
+                # Add individual timeout for each server (15 seconds)
+                await asyncio.wait_for(adapter.initialize(), timeout=15.0)
+            except asyncio.TimeoutError:
+                print(f"⚠ MCP server '{name}' initialization timeout (15s), skipping")
             except Exception as e:
                 print(f"⚠ Failed to initialize MCP server '{name}': {e}")
     
@@ -264,26 +412,78 @@ class MCPClientManager:
         return []
 
 
-def create_jira_mcp_client() -> Optional[MCPClient]:
+def create_rovo_mcp_client() -> Optional[MCPClient]:
     """
-    Create MCP client for Jira server.
+    Create MCP client for Atlassian Rovo MCP Server (Official).
     
-    Uses the official Jira MCP server if available.
+    The Atlassian Rovo MCP Server is Atlassian's official cloud-based MCP server.
+    It uses OAuth 2.1 authentication and connects via mcp-remote proxy.
+    
+    Documentation: https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/
     """
     if not MCP_AVAILABLE:
         return None
     
-    # Check if Jira MCP server is available
-    # Common Jira MCP server: @modelcontextprotocol/server-jira
+    # Check if mcp-remote is available (required for Rovo)
+    import shutil
+    import platform
+    is_windows = platform.system() == 'Windows'
+    npx_cmd = 'npx.cmd' if is_windows else 'npx'
+    
+    # Check if npx is available
+    if not shutil.which(npx_cmd):
+        return None
+    
     try:
-        # Try to use npx to run the MCP server
-        # Note: The actual MCP server package name may vary
-        # If this doesn't work, the chatbot will fall back to custom tools
+        # Use mcp-remote to connect to Atlassian Rovo MCP Server
+        # The server endpoint is: https://mcp.atlassian.com/v1/sse
+        # mcp-remote acts as a proxy between local stdio and remote SSE
+        command = [
+            npx_cmd, '-y', 'mcp-remote',
+            'https://mcp.atlassian.com/v1/sse'
+        ]
+        
+        # Rovo uses OAuth 2.1, so we don't need API tokens in env
+        # The OAuth flow will be handled by mcp-remote
+        env = {
+            # Optional: Can specify Atlassian site URL if needed
+            # 'ATLASSIAN_SITE_URL': Config.JIRA_URL,
+        }
+        
+        client = MCPClient('atlassian-rovo', command, env)
+        print("✓ Created Atlassian Rovo MCP client (Official)")
+        print("  Note: OAuth 2.1 authentication will be required on first use")
+        return client
+    except Exception as e:
+        # mcp-remote might not be available or Rovo might not be accessible
+        return None
+
+
+def create_custom_jira_mcp_client() -> Optional[MCPClient]:
+    """
+    Create MCP client for custom Python-based Jira MCP server.
+    
+    This uses our own Jira MCP server implementation.
+    """
+    if not MCP_AVAILABLE:
+        return None
+    
+    # Check if credentials are configured
+    if not (Config.JIRA_URL and not Config.JIRA_URL.startswith('https://yourcompany') and
+            Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
+            Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
+        return None
+    
+    try:
         import platform
-        if platform.system() == 'Windows':
-            command = ['npx.cmd', '-y', '@modelcontextprotocol/server-jira']
-        else:
-            command = ['npx', '-y', '@modelcontextprotocol/server-jira']
+        import sys
+        is_windows = platform.system() == 'Windows'
+        
+        # Use Python to run our custom MCP server
+        python_exe = sys.executable
+        server_script = str(Path(__file__).parent / 'jira_mcp_server.py')
+        
+        command = [python_exe, server_script]
         
         env = {
             'JIRA_URL': Config.JIRA_URL,
@@ -292,55 +492,96 @@ def create_jira_mcp_client() -> Optional[MCPClient]:
             'JIRA_PROJECT_KEY': Config.JIRA_PROJECT_KEY
         }
         
-        # Only create if credentials are configured
-        if (Config.JIRA_URL and not Config.JIRA_URL.startswith('https://yourcompany') and
-            Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
-            Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
-            return MCPClient('jira', command, env)
-        else:
-            print("⚠ Jira credentials not configured, skipping Jira MCP server")
-            return None
+        client = MCPClient('custom-jira', command, env)
+        print("✓ Created custom Jira MCP client (Python-based)")
+        return client
     except Exception as e:
-        print(f"⚠ Could not create Jira MCP client: {e}")
+        print(f"⚠ Could not create custom Jira MCP client: {e}")
         return None
+
+
+def create_jira_mcp_client() -> Optional[MCPClient]:
+    """
+    Create MCP client for Jira server.
+    
+    Only uses the custom Python-based Jira MCP Server.
+    Atlassian Rovo MCP Server is disabled.
+    """
+    if not MCP_AVAILABLE:
+        return None
+    
+    # Only use custom Python-based MCP server
+    custom_client = create_custom_jira_mcp_client()
+    if custom_client:
+        return custom_client
+    
+    # No fallback to Rovo or other servers
+    # Will fall back to custom tools automatically
+    return None
 
 
 def create_confluence_mcp_client() -> Optional[MCPClient]:
     """
     Create MCP client for Confluence server.
     
-    Uses the official Confluence MCP server if available.
+    Note: Atlassian Rovo MCP Server is disabled.
+    Only community packages are used as fallback.
     """
     if not MCP_AVAILABLE:
         return None
     
-    try:
-        # Try to use npx to run the MCP server
-        # Note: The actual MCP server package name may vary
-        # If this doesn't work, the chatbot will fall back to custom tools
-        import platform
-        if platform.system() == 'Windows':
-            command = ['npx.cmd', '-y', '@modelcontextprotocol/server-confluence']
-        else:
-            command = ['npx', '-y', '@modelcontextprotocol/server-confluence']
-        
-        env = {
-            'CONFLUENCE_URL': Config.CONFLUENCE_URL,
-            'CONFLUENCE_EMAIL': Config.JIRA_EMAIL,  # Same as Jira
-            'CONFLUENCE_API_TOKEN': Config.JIRA_API_TOKEN,  # Same as Jira
-            'CONFLUENCE_SPACE_KEY': Config.CONFLUENCE_SPACE_KEY
-        }
-        
-        # Only create if credentials are configured
-        if (Config.CONFLUENCE_URL and not Config.CONFLUENCE_URL.startswith('https://yourcompany') and
+    # Rovo MCP Server is disabled - skip it
+    
+    # Only create if credentials are configured (for community packages)
+    if not (Config.CONFLUENCE_URL and not Config.CONFLUENCE_URL.startswith('https://yourcompany') and
             Config.CONFLUENCE_SPACE_KEY and Config.CONFLUENCE_SPACE_KEY != 'SPACE' and
             Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
             Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
-            return MCPClient('confluence', command, env)
-        else:
-            print("⚠ Confluence credentials not configured, skipping Confluence MCP server")
-            return None
-    except Exception as e:
-        print(f"⚠ Could not create Confluence MCP client: {e}")
+        print("⚠ Confluence credentials not configured, skipping Confluence MCP server")
         return None
+    
+    import platform
+    is_windows = platform.system() == 'Windows'
+    npx_cmd = 'npx.cmd' if is_windows else 'npx'
+    
+    # Try community MCP server packages
+    mcp_server_options = [
+        {
+            'name': 'mcp-atlassian',
+            'package': 'mcp-atlassian',
+            'env': {
+                'CONFLUENCE_URL': Config.CONFLUENCE_URL,
+                'CONFLUENCE_EMAIL': Config.JIRA_EMAIL,
+                'CONFLUENCE_API_TOKEN': Config.JIRA_API_TOKEN,
+                'CONFLUENCE_SPACE_KEY': Config.CONFLUENCE_SPACE_KEY,
+                'ATLASSIAN_URL': Config.CONFLUENCE_URL,  # Some servers use ATLASSIAN_URL
+            }
+        },
+        {
+            'name': '@modelcontextprotocol/server-confluence',
+            'package': '@modelcontextprotocol/server-confluence',
+            'env': {
+                'CONFLUENCE_URL': Config.CONFLUENCE_URL,
+                'CONFLUENCE_EMAIL': Config.JIRA_EMAIL,
+                'CONFLUENCE_API_TOKEN': Config.JIRA_API_TOKEN,
+                'CONFLUENCE_SPACE_KEY': Config.CONFLUENCE_SPACE_KEY
+            }
+        }
+    ]
+    
+    # Try each option
+    for option in mcp_server_options:
+        try:
+            command = [npx_cmd, '-y', option['package']]
+            client = MCPClient('confluence', command, option['env'])
+            print(f"✓ Created Confluence MCP client using {option['name']}")
+            return client
+        except Exception as e:
+            # Try next option
+            continue
+    
+    # If all options failed, return None (will fall back to custom tools)
+    print("⚠ Could not create Confluence MCP client")
+    print("   Using custom tools as fallback")
+    return None
 

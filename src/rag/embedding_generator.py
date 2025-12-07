@@ -40,8 +40,14 @@ class EmbeddingGenerator:
         """
         try:
             import openai
+            import requests
             
-            client = openai.OpenAI(api_key=self.api_key)
+            # Create client with timeout
+            client = openai.OpenAI(
+                api_key=self.api_key,
+                timeout=10.0,  # 10 second timeout for embedding requests
+                max_retries=1  # Limit retries to avoid long waits
+            )
             
             # Clean text (remove extra whitespace)
             text = text.strip().replace('\n', ' ')
@@ -57,6 +63,8 @@ class EmbeddingGenerator:
             raise ImportError(
                 "openai package is required. Install with: pip install openai>=1.12.0"
             )
+        except requests.exceptions.Timeout:
+            raise RuntimeError(f"Error generating embedding: Request timed out. Check network connection and API availability.")
         except Exception as e:
             raise RuntimeError(f"Error generating embedding: {e}")
     
@@ -85,8 +93,14 @@ class EmbeddingGenerator:
         """Generate embeddings for a batch of texts."""
         try:
             import openai
+            import requests
             
-            client = openai.OpenAI(api_key=self.api_key)
+            # Create client with timeout
+            client = openai.OpenAI(
+                api_key=self.api_key,
+                timeout=15.0,  # 15 second timeout for batch requests (longer)
+                max_retries=1  # Limit retries to avoid long waits
+            )
             
             # Clean texts
             cleaned_texts = [text.strip().replace('\n', ' ') for text in texts]
@@ -98,6 +112,8 @@ class EmbeddingGenerator:
             
             return [item.embedding for item in response.data]
             
+        except requests.exceptions.Timeout:
+            raise RuntimeError(f"Error generating batch embeddings: Request timed out. Check network connection and API availability.")
         except Exception as e:
             raise RuntimeError(f"Error generating batch embeddings: {e}")
     

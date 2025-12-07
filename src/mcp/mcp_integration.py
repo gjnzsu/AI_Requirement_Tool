@@ -53,9 +53,13 @@ class MCPToolWrapper(BaseTool):
         return asyncio.run(self._arun(**kwargs))
     
     async def _arun(self, **kwargs) -> str:
-        """Asynchronous execution."""
+        """Asynchronous execution with timeout."""
         try:
-            result = await self.mcp_client.call_tool(self.tool_name, kwargs)
+            # Add timeout for MCP tool calls (60 seconds for Jira operations)
+            result = await asyncio.wait_for(
+                self.mcp_client.call_tool(self.tool_name, kwargs),
+                timeout=60.0
+            )
             if result['success']:
                 # Extract text content
                 content = result.get('content', [])
@@ -67,6 +71,8 @@ class MCPToolWrapper(BaseTool):
                 return str(content) if content else "Success"
             else:
                 return f"Error: {result.get('error', 'Unknown error')}"
+        except asyncio.TimeoutError:
+            return f"Error: Tool '{self.tool_name}' execution timed out after 60 seconds. The MCP server may be slow or unresponsive."
         except Exception as e:
             return f"Error executing tool: {str(e)}"
 
@@ -89,50 +95,57 @@ class MCPIntegration:
         self._initialized = False
     
     async def initialize(self):
-        """Initialize MCP clients and load tools."""
+        """Initialize MCP clients and load tools with timeout."""
         if not self.use_mcp:
             return
         
-        # Check if Node.js/npx is available
-        if not self._check_npx_available():
-            print("⚠ Node.js/npx not found. MCP requires Node.js to run MCP servers.")
-            print("   Install Node.js from: https://nodejs.org/")
-            print("   Falling back to custom tools")
-            self.use_mcp = False
-            return
+        # Note: Custom Python-based MCP server doesn't require Node.js/npx
+        # Only community Node.js-based servers would need it
         
         try:
-            self.manager = MCPClientManager()
-            
-            # Add Jira MCP server
-            jira_client = create_jira_mcp_client()
-            if jira_client:
-                self.manager.add_server('jira', jira_client.command, jira_client.env)
-            
-            # Add Confluence MCP server
-            confluence_client = create_confluence_mcp_client()
-            if confluence_client:
-                self.manager.add_server('confluence', confluence_client.command, confluence_client.env)
-            
-            # Initialize all servers
-            await self.manager.initialize_all()
-            
-            # Get all tools
-            self.tools = self.manager.get_all_tools()
-            
-            if self.tools:
-                self._initialized = True
-                print(f"✓ MCP Integration initialized with {len(self.tools)} tools")
-            else:
-                print("⚠ MCP servers initialized but no tools available")
-                print("   Falling back to custom tools")
-                self.use_mcp = False
+            # Add overall timeout for MCP initialization (30 seconds)
+            await asyncio.wait_for(self._initialize_mcp_servers(), timeout=30.0)
+        except asyncio.TimeoutError:
+            print("⚠ MCP initialization timeout (30s)")
+            print("   Falling back to custom tools")
+            self.use_mcp = False
+            self._initialized = False
         except Exception as e:
             print(f"⚠ MCP Integration failed: {e}")
             print("   Falling back to custom tools")
             self.use_mcp = False
+            self._initialized = False
             import traceback
             traceback.print_exc()
+    
+    async def _initialize_mcp_servers(self):
+        """Internal method to initialize MCP servers."""
+        self.manager = MCPClientManager()
+        
+        # Add Jira MCP server (custom Python-based only)
+        jira_client = create_jira_mcp_client()
+        if jira_client:
+            self.manager.add_server('jira', jira_client.command, jira_client.env)
+            print("✓ Using custom Jira MCP server (Python-based)")
+        
+        # Confluence MCP server disabled
+        # confluence_client = create_confluence_mcp_client()
+        # if confluence_client:
+        #     self.manager.add_server('confluence', confluence_client.command, confluence_client.env)
+        
+        # Initialize all servers (each with individual timeout handled in manager)
+        await self.manager.initialize_all()
+        
+        # Get all tools from successfully initialized servers
+        self.tools = self.manager.get_all_tools()
+        
+        if self.tools:
+            self._initialized = True
+            print(f"✓ MCP Integration initialized with {len(self.tools)} tools")
+        else:
+            print("⚠ MCP servers initialized but no tools available")
+            print("   Falling back to custom tools")
+            self.use_mcp = False
     
     def _check_npx_available(self) -> bool:
         """Check if npx is available on the system."""
