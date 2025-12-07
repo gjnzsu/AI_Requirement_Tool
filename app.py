@@ -60,7 +60,9 @@ def get_chatbot():
             use_rag=getattr(Config, 'USE_RAG', True),
             rag_top_k=getattr(Config, 'RAG_TOP_K', 3),
             enable_mcp_tools=getattr(Config, 'ENABLE_MCP_TOOLS', True),
-            lazy_load_tools=True  # Lazy load tools to avoid dead loops
+            lazy_load_tools=True,  # Lazy load tools to avoid dead loops
+            use_agent=True,  # Enable LangGraph agent for intelligent routing
+            use_mcp=getattr(Config, 'USE_MCP', True)  # Use MCP protocol if available
         )
     return chatbot_instance
 

@@ -14,6 +14,16 @@ numpy>=1.21.2
 # RAG (Retrieval-Augmented Generation) dependencies
 PyPDF2>=3.0.0  # For PDF document support
 
+# LangGraph for agent framework
+langgraph>=0.2.0
+langchain>=1.0.0
+langchain-openai>=1.0.0  # Updated for compatibility
+langchain-google-genai>=1.0.0  # For Gemini support
+langchain-core>=1.0.0
+
+# MCP (Model Context Protocol) SDK
+mcp>=0.9.0  # Official MCP Python SDK from modelcontextprotocol/python-sdk
+
 # PyTorch - Install separately if needed for the chatbot
 # Note: PyTorch installation varies by platform. Install using one of these methods:
 # Windows CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu

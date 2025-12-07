@@ -22,6 +22,7 @@ from src.services.memory_manager import MemoryManager
 from src.services.memory_summarizer import MemorySummarizer
 from src.rag import RAGService
 from config.config import Config
+from src.agent import ChatbotAgent
 
 
 class Chatbot:
@@ -49,7 +50,9 @@ class Chatbot:
                  use_rag: bool = True,
                  rag_top_k: int = 3,
                  enable_mcp_tools: bool = True,
-                 lazy_load_tools: bool = True):
+                 lazy_load_tools: bool = True,
+                 use_agent: bool = True,
+                 use_mcp: bool = True):
         """
         Initialize the chatbot.
         
@@ -67,6 +70,8 @@ class Chatbot:
             rag_top_k: Number of relevant chunks to retrieve for RAG
             enable_mcp_tools: Whether to enable MCP tools (Jira, Confluence)
             lazy_load_tools: If True, tools are initialized only when needed (recommended)
+            use_agent: Whether to use LangGraph agent for intelligent tool orchestration (recommended)
+            use_mcp: Whether to use MCP protocol for tools (default: True, falls back to custom tools if MCP unavailable)
         """
         self.provider_name = provider_name or Config.LLM_PROVIDER.lower()
         self.use_fallback = use_fallback
@@ -78,7 +83,10 @@ class Chatbot:
         self.rag_top_k = rag_top_k
         self.enable_mcp_tools = enable_mcp_tools
         self.lazy_load_tools = lazy_load_tools
+        self.use_agent = use_agent
+        self.use_mcp = use_mcp
         self._tools_initialized = False
+        self.agent = None  # Will be initialized after RAG service
         
         # Default system prompt
         self.system_prompt = system_prompt or (
@@ -156,6 +164,25 @@ class Chatbot:
         # Initialize tools immediately only if lazy loading is disabled
         if self.enable_mcp_tools and not self.lazy_load_tools:
             self._initialize_tools()
+        
+        # Initialize LangGraph agent if enabled (after RAG service is ready)
+        if self.use_agent:
+            try:
+                self.agent = ChatbotAgent(
+                    provider_name=self.provider_name,
+                    model=None,  # Use default from Config
+                    temperature=self.temperature,
+                    enable_tools=self.enable_mcp_tools,
+                    rag_service=self.rag_service if self.use_rag else None,
+                    use_mcp=use_mcp  # Use MCP protocol if available
+                )
+                print("✓ Initialized LangGraph Agent")
+                if use_mcp and self.agent.mcp_integration and self.agent.mcp_integration._initialized:
+                    print("✓ MCP protocol enabled")
+            except Exception as e:
+                print(f"⚠ Failed to initialize LangGraph Agent: {e}")
+                print("   Falling back to keyword-based routing")
+                self.use_agent = False
     
     def _initialize_provider(self):
         """Initialize the LLM provider(s) based on configuration."""
@@ -363,8 +390,49 @@ class Chatbot:
         user_input_lower = user_input.lower().strip()
         if user_input_lower in ['bye', 'exit', 'quit', 'goodbye']:
             return "Goodbye! It was great chatting with you. Have a wonderful day!"
-            
-        # Check for Jira creation intent
+        
+        # Use LangGraph agent if enabled
+        if self.use_agent and self.agent:
+            try:
+                # Get conversation history for agent
+                conversation_history = []
+                if self.use_persistent_memory and self.memory_manager and self.conversation_id:
+                    messages = self.memory_manager.get_conversation_messages(self.conversation_id)
+                    conversation_history = [
+                        {"role": msg.get('role', 'user'), "content": msg.get('content', '')}
+                        for msg in messages
+                    ]
+                else:
+                    # Use in-memory history
+                    conversation_history = self.conversation_history
+                
+                # Invoke agent
+                response = self.agent.invoke(user_input, conversation_history)
+                
+                # Save to memory
+                if self.use_persistent_memory and self.memory_manager:
+                    if not self.conversation_id:
+                        from datetime import datetime
+                        self.conversation_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        self.memory_manager.create_conversation(
+                            self.conversation_id,
+                            title=user_input[:50] + ('...' if len(user_input) > 50 else '')
+                        )
+                    
+                    self.memory_manager.add_message(self.conversation_id, 'user', user_input)
+                    self.memory_manager.add_message(self.conversation_id, 'assistant', response)
+                
+                # Also update in-memory history
+                self.conversation_history.append({"role": "user", "content": user_input})
+                self.conversation_history.append({"role": "assistant", "content": response})
+                
+                return response
+            except Exception as e:
+                print(f"Error in agent: {e}")
+                # Fall back to keyword-based routing
+                pass
+        
+        # Fallback: Check for Jira creation intent (keyword-based)
         # Support multiple keyword variations
         jira_keywords = [
             "create the jira",
