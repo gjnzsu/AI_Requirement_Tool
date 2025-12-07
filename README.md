@@ -1,448 +1,379 @@
 # Generative AI Chatbot
 
-This project is a simple generative AI chatbot that interacts with users and generates responses based on their input. It also includes a Jira Requirement Maturity Evaluation Service that uses LLM models to assess the maturity of requirements in Jira backlogs.
+An advanced AI-powered chatbot with LangGraph agent framework, MCP (Model Context Protocol) integration, RAG (Retrieval-Augmented Generation), and Jira/Confluence tools. Supports multiple LLM providers with intelligent intent detection and automated Jira issue creation.
 
-## Project Structure
+## 🚀 Key Features
+
+### Core Capabilities
+- **LangGraph Agent Framework** - Intelligent agent with intent detection and tool orchestration
+- **MCP Integration** - Model Context Protocol support for Jira and Confluence operations
+- **RAG Service** - Retrieval-Augmented Generation with vector embeddings and caching
+- **Multi-Provider LLM** - OpenAI, Google Gemini, DeepSeek with automatic fallback
+- **Intent Detection** - Automatic detection of user intents (general chat, Jira creation, etc.)
+- **Jira Integration** - Create and manage Jira issues via MCP or custom tools
+- **Conversation Memory** - Persistent conversation history with summarization
+- **Modern Web UI** - Beautiful, responsive chat interface
+
+### Advanced Features
+- **Lazy Tool Loading** - Tools initialized only when needed
+- **Error Recovery** - Automatic fallback mechanisms
+- **Comprehensive Logging** - Detailed logging for debugging and monitoring
+- **Integration Tests** - Full test suite for MCP and agent functionality
+
+## 📁 Project Structure
 
 ```
 generative-ai-chatbot
-├── src
-│   ├── chatbot.py          # Enhanced LLM-powered chatbot with conversation memory
+├── src/
+│   ├── agent/              # LangGraph agent framework
+│   │   └── agent_graph.py  # Agent graph with intent detection
+│   ├── chatbot.py          # Main chatbot class
 │   ├── llm/                # Multi-provider LLM infrastructure
 │   │   ├── base_provider.py
 │   │   ├── openai_provider.py
 │   │   ├── gemini_provider.py
 │   │   ├── deepseek_provider.py
 │   │   └── router.py
-│   ├── services
-│   │   └── jira_maturity_evaluator.py  # Jira requirement maturity evaluation service
-│   ├── utils
-│   │   └── helpers.py      # Utility functions for input validation and response formatting
-│   └── models
-│       └── model.py        # Defines the structure of the generative AI model
+│   ├── mcp/                # MCP integration
+│   │   ├── mcp_client.py   # MCP client and manager
+│   │   ├── mcp_integration.py  # MCP tool integration
+│   │   └── jira_mcp_server.py # Custom Jira MCP server
+│   ├── rag/                # RAG service
+│   │   ├── rag_service.py
+│   │   ├── vector_store.py
+│   │   ├── embedding_generator.py
+│   │   ├── document_loader.py
+│   │   └── rag_cache.py
+│   ├── tools/              # Custom tools
+│   │   ├── jira_tool.py
+│   │   └── confluence_tool.py
+│   ├── services/          # Services
+│   │   ├── jira_maturity_evaluator.py
+│   │   ├── memory_manager.py
+│   │   └── memory_summarizer.py
+│   └── utils/
+│       └── helpers.py
+├── config/
+│   └── config.py          # Configuration management
 ├── web/                    # Web UI frontend
 │   ├── templates/
-│   │   └── index.html      # Main HTML template
 │   └── static/
-│       ├── css/
-│       │   └── style.css   # Stylesheet
-│       └── js/
-│           └── app.js      # JavaScript for interactions
-├── config
-│   └── config.py           # Configuration for Jira and LLM settings
-├── app.py                  # Flask web server for chatbot UI
-├── evaluate_jira_maturity.py  # Main script to run maturity evaluation
-├── requirements.txt         # Lists dependencies required for the project
-├── .gitignore               # Specifies files and directories to be ignored by Git
-└── README.md                # Documentation for the project
+├── app.py                  # Flask web server
+├── requirements.txt       # Python dependencies
+└── README.md              # This file
 ```
 
-## Setup Instructions
+## 🛠️ Setup Instructions
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd generative-ai-chatbot
-   ```
+### 1. Clone the Repository
 
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-3. Run the chatbot:
-   ```
-   python src/chatbot.py
-   ```
-
-## Chatbot Web UI
-
-### Overview
-
-The project includes a modern, beautiful web-based chatbot interface that provides an intuitive way to interact with the AI chatbot. The UI features a clean design with a sidebar for conversation management and a main chat area for messaging.
-
-### UI Design
-
-The web interface features:
-
-- **Left Sidebar**:
-  - Brand logo "CHAT A.I+"
-  - "New chat" button for creating new conversations
-  - Search functionality to find conversations
-  - Conversation history list with titles
-  - Settings button
-  - User profile section (default: Raymond Gao)
-
-- **Main Chat Area**:
-  - Welcome message on first load
-  - Chat messages with user and assistant avatars
-  - Message actions (copy, regenerate)
-  - Input field with send button
-  - Smooth scrolling and animations
-
-- **Right Sidebar**:
-  - Upgrade to Pro prompt
-
-### Features
-
-✅ **Conversation Management**
-- Create new conversations
-- View conversation history
-- Search conversations by title
-- Edit conversation titles
-- Delete individual conversations
-- Clear all conversations
-
-✅ **Chat Features**
-- Real-time messaging with AI
-- Conversation context maintained across messages
-- Copy message functionality
-- Regenerate responses
-- Loading indicators during AI processing
-- Smooth animations and transitions
-
-✅ **Multi-Provider Support**
-- Works with OpenAI (GPT-3.5, GPT-4, GPT-4o, GPT-4.1)
-- Supports Google Gemini
-- Supports DeepSeek
-- Automatic fallback to backup providers
-
-✅ **Modern Design**
-- Clean, professional interface
-- Purple theme (#8b5cf6)
-- Responsive layout
-- Smooth animations
-- User-friendly interactions
-
-### Running the Web UI
-
-1. **Start the Flask server**:
-   ```bash
-   python app.py
-   ```
-
-2. **Open your browser** and navigate to:
-   ```
-   http://localhost:5000
-   ```
-
-3. **Start chatting**:
-   - Click "+ New chat" to create a conversation
-   - Type your message and press Enter or click send
-   - View conversation history in the sidebar
-   - Use search to find specific conversations
-
-### Web UI API Endpoints
-
-The Flask backend provides REST API endpoints:
-
-- `POST /api/chat` - Send a message and get AI response
-- `GET /api/conversations` - Get list of all conversations
-- `GET /api/conversations/<id>` - Get a specific conversation
-- `DELETE /api/conversations/<id>` - Delete a conversation
-- `DELETE /api/conversations` - Clear all conversations
-- `POST /api/new-chat` - Create a new chat
-- `PUT /api/conversations/<id>/title` - Update conversation title
-
-For detailed API documentation, see `WEB_UI_README.md`.
-
-### Command Line vs Web UI
-
-**Command Line Interface** (`python src/chatbot.py`):
-- Simple, text-based interface
-- Quick interactions
-- Good for scripts and automation
-- Supports `/clear` and `/history` commands
-
-**Web UI** (`python app.py`):
-- Modern, visual interface
-- Conversation management
-- Better for extended conversations
-- Search and organize conversations
-- User-friendly experience
-
-## Jira Requirement Maturity Evaluation Service
-
-### Overview
-
-The Jira Requirement Maturity Evaluation Service uses LLM models (OpenAI GPT-4) to evaluate the maturity of requirements in your Jira backlog. It assesses requirements based on multiple criteria and provides detailed scores, strengths, weaknesses, and recommendations.
-
-### Features
-
-- **Automated Backlog Analysis**: Fetches backlog items from Jira automatically
-- **Multi-Criteria Evaluation**: Evaluates requirements based on 8 key criteria:
-  - Description completeness
-  - Acceptance criteria
-  - Dependencies identification
-  - Business value articulation
-  - Technical feasibility assessment
-  - User story structure
-  - Estimation readiness
-  - Priority clarity
-- **Detailed Scoring**: Provides overall maturity score (0-100) and individual criterion scores
-- **Actionable Insights**: Generates strengths, weaknesses, and recommendations for each requirement
-- **Jira Integration**: Optionally updates Jira issues with maturity scores
-
-### Configuration
-
-#### Multi-Provider LLM Support
-
-The service supports multiple LLM providers through a flexible router pattern:
-- **OpenAI**: GPT-3.5-turbo, GPT-4, GPT-4-turbo, GPT-4o, GPT-4o-mini, GPT-4.1
-- **Google Gemini**: gemini-pro, gemini-1.5-pro, gemini-1.5-flash
-- **DeepSeek**: deepseek-chat, deepseek-coder
-
-See `OPENAI_MODELS.md` for a complete list of available OpenAI models.
-
-#### Environment Variables
-
-1. **Set Environment Variables** (recommended):
-   ```bash
-   # Jira Configuration
-   export JIRA_URL="https://yourcompany.atlassian.net"
-   export JIRA_EMAIL="your-email@example.com"
-   export JIRA_API_TOKEN="your-jira-api-token"
-   export JIRA_PROJECT_KEY="PROJ"
-   
-   # LLM Provider Selection
-   export LLM_PROVIDER="openai"  # Options: 'openai', 'gemini', 'deepseek'
-   
-   # Provider-specific API Keys (set the one for your chosen provider)
-   export OPENAI_API_KEY="your-openai-api-key"
-   export GEMINI_API_KEY="your-gemini-api-key"
-   export DEEPSEEK_API_KEY="your-deepseek-api-key"
-   
-   # Provider-specific Models (optional, defaults shown)
-   export OPENAI_MODEL="gpt-3.5-turbo"
-   export GEMINI_MODEL="gemini-pro"
-   export DEEPSEEK_MODEL="deepseek-chat"
-   
-   export MAX_BACKLOG_ITEMS="50"
-   ```
-
-   Or on Windows PowerShell:
-   ```powershell
-   $env:LLM_PROVIDER="openai"
-   $env:OPENAI_API_KEY="your-openai-api-key"
-   $env:OPENAI_MODEL="gpt-3.5-turbo"
-   # ... other variables
-   ```
-
-2. **Or Update config/config.py** directly with your credentials
-
-3. **Or create a `.env` file** in the project root (automatically loaded):
-   ```
-   LLM_PROVIDER=openai
-   OPENAI_API_KEY=your-openai-api-key
-   OPENAI_MODEL=gpt-3.5-turbo
-   # ... other variables
-   ```
-
-### Getting API Credentials
-
-#### Jira API Token
-1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
-2. Click "Create API token"
-3. Copy the generated token
-
-#### LLM Provider API Keys
-
-**OpenAI:**
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Copy the key (keep it secure!)
-
-**Google Gemini:**
-1. Go to https://makersuite.google.com/app/apikey
-2. Create a new API key
-3. Copy the key (keep it secure!)
-
-**DeepSeek:**
-1. Go to https://platform.deepseek.com/api_keys
-2. Create a new API key
-3. Copy the key (keep it secure!)
-
-### Usage
-
-Run the maturity evaluation service:
 ```bash
-python evaluate_jira_maturity.py
+git clone <repository-url>
+cd generative-ai-chatbot
 ```
 
-The service will:
-1. Connect to your Jira instance
-2. Fetch backlog items from the specified project
-3. Evaluate each item using the LLM model
-4. Display results in the console
-5. Save results to `maturity_evaluation_results.json`
+### 2. Install Dependencies
 
-### Output Format
-
-The service generates a JSON file with evaluation results:
-```json
-{
-  "issue_key": "PROJ-123",
-  "overall_maturity_score": 75.5,
-  "detailed_scores": {
-    "description_completeness": 80,
-    "acceptance_criteria": 70,
-    ...
-  },
-  "strengths": ["Clear business value", "Well-defined acceptance criteria"],
-  "weaknesses": ["Missing dependencies", "Incomplete user story format"],
-  "recommendations": ["Add dependency mapping", "Refine user story structure"]
-}
+```bash
+pip install -r requirements.txt
 ```
 
-### Optional: Update Jira with Scores
+### 3. Configure Environment Variables
 
-To automatically update Jira issues with maturity scores, you need to:
-1. Create a custom number field in Jira for storing maturity scores
-2. Get the custom field ID (e.g., `customfield_12345`)
-3. Set the environment variable: `JIRA_MATURITY_SCORE_FIELD=customfield_12345`
+Create a `.env` file in the project root or set environment variables:
 
-### Example Output
+```bash
+# LLM Provider Configuration
+LLM_PROVIDER=openai  # Options: 'openai', 'gemini', 'deepseek'
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-pro
+DEEPSEEK_API_KEY=your-deepseek-api-key
 
-```
-MATURITY EVALUATION RESULTS
-================================================================================
+# Jira Configuration
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your-jira-api-token
+JIRA_PROJECT_KEY=PROJ
 
-Issue: PROJ-123
-Overall Maturity Score: 75.5/100
+# MCP Configuration
+USE_MCP=true  # Enable MCP integration
 
-Detailed Scores:
-  - Description Completeness: 80/100
-  - Acceptance Criteria: 70/100
-  ...
-
-Strengths:
-  + Clear business value articulation
-  + Well-structured user story
-
-Weaknesses:
-  - Missing dependency information
-  - Incomplete acceptance criteria
-
-Recommendations:
-  → Add explicit dependency mapping
-  → Refine acceptance criteria with measurable outcomes
+# RAG Configuration (optional)
+RAG_ENABLE_CACHE=true
+RAG_CACHE_TTL_HOURS=24
 ```
 
-## Chatbot Usage
+**Windows PowerShell:**
+```powershell
+.\set-env.ps1
+```
 
-### Command Line Interface
+### 4. Run the Application
 
-Run the chatbot in command line mode:
+**Web UI (Recommended):**
+```bash
+python app.py
+```
+Then open `http://localhost:5000` in your browser.
+
+**Command Line:**
 ```bash
 python src/chatbot.py
 ```
 
-**Features:**
-- Interactive conversation
-- Conversation history (last 10 turns)
-- Commands: `/clear`, `/history`
-- Multi-provider LLM support
-- Automatic fallback to backup providers
+## 🎯 Usage Examples
 
-**Example Session:**
+### General Chat
 ```
 You: What is Python?
 Chatbot: Python is a high-level programming language...
-
-You: /history
-Chatbot: Conversation has 1 turn(s) in history.
-
-You: bye
-Chatbot: Goodbye! It was great chatting with you.
 ```
 
-### Web Interface
+### Create Jira Issue
+```
+You: Create a new Jira issue about "Add Redis cache for RAG service"
+Chatbot: I'll create a Jira issue for you...
+✅ Created issue SCRUM-123 via MCP tool
+Link: https://yourcompany.atlassian.net/browse/SCRUM-123
+```
 
-Run the web UI:
+### Intent Detection
+The agent automatically detects user intents:
+- **General Chat** - Regular conversation
+- **Jira Creation** - Creating Jira issues
+- **Question Answering** - Using RAG for context-aware responses
+
+## 🔧 MCP Integration
+
+### Overview
+
+The chatbot uses MCP (Model Context Protocol) to integrate with external tools like Jira and Confluence. MCP provides a standardized way to connect AI agents with external services.
+
+### Features
+
+- **Custom Jira MCP Server** - Python-based MCP server for Jira operations
+- **Tool Wrapper** - LangChain-compatible tool wrappers for MCP tools
+- **Automatic Fallback** - Falls back to custom tools if MCP is unavailable
+- **Lazy Initialization** - MCP tools initialized only when needed
+
+### Enabling MCP
+
+1. Set `USE_MCP=true` in your `.env` file
+2. Ensure Jira credentials are configured
+3. Restart the application
+
+The MCP integration will automatically:
+- Connect to the custom Jira MCP server
+- Discover available tools
+- Use MCP tools for Jira operations when available
+
+### Testing MCP
+
 ```bash
-python app.py
+# Test MCP configuration
+python test_mcp_enabled.py
+
+# Test full MCP integration
+python test_mcp_integration_full.py
+
+# Test Jira creation via MCP
+python test_mcp_jira_creation.py
 ```
 
-Then open `http://localhost:5000` in your browser.
+## 📚 RAG (Retrieval-Augmented Generation)
 
-**Features:**
-- Modern web interface
-- Conversation management
-- Search functionality
-- Message copy/regenerate
-- Visual conversation history
+### Overview
 
-See `CHATBOT_USAGE.md` for detailed usage instructions.
+The RAG service enhances responses by retrieving relevant context from your documents using vector embeddings.
 
-## Multi-Provider LLM Architecture
+### Features
 
-The service uses a flexible router pattern to support multiple LLM providers:
+- **Vector Store** - ChromaDB-based vector storage
+- **Document Loading** - Support for PDF, TXT, and other formats
+- **Embedding Generation** - OpenAI embeddings for semantic search
+- **Caching** - Optional caching for improved performance
+- **Context Retrieval** - Retrieves relevant context for user queries
 
-### Architecture Overview
+### Usage
 
-```
-┌─────────────────────┐
-│ Jira Evaluator      │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   LLM Router        │
-└──────────┬──────────┘
-           │
-    ┌──────┴──────┬──────────┐
-    ▼             ▼           ▼
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ OpenAI  │  │ Gemini  │  │DeepSeek │
-└─────────┘  └─────────┘  └─────────┘
+RAG is automatically used when:
+- User asks questions that benefit from document context
+- Documents are available in the `data/` directory
+- RAG service is enabled in configuration
+
+### Ingesting Documents
+
+```bash
+# Ingest PDF files
+python ingest_pdf.py
+
+# Documents are stored in data/ directory
 ```
 
-### Adding New Providers
+## 🤖 LangGraph Agent
 
-To add a new LLM provider:
+### Architecture
 
-1. Create a new provider class inheriting from `LLMProvider`:
-   ```python
-   from src.llm.base_provider import LLMProvider
-   
-   class MyProvider(LLMProvider):
-       def generate_response(self, system_prompt, user_prompt, 
-                            temperature=0.3, json_mode=False):
-           # Implement your provider's API call
-           pass
-       
-       def supports_json_mode(self):
-           return True  # or False
-       
-       def get_provider_name(self):
-           return "myprovider"
-   ```
+The chatbot uses LangGraph for agent orchestration:
 
-2. Register it with the router:
-   ```python
-   from src.llm import LLMRouter
-   LLMRouter.register_provider("myprovider", MyProvider)
-   ```
+```
+User Input
+    ↓
+Intent Detection
+    ↓
+┌───────────────┬───────────────┬──────────────┐
+│ General Chat  │ Jira Creation │ RAG Query    │
+└───────────────┴───────────────┴──────────────┘
+    ↓
+Tool Execution (if needed)
+    ↓
+Response Generation
+    ↓
+User Response
+```
 
-3. Update configuration to support the new provider's API key.
+### Intent Detection
 
-See `examples/multi_provider_example.py` for usage examples.
+The agent automatically detects user intents:
+- **General Chat** - Conversational queries
+- **Jira Creation** - Requests to create Jira issues
+- **Information Query** - Questions that benefit from RAG
 
-## Documentation
+### Tool Usage
 
-- **CHATBOT_USAGE.md** - Detailed guide for using the chatbot
-- **WEB_UI_README.md** - Web UI setup and API documentation
-- **OPENAI_MODELS.md** - Complete list of OpenAI models and recommendations
-- **SWITCH_TO_OPENAI.md** - Guide for switching to OpenAI provider
+Tools are automatically selected based on intent:
+- **MCP Tools** - Used when MCP is enabled and available
+- **Custom Tools** - Fallback when MCP is unavailable
+- **RAG Service** - Used for context-aware responses
 
-## Summary
+## 🌐 Web UI
 
-This project provides:
+### Features
 
-1. **Enhanced LLM Chatbot** - Multi-provider support with conversation memory
-2. **Modern Web UI** - Beautiful, user-friendly interface for chat interactions
-3. **Jira Integration** - Requirement maturity evaluation service
-4. **Flexible Architecture** - Easy to add new LLM providers
-5. **Comprehensive Documentation** - Guides for all features
+- **Modern Interface** - Clean, responsive design
+- **Conversation Management** - Create, search, and manage conversations
+- **Real-time Chat** - Instant messaging with AI
+- **Message Actions** - Copy, regenerate responses
+- **Conversation History** - Persistent conversation storage
 
-The chatbot can be used via command line or web interface, supporting multiple LLM providers (OpenAI, Gemini, DeepSeek) with automatic fallback capabilities. The web UI provides an intuitive way to manage conversations and interact with the AI, while the command line interface offers quick access for scripts and automation.
+### API Endpoints
+
+- `POST /api/chat` - Send message and get AI response
+- `GET /api/conversations` - Get all conversations
+- `GET /api/conversations/<id>` - Get specific conversation
+- `DELETE /api/conversations/<id>` - Delete conversation
+- `POST /api/new-chat` - Create new conversation
+- `PUT /api/conversations/<id>/title` - Update conversation title
+
+## 📖 Documentation
+
+### Main Documentation
+- **README.md** - This file
+- **LANGGRAPH_INTEGRATION.md** - LangGraph agent details
+- **MCP_INTEGRATION_SUMMARY.md** - MCP integration guide
+- **RAG_GUIDE.md** - RAG service documentation
+- **WEB_UI_README.md** - Web UI documentation
+
+### Setup Guides
+- **QUICK_START.md** - Quick start guide
+- **SETUP_ENV.md** - Environment setup
+- **MCP_SETUP.md** - MCP configuration
+- **RAG_QUICKSTART.md** - RAG setup
+
+### Troubleshooting
+- **MCP_LOGGING_GUIDE.md** - MCP logging and debugging
+- **RESTART_APP.md** - How to restart the application
+- **WHY_ERROR_WASNT_CAUGHT.md** - Debugging guide
+
+## 🧪 Testing
+
+### Test Scripts
+
+```bash
+# Test MCP configuration
+python test_mcp_enabled.py
+
+# Test MCP integration
+python test_mcp_integration_full.py
+
+# Test Jira creation
+python test_mcp_jira_creation.py
+
+# Test agent
+python test_agent.py
+
+# Test RAG
+python test_rag.py
+```
+
+## 🔑 Getting API Keys
+
+### OpenAI
+1. Go to https://platform.openai.com/api-keys
+2. Create a new API key
+3. Copy the key to your `.env` file
+
+### Google Gemini
+1. Go to https://makersuite.google.com/app/apikey
+2. Create a new API key
+3. Copy the key to your `.env` file
+
+### Jira API Token
+1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
+2. Click "Create API token"
+3. Copy the token to your `.env` file
+
+## 🎨 Configuration Options
+
+### LLM Provider Selection
+
+Set `LLM_PROVIDER` in your `.env`:
+- `openai` - OpenAI GPT models
+- `gemini` - Google Gemini models
+- `deepseek` - DeepSeek models
+
+### MCP Configuration
+
+- `USE_MCP=true` - Enable MCP integration
+- MCP tools are automatically discovered and used
+
+### RAG Configuration
+
+- `RAG_ENABLE_CACHE=true` - Enable RAG caching
+- `RAG_CACHE_TTL_HOURS=24` - Cache TTL in hours
+
+## 🚨 Troubleshooting
+
+### MCP Not Working
+1. Check `USE_MCP=true` in `.env`
+2. Verify Jira credentials are correct
+3. Run `python test_mcp_enabled.py` to diagnose
+4. Check logs for MCP initialization errors
+
+### RAG Not Working
+1. Ensure `OPENAI_API_KEY` is set (required for embeddings)
+2. Check that documents exist in `data/` directory
+3. Verify RAG service initialization in logs
+
+### Agent Errors
+1. Check LLM provider configuration
+2. Verify API keys are valid
+3. Review agent logs for specific errors
+
+## 📝 License
+
+[Add your license information here]
+
+## 🤝 Contributing
+
+[Add contribution guidelines here]
+
+## 📧 Support
+
+[Add support contact information here]
+
+---
+
+**Last Updated:** December 2024
