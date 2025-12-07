@@ -11,9 +11,15 @@ from typing import Optional
 # Try to load .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    from pathlib import Path
+    # Load .env from project root (where config.py is located)
+    env_path = Path(__file__).parent.parent / '.env'
+    load_dotenv(dotenv_path=env_path, override=True)  # override=True ensures .env values take precedence
 except ImportError:
     pass  # python-dotenv not installed, use environment variables only
+except Exception:
+    # If .env file doesn't exist or other error, continue with environment variables
+    pass
 
 
 class Config:

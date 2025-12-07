@@ -50,6 +50,16 @@ def get_chatbot():
     """Get or create chatbot instance."""
     global chatbot_instance
     if chatbot_instance is None:
+        print("=" * 70)
+        print("🤖 Creating Chatbot Instance")
+        print("=" * 70)
+        print(f"   Provider: {Config.LLM_PROVIDER}")
+        print(f"   Model: {Config.get_llm_model()}")
+        print(f"   MCP Enabled: {Config.USE_MCP}")
+        print(f"   RAG Enabled: {getattr(Config, 'USE_RAG', True)}")
+        print(f"   Tools Enabled: {getattr(Config, 'ENABLE_MCP_TOOLS', True)}")
+        print("=" * 70)
+        
         chatbot_instance = Chatbot(
             provider_name=None,  # Use default from Config
             use_fallback=True,
@@ -64,6 +74,9 @@ def get_chatbot():
             use_agent=True,  # Enable LangGraph agent for intelligent routing
             use_mcp=Config.USE_MCP  # Use MCP protocol if enabled in config
         )
+        print("=" * 70)
+        print("✅ Chatbot Instance Created Successfully")
+        print("=" * 70)
     return chatbot_instance
 
 def generate_conversation_id():

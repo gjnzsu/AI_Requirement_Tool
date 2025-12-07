@@ -14,6 +14,9 @@ $env:OPENAI_MODEL="gpt-4"
 # Evaluation Settings
 $env:MAX_BACKLOG_ITEMS="50"
 
+# MCP Settings
+$env:USE_MCP="true"  # Enable MCP protocol for tools
+
 Write-Host "Environment variables set for current PowerShell session!" -ForegroundColor Green
 Write-Host ""
 Write-Host "To verify, run:" -ForegroundColor Yellow

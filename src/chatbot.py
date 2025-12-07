@@ -137,6 +137,9 @@ class Chatbot:
         self.rag_service = None
         if self.use_rag:
             try:
+                print("=" * 70)
+                print("📚 Initializing RAG Service")
+                print("=" * 70)
                 # Check if OpenAI API key is available (required for embeddings)
                 if Config.OPENAI_API_KEY:
                     self.rag_service = RAGService(
@@ -148,13 +151,22 @@ class Chatbot:
                     )
                     cache_status = "with caching" if getattr(Config, 'RAG_ENABLE_CACHE', True) else "without caching"
                     print(f"✓ Initialized RAG Service ({cache_status})")
+                    print("=" * 70)
                 else:
                     print("⚠ RAG disabled: OPENAI_API_KEY not found (required for embeddings)")
+                    print("=" * 70)
                     self.use_rag = False
             except Exception as e:
                 print(f"⚠ Failed to initialize RAG Service: {e}")
                 print("   RAG will be disabled")
+                print("=" * 70)
                 self.use_rag = False
+        else:
+            print("=" * 70)
+            print("📚 RAG Service")
+            print("=" * 70)
+            print("   RAG is disabled (use_rag=False)")
+            print("=" * 70)
         
         # Initialize Tools (lazy loading - only when needed)
         self.jira_tool = None
@@ -168,13 +180,22 @@ class Chatbot:
         # Initialize LangGraph agent if enabled (after RAG service is ready)
         if self.use_agent:
             try:
+                # Print MCP status
+                print("=" * 70)
+                print("🤖 Initializing LangGraph Agent")
+                print("=" * 70)
+                print(f"   MCP Enabled: {self.use_mcp}")
+                print(f"   RAG Enabled: {self.use_rag}")
+                print(f"   Tools Enabled: {self.enable_mcp_tools}")
+                print("=" * 70)
+                
                 self.agent = ChatbotAgent(
                     provider_name=self.provider_name,
                     model=None,  # Use default from Config
                     temperature=self.temperature,
                     enable_tools=self.enable_mcp_tools,
                     rag_service=self.rag_service if self.use_rag else None,
-                    use_mcp=False  # MCP disabled
+                    use_mcp=self.use_mcp  # Use the configured MCP setting
                 )
                 print("✓ Initialized LangGraph Agent")
             except Exception as e:

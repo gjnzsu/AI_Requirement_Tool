@@ -73,9 +73,18 @@ class ChatbotAgent:
         # Initialize LLM
         self.llm = self._initialize_llm(model)
         
-        # MCP integration disabled
+        # Initialize MCP integration if enabled
         self.mcp_integration = None
-        self.use_mcp = False
+        if self.use_mcp:
+            try:
+                self.mcp_integration = MCPIntegration(use_mcp=True)
+                # Initialize MCP asynchronously (will be done on first use)
+                print("✓ MCP integration enabled - will initialize on first use")
+            except Exception as e:
+                print(f"⚠ Failed to initialize MCP integration: {e}")
+                print("   Falling back to custom tools")
+                self.use_mcp = False
+                self.mcp_integration = None
         
         # Initialize tools (always initialize custom tools as fallback)
         self.jira_tool = None
@@ -279,9 +288,23 @@ class ChatbotAgent:
         """Route to appropriate node based on detected intent."""
         intent = state.get("intent", "general_chat")
         
-        # Only route to jira_creation if we have tools available
-        # MCP disabled - only use custom tools
-        if intent == "jira_creation" and self.jira_tool:
+        # Only route to jira_creation if we have tools available (MCP or custom)
+        has_jira_tool = False
+        if self.use_mcp and self.mcp_integration:
+            # Check if MCP tool is available
+            if not self.mcp_integration._initialized:
+                try:
+                    import asyncio
+                    asyncio.run(self.mcp_integration.initialize())
+                except Exception:
+                    pass
+            if self.mcp_integration.has_tool('create_jira_issue'):
+                has_jira_tool = True
+        
+        if not has_jira_tool and self.jira_tool:
+            has_jira_tool = True
+        
+        if intent == "jira_creation" and has_jira_tool:
             return "jira_creation"
         elif intent == "rag_query":
             return "rag_query"
@@ -338,8 +361,40 @@ class ChatbotAgent:
     
     def _handle_jira_creation(self, state: AgentState) -> AgentState:
         """Handle Jira issue creation."""
-        # MCP disabled - only use custom tools
-        use_mcp = False
+        import datetime
+        
+        print("=" * 70)
+        print("🔧 Jira Creation: Checking available tools...")
+        print(f"   Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("=" * 70)
+        
+        # Try to use MCP if enabled and available, otherwise fall back to custom tools
+        use_mcp = self.use_mcp and self.mcp_integration is not None
+        
+        if self.use_mcp:
+            print(f"✓ MCP is enabled (USE_MCP={self.use_mcp})")
+        else:
+            print(f"⚠ MCP is disabled (USE_MCP={self.use_mcp})")
+        
+        # Initialize MCP if needed (lazy initialization)
+        if use_mcp and not self.mcp_integration._initialized:
+            print("🔄 Initializing MCP integration (lazy initialization)...")
+            try:
+                import asyncio
+                asyncio.run(self.mcp_integration.initialize())
+                print("✓ MCP integration initialized successfully")
+            except Exception as e:
+                print(f"✗ MCP initialization failed: {e}")
+                print("   Falling back to custom tools")
+                use_mcp = False
+        
+        # Check if we have MCP tools available
+        mcp_jira_tool = None
+        if use_mcp:
+            mcp_jira_tool = self.mcp_integration.get_tool('create_jira_issue')
+            if not mcp_jira_tool:
+                print("⚠ MCP tool 'create_jira_issue' not available, using custom tool")
+                use_mcp = False
         
         if not use_mcp and not self.jira_tool:
             error_msg = "Jira tool is not configured. Please check your Jira credentials."
@@ -412,22 +467,104 @@ class ChatbotAgent:
             
             backlog_data = json.loads(content)
             
-            # Create Jira issue using custom tool (MCP disabled)
-            result = self.jira_tool.create_issue(
-                summary=backlog_data.get('summary', 'Untitled Issue'),
-                description=backlog_data.get('description', ''),
-                priority=backlog_data.get('priority', 'Medium')
-            )
+            # Track which tool will be used
+            tool_used = "Custom Tool"  # Default to custom tool
+            
+            # Create Jira issue using MCP tool if available, otherwise use custom tool
+            if use_mcp and mcp_jira_tool:
+                tool_used = "MCP Tool"
+                print("🚀 Creating Jira issue via MCP tool...")
+                try:
+                    # Call MCP tool using synchronous invoke method
+                    mcp_result = mcp_jira_tool.invoke({
+                        'summary': backlog_data.get('summary', 'Untitled Issue'),
+                        'description': backlog_data.get('description', ''),
+                        'priority': backlog_data.get('priority', 'Medium'),
+                        'issue_type': backlog_data.get('issue_type', 'Story')
+                    })
+                    
+                    # Parse MCP result (should be JSON string from MCP server)
+                    try:
+                        mcp_data = None
+                        # Try to parse as JSON
+                        if isinstance(mcp_result, str):
+                            # Remove any markdown code blocks if present
+                            cleaned_result = mcp_result.strip()
+                            if cleaned_result.startswith('```'):
+                                # Extract JSON from code block
+                                lines = cleaned_result.split('\n')
+                                json_lines = [line for line in lines if not line.strip().startswith('```')]
+                                cleaned_result = '\n'.join(json_lines)
+                            mcp_data = json.loads(cleaned_result)
+                        elif isinstance(mcp_result, dict):
+                            # Already a dict
+                            mcp_data = mcp_result
+                        else:
+                            # Try to convert to string first, then parse
+                            str_result = str(mcp_result)
+                            if str_result.startswith('```'):
+                                lines = str_result.split('\n')
+                                json_lines = [line for line in lines if not line.strip().startswith('```')]
+                                str_result = '\n'.join(json_lines)
+                            mcp_data = json.loads(str_result)
+                        
+                        if mcp_data.get('success'):
+                            result = {
+                                'success': True,
+                                'key': mcp_data.get('ticket_id') or mcp_data.get('issue_key'),
+                                'link': mcp_data.get('link', f"{Config.JIRA_URL}/browse/{mcp_data.get('ticket_id', '')}"),
+                                'created_by': mcp_data.get('created_by', 'MCP_SERVER'),
+                                'tool_used': mcp_data.get('tool_used', 'custom-jira-mcp-server')
+                            }
+                            print(f"✅ Created issue {result['key']} via MCP tool")
+                        else:
+                            result = {'success': False, 'error': mcp_data.get('error', 'Unknown error')}
+                            print(f"❌ MCP Tool failed: {result['error']}")
+                    except json.JSONDecodeError as e:
+                        # If not JSON, treat as error message
+                        print(f"❌ MCP Tool failed: Invalid response format")
+                        result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
+                except Exception as e:
+                    print(f"❌ MCP tool call failed: {e}")
+                    print("   Falling back to custom tool")
+                    import traceback
+                    traceback.print_exc()
+                    # Fall back to custom tool
+                    tool_used = "Custom Tool (MCP fallback)"
+                    result = self.jira_tool.create_issue(
+                        summary=backlog_data.get('summary', 'Untitled Issue'),
+                        description=backlog_data.get('description', ''),
+                        priority=backlog_data.get('priority', 'Medium')
+                    )
+            else:
+                # Use custom tool
+                print("\n🔧 Using Custom JiraTool to create Jira issue...")
+                print(f"   Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
+                print(f"   Priority: {backlog_data.get('priority', 'Medium')}")
+                result = self.jira_tool.create_issue(
+                    summary=backlog_data.get('summary', 'Untitled Issue'),
+                    description=backlog_data.get('description', ''),
+                    priority=backlog_data.get('priority', 'Medium')
+                )
+                if result.get('success'):
+                    print(f"✅ Custom Tool SUCCESS: Created issue {result.get('key', 'N/A')}")
+                else:
+                    print(f"❌ Custom Tool FAILED: {result.get('error', 'Unknown error')}")
+            
+            print("=" * 70)
             
             if result.get('success'):
                 state["jira_result"] = {
                     "success": True,
                     "key": result['key'],
                     "link": result['link'],
-                    "backlog_data": backlog_data
+                    "backlog_data": backlog_data,
+                    "tool_used": tool_used  # Store which tool was used
                 }
                 state["messages"].append(AIMessage(
-                    content=f"✅ Successfully created Jira issue: **{result['key']}**\nLink: {result['link']}"
+                    content=f"✅ Successfully created Jira issue: **{result['key']}**\n"
+                           f"Link: {result['link']}\n\n"
+                           f"_(Created using {tool_used})_"
                 ))
             else:
                 state["jira_result"] = {"success": False, "error": result.get('error')}

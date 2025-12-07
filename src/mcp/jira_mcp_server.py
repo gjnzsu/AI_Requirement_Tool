@@ -6,6 +6,7 @@ Only exposes the create_jira_issue tool that returns the ticket ID.
 """
 
 import sys
+import os
 import asyncio
 import json
 from pathlib import Path
@@ -62,6 +63,11 @@ else:
 
 async def create_jira_issue(args: dict) -> dict:
     """Create a Jira issue and return the ticket ID."""
+    import datetime
+    
+    # Log that MCP server is being used
+    print(f"🔵 MCP Server: Creating Jira issue - {args.get('summary', '')[:50]}...", file=sys.stderr)
+    
     summary = args.get("summary", "")
     description = args.get("description", "")
     priority = args.get("priority", "Medium")
@@ -80,15 +86,20 @@ async def create_jira_issue(args: dict) -> dict:
         }
         
         new_issue = jira_client.create_issue(fields=issue_dict)
+        print(f"✅ MCP Server: Created issue {new_issue.key}", file=sys.stderr)
         
         # Return simplified response with ticket ID
         return {
             "success": True,
             "ticket_id": new_issue.key,  # e.g., "PROJ-123"
             "issue_key": new_issue.key,
-            "link": f"{Config.JIRA_URL}/browse/{new_issue.key}"
+            "link": f"{Config.JIRA_URL}/browse/{new_issue.key}",
+            "created_by": "MCP_SERVER",  # Add identifier
+            "tool_used": "custom-jira-mcp-server"  # Add tool identifier
         }
     except Exception as e:
+        print(f"❌ MCP SERVER: Error creating issue: {e}", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
         return {"success": False, "error": str(e)}
 
 

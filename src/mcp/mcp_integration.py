@@ -5,15 +5,16 @@ This module integrates MCP tools into the LangGraph agent.
 """
 
 import asyncio
+import sys
 from typing import List, Optional, Dict, Any
 from pathlib import Path
-import sys
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, StructuredTool
+from pydantic import BaseModel, Field
 from config.config import Config
 
 try:
@@ -24,10 +25,14 @@ except ImportError:
     print("⚠ MCP client not available. Install MCP SDK: pip install mcp")
 
 
-class MCPToolWrapper(BaseTool):
+class MCPToolWrapper(StructuredTool):
     """
     Wrapper to make MCP tools compatible with LangChain/LangGraph.
+    Uses StructuredTool to properly handle multiple parameters.
     """
+    
+    # Use model_config to allow extra attributes and ignore unknown fields
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
     
     def __init__(self, mcp_client, tool_name: str, tool_schema: Dict):
         """
@@ -38,43 +43,132 @@ class MCPToolWrapper(BaseTool):
             tool_name: Name of the tool
             tool_schema: Tool schema from MCP
         """
-        self.mcp_client = mcp_client
-        self.tool_name = tool_name
-        self.tool_schema = tool_schema
+        # Verify client before proceeding
+        if mcp_client is None:
+            raise ValueError(f"MCPToolWrapper: mcp_client is None for tool '{tool_name}'")
+        if not hasattr(mcp_client, 'call_tool'):
+            raise ValueError(f"MCPToolWrapper: client does not have 'call_tool' method. Client type: {type(mcp_client)}")
+        
+        # Capture client and tool_name in closure to ensure they persist
+        # even if Pydantic resets instance attributes
+        captured_client = mcp_client
+        captured_tool_name = tool_name
         
         # Extract description and parameters
         description = tool_schema.get('description', f'MCP tool: {tool_name}')
         name = tool_schema.get('name', tool_name)
+        input_schema = tool_schema.get('inputSchema', {})
         
-        super().__init__(name=name, description=description)
-    
-    def _run(self, **kwargs) -> str:
-        """Synchronous execution (wraps async)."""
-        return asyncio.run(self._arun(**kwargs))
-    
-    async def _arun(self, **kwargs) -> str:
-        """Asynchronous execution with timeout."""
-        try:
-            # Add timeout for MCP tool calls (60 seconds for Jira operations)
-            result = await asyncio.wait_for(
-                self.mcp_client.call_tool(self.tool_name, kwargs),
-                timeout=60.0
-            )
-            if result['success']:
-                # Extract text content
-                content = result.get('content', [])
-                if isinstance(content, list) and len(content) > 0:
-                    if hasattr(content[0], 'text'):
-                        return content[0].text
-                    elif isinstance(content[0], dict):
-                        return content[0].get('text', str(content[0]))
-                return str(content) if content else "Success"
+        # Create a dynamic Pydantic model from the input schema
+        def _create_args_schema():
+            """Create a dynamic Pydantic model from input schema."""
+            from pydantic import create_model
+            
+            # Get properties from input schema
+            properties = input_schema.get('properties', {})
+            required = input_schema.get('required', [])
+            
+            # Create field definitions for create_model
+            field_definitions = {}
+            for prop_name, prop_info in properties.items():
+                # Determine Python type
+                prop_type = str  # Default to str
+                if prop_info.get('type') == 'string':
+                    prop_type = str
+                elif prop_info.get('type') == 'integer':
+                    prop_type = int
+                elif prop_info.get('type') == 'boolean':
+                    prop_type = bool
+                elif prop_info.get('type') == 'number':
+                    prop_type = float
+                
+                # Determine default value
+                if prop_name in required:
+                    default = ...
+                else:
+                    default = None
+                    from typing import Optional
+                    prop_type = Optional[prop_type]
+                
+                # Create Field with description
+                field_definitions[prop_name] = (
+                    prop_type,
+                    Field(
+                        default=default,
+                        description=prop_info.get('description', '')
+                    )
+                )
+            
+            # Use create_model for Pydantic v2
+            if field_definitions:
+                return create_model('ArgsSchema', **field_definitions)
             else:
-                return f"Error: {result.get('error', 'Unknown error')}"
-        except asyncio.TimeoutError:
-            return f"Error: Tool '{self.tool_name}' execution timed out after 60 seconds. The MCP server may be slow or unresponsive."
-        except Exception as e:
-            return f"Error executing tool: {str(e)}"
+                return None
+        
+        args_schema = _create_args_schema() if input_schema else None
+        
+        # Create wrapper functions that capture the client in closure
+        def _run_sync_wrapper(**kwargs) -> str:
+            """Synchronous execution wrapper with captured client."""
+            return asyncio.run(_arun_wrapper(**kwargs))
+        
+        async def _arun_wrapper(**kwargs) -> str:
+            """Asynchronous execution with captured client."""
+            try:
+                # Add timeout for MCP tool calls (60 seconds for Jira operations)
+                result = await asyncio.wait_for(
+                    captured_client.call_tool(captured_tool_name, kwargs),
+                    timeout=60.0
+                )
+                
+                if result['success']:
+                    # Extract text content
+                    content = result.get('content', [])
+                    
+                    # Handle different content formats
+                    text = None
+                    
+                    if isinstance(content, list) and len(content) > 0:
+                        first_item = content[0]
+                        
+                        # Try different ways to extract text
+                        if hasattr(first_item, 'text'):
+                            text = first_item.text
+                        elif isinstance(first_item, dict):
+                            text = first_item.get('text', str(first_item))
+                        else:
+                            text = str(first_item)
+                    elif isinstance(content, str):
+                        text = content
+                    else:
+                        text = str(content) if content else "Success"
+                    
+                    return text if text else "Success"
+                else:
+                    error_msg = f"Error: {result.get('error', 'Unknown error')}"
+                    return error_msg
+            except asyncio.TimeoutError:
+                return f"Error: Tool '{captured_tool_name}' execution timed out after 60 seconds. The MCP server may be slow or unresponsive."
+            except Exception as e:
+                error_msg = f"Error executing tool: {str(e)}"
+                print(f"✗ MCP tool error: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                return error_msg
+        
+        # Call super().__init__ with the wrapper function
+        super().__init__(
+            name=name,
+            description=description,
+            args_schema=args_schema,
+            func=_run_sync_wrapper
+        )
+        
+        # Store as instance attributes using object.__setattr__ to bypass Pydantic
+        # This ensures they persist even if Pydantic tries to reset them
+        object.__setattr__(self, '_mcp_client', mcp_client)
+        object.__setattr__(self, '_tool_name', tool_name)
+        object.__setattr__(self, '_tool_schema', tool_schema)
 
 
 class MCPIntegration:
@@ -136,8 +230,32 @@ class MCPIntegration:
         # Initialize all servers (each with individual timeout handled in manager)
         await self.manager.initialize_all()
         
-        # Get all tools from successfully initialized servers
-        self.tools = self.manager.get_all_tools()
+        # Create tools using MCPToolWrapper (StructuredTool) instead of adapter's simple tools
+        self.tools = []
+        for server_name, client in self.manager.clients.items():
+            if client._initialized:
+                tools_dict = client.get_tools()
+                for tool_name, tool_info in tools_dict.items():
+                    # Verify client is valid
+                    if client is None:
+                        continue
+                    
+                    # Create MCPToolWrapper which uses StructuredTool
+                    try:
+                        tool_wrapper = MCPToolWrapper(
+                            mcp_client=client,
+                            tool_name=tool_name,
+                            tool_schema={
+                                'name': tool_name,
+                                'description': tool_info.get('description', f'MCP tool: {tool_name}'),
+                                'inputSchema': tool_info.get('inputSchema', {})
+                            }
+                        )
+                        self.tools.append(tool_wrapper)
+                    except Exception as e:
+                        print(f"✗ Failed to create MCPToolWrapper for '{tool_name}': {e}", file=sys.stderr)
+                        import traceback
+                        traceback.print_exc(file=sys.stderr)
         
         if self.tools:
             self._initialized = True
