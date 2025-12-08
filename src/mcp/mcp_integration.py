@@ -222,10 +222,11 @@ class MCPIntegration:
             self.manager.add_server('jira', jira_client.command, jira_client.env)
             print("✓ Using custom Jira MCP server (Python-based)")
         
-        # Confluence MCP server disabled
-        # confluence_client = create_confluence_mcp_client()
-        # if confluence_client:
-        #     self.manager.add_server('confluence', confluence_client.command, confluence_client.env)
+        # Add Confluence MCP server (official Atlassian Rovo or community packages)
+        confluence_client = create_confluence_mcp_client()
+        if confluence_client:
+            self.manager.add_server('confluence', confluence_client.command, confluence_client.env)
+            print("✓ Confluence MCP server added")
         
         # Initialize all servers (each with individual timeout handled in manager)
         await self.manager.initialize_all()
@@ -298,23 +299,90 @@ class MCPIntegration:
     
     def get_tools(self) -> List[BaseTool]:
         """Get available MCP tools."""
+        # Don't auto-initialize here - initialization should be explicit
+        # This prevents blocking on first request (e.g., general chat)
+        # Return empty list if not initialized rather than blocking
         if not self._initialized:
-            # Try to initialize synchronously
-            try:
-                asyncio.run(self.initialize())
-            except Exception as e:
-                print(f"⚠ Could not initialize MCP: {e}")
+            return []
         
         return self.tools
     
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available."""
+        # Don't auto-initialize - return False if not initialized
+        if not self._initialized:
+            return False
         return any(tool.name == tool_name for tool in self.tools)
     
     def get_tool(self, tool_name: str) -> Optional[BaseTool]:
         """Get a specific tool by name."""
+        # Don't auto-initialize - return None if not initialized
+        if not self._initialized:
+            return None
         for tool in self.tools:
             if tool.name == tool_name:
                 return tool
         return None
+    
+    async def check_confluence_mcp_health(self) -> Dict[str, Any]:
+        """
+        Check health/readiness of Confluence MCP server.
+        
+        Returns:
+            Dictionary with health status information
+        """
+        if not self.use_mcp or not MCP_AVAILABLE:
+            return {
+                'healthy': False,
+                'reason': 'MCP not enabled or not available',
+                'confluence_tools_available': False
+            }
+        
+        if not self.manager:
+            return {
+                'healthy': False,
+                'reason': 'MCP manager not initialized',
+                'confluence_tools_available': False
+            }
+        
+        # Check if Confluence client exists
+        confluence_client = self.manager.clients.get('confluence')
+        if not confluence_client:
+            return {
+                'healthy': False,
+                'reason': 'Confluence MCP client not found',
+                'confluence_tools_available': False
+            }
+        
+        # Check if client is initialized
+        if not confluence_client._initialized:
+            try:
+                await confluence_client.connect()
+            except Exception as e:
+                return {
+                    'healthy': False,
+                    'reason': f'Failed to initialize Confluence MCP client: {str(e)}',
+                    'confluence_tools_available': False
+                }
+        
+        # Check available tools
+        confluence_tools = confluence_client.get_tools()
+        confluence_tool_names = list(confluence_tools.keys()) if confluence_tools else []
+        
+        # Check for common Confluence tool names
+        has_create_tool = any('create' in name.lower() and 'page' in name.lower() 
+                             for name in confluence_tool_names)
+        has_get_tool = any('get' in name.lower() or 'read' in name.lower() 
+                          for name in confluence_tool_names)
+        
+        return {
+            'healthy': True,
+            'reason': 'Confluence MCP server is ready',
+            'confluence_tools_available': True,
+            'confluence_tool_count': len(confluence_tool_names),
+            'confluence_tool_names': confluence_tool_names,
+            'has_create_page_tool': has_create_tool,
+            'has_get_page_tool': has_get_tool,
+            'server_name': confluence_client.server_name
+        }
 

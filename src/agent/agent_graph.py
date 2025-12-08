@@ -245,9 +245,19 @@ class ChatbotAgent:
         print(f"🔍 LangGraph: Detecting intent for input: '{user_input[:50]}...'")
         
         # Comprehensive keyword-based detection (avoid LLM call when possible)
-        jira_creation_keywords = ['create jira', 'create issue', 'create ticket', 'create backlog', 
-                                  'new jira', 'new issue', 'new ticket', 'add jira', 'add issue',
-                                  'make jira', 'make issue', 'make ticket']
+        # Include variations with articles (a, an, the) and common phrases
+        jira_creation_keywords = [
+            'create jira', 'create issue', 'create ticket', 'create backlog',
+            'create a jira', 'create an issue', 'create a ticket', 'create a backlog',
+            'create the jira', 'create the issue', 'create the ticket',
+            'new jira', 'new issue', 'new ticket', 'new backlog',
+            'add jira', 'add issue', 'add ticket',
+            'make jira', 'make issue', 'make ticket',
+            'jira ticket', 'jira issue', 'jira backlog',
+            'open jira', 'open issue', 'open ticket',
+            'generate jira', 'generate issue', 'generate ticket',
+            'submit jira', 'submit issue', 'submit ticket'
+        ]
         
         # Expanded RAG keywords for knowledge/documentation queries
         rag_keywords = ['what is', 'what are', 'how to', 'how do', 'explain', 'tell me about',
@@ -259,12 +269,46 @@ class ChatbotAgent:
                                 'how are you', 'thanks', 'thank you', 'bye', 'goodbye',
                                 'help', 'assist', 'chat', 'talk']
         
+        # Confluence tooling background queries - route to general chat
+        confluence_tooling_keywords = ['confluence tool', 'confluence api', 'confluence integration',
+                                      'how does confluence', 'what is confluence tool',
+                                      'confluence background', 'confluence setup', 'confluence config']
+        
+        # Check for Confluence tooling background queries first (route to general chat)
+        if any(keyword in user_input for keyword in confluence_tooling_keywords):
+            state["intent"] = "general_chat"
+            print(f"  → Intent: general_chat (Confluence tooling query)")
+            return state
+        
         # Check for Jira creation intent keywords
+        # Use more flexible matching - check if any keyword appears in the input
+        # Also check for common patterns like "create a jira ticket", "pls create jira", etc.
+        jira_patterns = [
+            r'\b(create|make|add|new|open|generate|submit)\s+(a\s+)?(jira|issue|ticket|backlog)',
+            r'\b(jira|issue|ticket)\s+(create|creation|ticket|issue)',
+            r'pls\s+create\s+(a\s+)?(jira|issue|ticket)',
+            r'please\s+create\s+(a\s+)?(jira|issue|ticket)'
+        ]
+        
+        # First try simple keyword matching (faster)
         if any(keyword in user_input for keyword in jira_creation_keywords):
-            if self.jira_tool:
+            # Check if we have either custom tool or MCP tool available
+            has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
+            if has_jira_capability:
                 state["intent"] = "jira_creation"
                 print(f"  → Intent: jira_creation (keyword match)")
                 return state
+        
+        # Then try regex patterns for more complex phrases
+        import re
+        for pattern in jira_patterns:
+            if re.search(pattern, user_input, re.IGNORECASE):
+                # Check if we have either custom tool or MCP tool available
+                has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
+                if has_jira_capability:
+                    state["intent"] = "jira_creation"
+                    print(f"  → Intent: jira_creation (pattern match: {pattern})")
+                    return state
         
         # Check for RAG intent keywords (knowledge/documentation queries)
         if any(keyword in user_input for keyword in rag_keywords):
@@ -288,21 +332,28 @@ class ChatbotAgent:
         """Route to appropriate node based on detected intent."""
         intent = state.get("intent", "general_chat")
         
+        # For general chat and RAG queries, don't initialize MCP - it's not needed
+        if intent in ["general_chat", "rag_query"]:
+            return intent
+        
+        # Only check for Jira tools if intent is jira_creation
         # Only route to jira_creation if we have tools available (MCP or custom)
         has_jira_tool = False
-        if self.use_mcp and self.mcp_integration:
-            # Check if MCP tool is available
-            if not self.mcp_integration._initialized:
-                try:
-                    import asyncio
-                    asyncio.run(self.mcp_integration.initialize())
-                except Exception:
-                    pass
-            if self.mcp_integration.has_tool('create_jira_issue'):
+        if intent == "jira_creation":
+            # Check custom tool first (no initialization needed)
+            if self.jira_tool:
                 has_jira_tool = True
-        
-        if not has_jira_tool and self.jira_tool:
-            has_jira_tool = True
+            # Then check MCP tool (only initialize if needed)
+            elif self.use_mcp and self.mcp_integration:
+                # Don't initialize here - let _handle_jira_creation do it
+                # Just check if it's already initialized and has the tool
+                if self.mcp_integration._initialized:
+                    if self.mcp_integration.has_tool('create_jira_issue'):
+                        has_jira_tool = True
+                else:
+                    # MCP not initialized yet, but we have MCP enabled
+                    # Will initialize in _handle_jira_creation
+                    has_jira_tool = True  # Assume it will be available after init
         
         if intent == "jira_creation" and has_jira_tool:
             return "jira_creation"
@@ -311,10 +362,154 @@ class ChatbotAgent:
         else:
             return "general_chat"
     
+    def _retrieve_confluence_page_info(self, page_id: str = None, page_title: str = None) -> Dict[str, Any]:
+        """
+        Retrieve Confluence page information using MCP API.
+        
+        Args:
+            page_id: Confluence page ID
+            page_title: Confluence page title (alternative to page_id)
+            
+        Returns:
+            Dictionary with page information or error
+        """
+        use_mcp = self.use_mcp and self.mcp_integration is not None
+        
+        if not use_mcp:
+            return {'success': False, 'error': 'MCP not enabled'}
+        
+        # Initialize MCP if needed (with timeout to prevent blocking)
+        if not self.mcp_integration._initialized:
+            try:
+                import asyncio
+                import concurrent.futures
+                # Initialize with timeout to prevent blocking
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.mcp_integration.initialize())
+                    try:
+                        future.result(timeout=15.0)  # 15 second timeout for initialization
+                    except concurrent.futures.TimeoutError:
+                        return {'success': False, 'error': 'MCP initialization timeout'}
+            except Exception as e:
+                return {'success': False, 'error': f'MCP initialization failed: {str(e)}'}
+        
+        # Try to find MCP tool for retrieving Confluence pages
+        mcp_tool_names = ['get_confluence_page', 'confluence_get_page', 'get_page', 
+                         'confluence_page_get', 'read_confluence_page', 'confluence_read_page']
+        mcp_tool = None
+        
+        for tool_name in mcp_tool_names:
+            mcp_tool = self.mcp_integration.get_tool(tool_name)
+            if mcp_tool:
+                print(f"✓ Found MCP Confluence retrieval tool: {tool_name}")
+                break
+        
+        if not mcp_tool:
+            return {'success': False, 'error': 'MCP Confluence retrieval tool not available'}
+        
+        try:
+            print(f"🚀 [MCP PROTOCOL] Retrieving Confluence page info...")
+            print(f"   MCP Tool: {mcp_tool.name}")
+            if page_id:
+                print(f"   Page ID: {page_id}")
+            if page_title:
+                print(f"   Page Title: {page_title}")
+            
+            # Prepare arguments
+            mcp_args = {}
+            if page_id:
+                mcp_args['page_id'] = page_id
+            if page_title:
+                mcp_args['title'] = page_title
+            if not mcp_args:
+                return {'success': False, 'error': 'Either page_id or page_title must be provided'}
+            
+            # Call MCP tool with timeout
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(mcp_tool.invoke, mcp_args)
+                try:
+                    mcp_result = future.result(timeout=30.0)
+                    
+                    # Parse result
+                    if isinstance(mcp_result, str):
+                        import json
+                        try:
+                            if mcp_result.strip().startswith('```'):
+                                lines = mcp_result.split('\n')
+                                json_lines = [line for line in lines 
+                                             if not line.strip().startswith('```')]
+                                mcp_result = '\n'.join(json_lines)
+                            mcp_data = json.loads(mcp_result)
+                        except json.JSONDecodeError:
+                            # If not JSON, return as text
+                            return {'success': True, 'content': mcp_result, 'tool_used': 'MCP Protocol'}
+                    elif isinstance(mcp_result, dict):
+                        mcp_data = mcp_result
+                    else:
+                        return {'success': False, 'error': f'Unexpected result type: {type(mcp_result)}'}
+                    
+                    if isinstance(mcp_data, dict):
+                        mcp_data['tool_used'] = 'MCP Protocol'
+                        return mcp_data
+                    
+                except concurrent.futures.TimeoutError:
+                    return {'success': False, 'error': 'MCP tool call timeout after 30 seconds'}
+                    
+        except Exception as e:
+            return {'success': False, 'error': f'MCP tool call failed: {str(e)}'}
+    
     def _handle_general_chat(self, state: AgentState) -> AgentState:
         """Handle general conversation."""
         messages = state.get("messages", [])
         user_input = state.get("user_input", "")
+        
+        # Check if user is asking about a Confluence page (e.g., "what is the confluence page for PROJ-123")
+        # Extract potential page references from user input
+        import re
+        confluence_page_patterns = [
+            r'confluence page (?:for|about|of) ([A-Z]+-\d+)',  # "confluence page for PROJ-123"
+            r'confluence page (?:with )?(?:id|page[_\s]?id)[\s:=]+(\d+)',  # "confluence page id 12345"
+            r'confluence page (?:titled|title)[\s:]+(.+?)(?:\?|$)',  # "confluence page titled X"
+        ]
+        
+        page_id = None
+        page_title = None
+        
+        for pattern in confluence_page_patterns:
+            match = re.search(pattern, user_input, re.IGNORECASE)
+            if match:
+                if 'id' in pattern.lower():
+                    page_id = match.group(1)
+                elif 'title' in pattern.lower():
+                    page_title = match.group(1).strip()
+                else:
+                    # Could be a Jira issue key, try to get Confluence page from state
+                    issue_key = match.group(1)
+                    # Check if we have confluence_result in state from previous creation
+                    confluence_result = state.get("confluence_result")
+                    if confluence_result and confluence_result.get('success'):
+                        page_id = confluence_result.get('id')
+                        page_title = confluence_result.get('title')
+                break
+        
+        # If we found a page reference, try to retrieve it using MCP
+        if page_id or page_title:
+            print(f"🔍 Detected Confluence page query, attempting MCP retrieval...")
+            page_info = self._retrieve_confluence_page_info(page_id=page_id, page_title=page_title)
+            
+            if page_info.get('success'):
+                # Add page info to context
+                page_context = f"\n\nConfluence Page Information (retrieved via MCP Protocol):\n"
+                page_context += f"Title: {page_info.get('title', 'N/A')}\n"
+                page_context += f"Link: {page_info.get('link', 'N/A')}\n"
+                if page_info.get('content'):
+                    content_preview = str(page_info.get('content', ''))[:500]
+                    page_context += f"Content Preview: {content_preview}...\n"
+                user_input = user_input + page_context
+                print(f"✓ Retrieved Confluence page info via MCP Protocol")
+            else:
+                print(f"⚠ Could not retrieve Confluence page via MCP: {page_info.get('error', 'Unknown error')}")
         
         # Add system message if not present
         if not messages or not isinstance(messages[0], SystemMessage):
@@ -345,17 +540,94 @@ class ChatbotAgent:
                     elapsed = time.time() - start_time
                     print(f"⚠ LLM response timeout ({elapsed:.2f}s) for general chat")
                     print(f"   Check: API key validity, network connection, model name")
-                    error_msg = AIMessage(content="I apologize, but the request timed out. Please check your OpenAI API key and network connection. The API may be slow or unavailable.")
+                    error_msg = AIMessage(
+                        content="I apologize, but the request timed out. Please check your API key and network connection. The API may be slow or unavailable."
+                    )
+                    messages.append(error_msg)
+                    state["messages"] = messages
+                except Exception as executor_error:
+                    # Handle errors from the executor (like connection errors)
+                    elapsed = time.time() - start_time
+                    error_type = type(executor_error).__name__
+                    error_str = str(executor_error).lower()
+                    print(f"⚠ LLM call error after {elapsed:.2f}s: {executor_error}")
+                    print(f"   Error type: {error_type}")
+                    
+                    # Detect error category by checking both type name and error message
+                    is_connection_error = (
+                        'Connection' in error_type or 
+                        'connection' in error_str or
+                        'connect' in error_str or
+                        'network' in error_str or
+                        'unreachable' in error_str or
+                        'timeout' in error_str
+                    )
+                    is_auth_error = (
+                        'Authentication' in error_type or 
+                        'auth' in error_str or 
+                        'api key' in error_str or
+                        'unauthorized' in error_str or
+                        'invalid' in error_str and 'key' in error_str
+                    )
+                    is_rate_limit_error = (
+                        'RateLimit' in error_type or 
+                        'rate limit' in error_str or
+                        'rate_limit' in error_str
+                    )
+                    
+                    # Provide user-friendly error messages based on error category
+                    if is_connection_error:
+                        user_message = (
+                            "I apologize, but I'm having trouble connecting to the AI service. "
+                            "This could be due to:\n"
+                            "- Network connectivity issues\n"
+                            "- API service temporarily unavailable\n"
+                            "- Firewall or proxy settings\n\n"
+                            "Please check your network connection and try again."
+                        )
+                        # Don't print traceback for connection errors - they're common and expected
+                        print(f"   → Connection error detected, providing user-friendly message")
+                    elif is_auth_error:
+                        user_message = (
+                            "I apologize, but there's an authentication issue. "
+                            "Please check that your API key is correctly configured and has the necessary permissions."
+                        )
+                        print(f"   → Authentication error detected")
+                    elif is_rate_limit_error:
+                        user_message = (
+                            "I apologize, but the API rate limit has been exceeded. "
+                            "Please wait a moment and try again."
+                        )
+                        print(f"   → Rate limit error detected")
+                    else:
+                        # Generic error message for unexpected errors
+                        user_message = (
+                            f"I apologize, but I encountered an error. "
+                            "Please check your API key and network connection, or try again later."
+                        )
+                        # Print traceback for unexpected errors to help with debugging
+                        import traceback
+                        traceback.print_exc()
+                    
+                    error_msg = AIMessage(content=user_message)
                     messages.append(error_msg)
                     state["messages"] = messages
         except Exception as e:
-            print(f"⚠ LLM call error: {e}")
-            print(f"   Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
-            error_msg = AIMessage(content=f"I apologize, but I encountered an error: {str(e)}. Please check your API key and network connection.")
+            # Catch any other unexpected errors
+            error_type = type(e).__name__
+            print(f"⚠ Unexpected error in general chat: {e}")
+            print(f"   Error type: {error_type}")
+            
+            # Provide a generic but helpful error message
+            error_msg = AIMessage(
+                content="I apologize, but I encountered an unexpected error. Please try again, or check your configuration if the problem persists."
+            )
             messages.append(error_msg)
             state["messages"] = messages
+            
+            # Print traceback for unexpected errors
+            import traceback
+            traceback.print_exc()
         
         return state
     
@@ -469,73 +741,146 @@ class ChatbotAgent:
             
             # Track which tool will be used
             tool_used = "Custom Tool"  # Default to custom tool
+            result = None  # Initialize result variable
             
             # Create Jira issue using MCP tool if available, otherwise use custom tool
             if use_mcp and mcp_jira_tool:
                 tool_used = "MCP Tool"
                 print("🚀 Creating Jira issue via MCP tool...")
+                print(f"   Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
+                print(f"   Priority: {backlog_data.get('priority', 'Medium')}")
+                
                 try:
-                    # Call MCP tool using synchronous invoke method
-                    mcp_result = mcp_jira_tool.invoke({
-                        'summary': backlog_data.get('summary', 'Untitled Issue'),
-                        'description': backlog_data.get('description', ''),
-                        'priority': backlog_data.get('priority', 'Medium'),
-                        'issue_type': backlog_data.get('issue_type', 'Story')
-                    })
+                    # Call MCP tool with additional timeout wrapper for safety
+                    import time
+                    start_time = time.time()
                     
-                    # Parse MCP result (should be JSON string from MCP server)
-                    try:
-                        mcp_data = None
-                        # Try to parse as JSON
-                        if isinstance(mcp_result, str):
-                            # Remove any markdown code blocks if present
-                            cleaned_result = mcp_result.strip()
-                            if cleaned_result.startswith('```'):
-                                # Extract JSON from code block
-                                lines = cleaned_result.split('\n')
-                                json_lines = [line for line in lines if not line.strip().startswith('```')]
-                                cleaned_result = '\n'.join(json_lines)
-                            mcp_data = json.loads(cleaned_result)
-                        elif isinstance(mcp_result, dict):
-                            # Already a dict
-                            mcp_data = mcp_result
-                        else:
-                            # Try to convert to string first, then parse
-                            str_result = str(mcp_result)
-                            if str_result.startswith('```'):
-                                lines = str_result.split('\n')
-                                json_lines = [line for line in lines if not line.strip().startswith('```')]
-                                str_result = '\n'.join(json_lines)
-                            mcp_data = json.loads(str_result)
-                        
-                        if mcp_data.get('success'):
-                            result = {
-                                'success': True,
-                                'key': mcp_data.get('ticket_id') or mcp_data.get('issue_key'),
-                                'link': mcp_data.get('link', f"{Config.JIRA_URL}/browse/{mcp_data.get('ticket_id', '')}"),
-                                'created_by': mcp_data.get('created_by', 'MCP_SERVER'),
-                                'tool_used': mcp_data.get('tool_used', 'custom-jira-mcp-server')
+                    # Call MCP tool using synchronous invoke method with timeout
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            mcp_jira_tool.invoke,
+                            {
+                                'summary': backlog_data.get('summary', 'Untitled Issue'),
+                                'description': backlog_data.get('description', ''),
+                                'priority': backlog_data.get('priority', 'Medium'),
+                                'issue_type': backlog_data.get('issue_type', 'Story')
                             }
-                            print(f"✅ Created issue {result['key']} via MCP tool")
-                        else:
-                            result = {'success': False, 'error': mcp_data.get('error', 'Unknown error')}
-                            print(f"❌ MCP Tool failed: {result['error']}")
-                    except json.JSONDecodeError as e:
-                        # If not JSON, treat as error message
-                        print(f"❌ MCP Tool failed: Invalid response format")
-                        result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
+                        )
+                        try:
+                            mcp_result = future.result(timeout=75.0)  # 75 second timeout (MCP has 60s internal, add buffer)
+                            elapsed = time.time() - start_time
+                            print(f"   MCP tool call completed in {elapsed:.2f}s")
+                        except concurrent.futures.TimeoutError:
+                            elapsed = time.time() - start_time
+                            print(f"⚠ MCP tool call timed out after {elapsed:.2f}s")
+                            print("   Falling back to custom tool")
+                            tool_used = "Custom Tool (MCP timeout fallback)"
+                            result = self.jira_tool.create_issue(
+                                summary=backlog_data.get('summary', 'Untitled Issue'),
+                                description=backlog_data.get('description', ''),
+                                priority=backlog_data.get('priority', 'Medium')
+                            )
+                            if result.get('success'):
+                                print(f"✅ Created issue {result.get('key', 'N/A')} via custom tool (MCP timeout)")
+                            else:
+                                result = {'success': False, 'error': 'MCP tool timed out and custom tool also failed'}
+                            # Skip JSON parsing, use the result directly
+                            mcp_result = None
+                    
+                    if mcp_result is not None:
+                        # Parse MCP result (should be JSON string from MCP server)
+                        try:
+                            mcp_data = None
+                            
+                            # Check if result is an error message first
+                            if isinstance(mcp_result, str):
+                                # Check for timeout or error messages
+                                if 'timed out' in mcp_result.lower() or 'timeout' in mcp_result.lower():
+                                    print(f"⚠ MCP tool returned timeout error: {mcp_result}")
+                                    raise Exception(f"MCP tool timeout: {mcp_result}")
+                                if mcp_result.strip().startswith('Error:'):
+                                    error_msg = mcp_result.replace('Error:', '').strip()
+                                    print(f"⚠ MCP tool returned error: {error_msg}")
+                                    raise Exception(f"MCP tool error: {error_msg}")
+                                
+                                # Try to parse as JSON
+                                cleaned_result = mcp_result.strip()
+                                if cleaned_result.startswith('```'):
+                                    # Extract JSON from code block
+                                    lines = cleaned_result.split('\n')
+                                    json_lines = [line for line in lines if not line.strip().startswith('```')]
+                                    cleaned_result = '\n'.join(json_lines)
+                                mcp_data = json.loads(cleaned_result)
+                            elif isinstance(mcp_result, dict):
+                                # Already a dict
+                                mcp_data = mcp_result
+                            else:
+                                # Try to convert to string first, then parse
+                                str_result = str(mcp_result)
+                                if str_result.startswith('```'):
+                                    lines = str_result.split('\n')
+                                    json_lines = [line for line in lines if not line.strip().startswith('```')]
+                                    str_result = '\n'.join(json_lines)
+                                mcp_data = json.loads(str_result)
+                            
+                            if mcp_data and mcp_data.get('success'):
+                                result = {
+                                    'success': True,
+                                    'key': mcp_data.get('ticket_id') or mcp_data.get('issue_key'),
+                                    'link': mcp_data.get('link', f"{Config.JIRA_URL}/browse/{mcp_data.get('ticket_id', '')}"),
+                                    'created_by': mcp_data.get('created_by', 'MCP_SERVER'),
+                                    'tool_used': mcp_data.get('tool_used', 'custom-jira-mcp-server')
+                                }
+                                print(f"✅ Created issue {result['key']} via MCP tool")
+                            else:
+                                error_msg = mcp_data.get('error', 'Unknown error') if mcp_data else 'Invalid response'
+                                print(f"❌ MCP Tool failed: {error_msg}")
+                                # Fall back to custom tool
+                                tool_used = "Custom Tool (MCP error fallback)"
+                                result = self.jira_tool.create_issue(
+                                    summary=backlog_data.get('summary', 'Untitled Issue'),
+                                    description=backlog_data.get('description', ''),
+                                    priority=backlog_data.get('priority', 'Medium')
+                                )
+                        except json.JSONDecodeError as e:
+                            # If not JSON, check if it's an error message
+                            if isinstance(mcp_result, str) and ('error' in mcp_result.lower() or 'timeout' in mcp_result.lower()):
+                                print(f"⚠ MCP Tool returned error message: {mcp_result[:200]}")
+                                # Fall back to custom tool
+                                tool_used = "Custom Tool (MCP parse error fallback)"
+                                result = self.jira_tool.create_issue(
+                                    summary=backlog_data.get('summary', 'Untitled Issue'),
+                                    description=backlog_data.get('description', ''),
+                                    priority=backlog_data.get('priority', 'Medium')
+                                )
+                            else:
+                                print(f"❌ MCP Tool failed: Invalid response format")
+                                result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
                 except Exception as e:
-                    print(f"❌ MCP tool call failed: {e}")
-                    print("   Falling back to custom tool")
-                    import traceback
-                    traceback.print_exc()
-                    # Fall back to custom tool
-                    tool_used = "Custom Tool (MCP fallback)"
-                    result = self.jira_tool.create_issue(
-                        summary=backlog_data.get('summary', 'Untitled Issue'),
-                        description=backlog_data.get('description', ''),
-                        priority=backlog_data.get('priority', 'Medium')
-                    )
+                    error_str = str(e).lower()
+                    if 'timeout' in error_str or 'timed out' in error_str:
+                        print(f"⚠ MCP tool call timed out: {e}")
+                        print("   Falling back to custom tool")
+                    else:
+                        print(f"❌ MCP tool call failed: {e}")
+                        print("   Falling back to custom tool")
+                        import traceback
+                        traceback.print_exc()
+                    
+                    # Fall back to custom tool if result is None or failed
+                    if result is None or not result.get('success'):
+                        tool_used = "Custom Tool (MCP fallback)"
+                        try:
+                            result = self.jira_tool.create_issue(
+                                summary=backlog_data.get('summary', 'Untitled Issue'),
+                                description=backlog_data.get('description', ''),
+                                priority=backlog_data.get('priority', 'Medium')
+                            )
+                            if result.get('success'):
+                                print(f"✅ Created issue {result.get('key', 'N/A')} via custom tool (fallback)")
+                        except Exception as fallback_error:
+                            print(f"❌ Custom tool also failed: {fallback_error}")
+                            result = {'success': False, 'error': f'MCP tool failed: {str(e)}. Custom tool also failed: {str(fallback_error)}'}
             else:
                 # Use custom tool
                 print("\n🔧 Using Custom JiraTool to create Jira issue...")
@@ -553,7 +898,11 @@ class ChatbotAgent:
             
             print("=" * 70)
             
-            if result.get('success'):
+            # Ensure result is set
+            if result is None:
+                result = {'success': False, 'error': 'No result from Jira creation attempt'}
+            
+            if result and result.get('success'):
                 state["jira_result"] = {
                     "success": True,
                     "key": result['key'],
@@ -567,14 +916,48 @@ class ChatbotAgent:
                            f"_(Created using {tool_used})_"
                 ))
             else:
-                state["jira_result"] = {"success": False, "error": result.get('error')}
-                state["messages"].append(AIMessage(
-                    content=f"❌ Failed to create Jira issue: {result.get('error', 'Unknown error')}"
-                ))
+                error_msg = result.get('error', 'Unknown error') if result else 'No result returned'
+                state["jira_result"] = {"success": False, "error": error_msg}
+                
+                # Provide user-friendly error message
+                if 'timeout' in error_msg.lower() or 'timed out' in error_msg.lower():
+                    user_message = (
+                        f"❌ **Jira Creation Timeout**\n\n"
+                        f"The request to create a Jira issue timed out. This could be due to:\n"
+                        f"- Network connectivity issues\n"
+                        f"- Jira server being slow or temporarily unavailable\n"
+                        f"- MCP server taking too long to respond\n\n"
+                        f"**What happened:**\n"
+                        f"- Attempted to use MCP protocol first\n"
+                        f"- Request timed out after 60+ seconds\n"
+                        f"- Attempted fallback to direct API\n\n"
+                        f"**Please try:**\n"
+                        f"- Check your network connection\n"
+                        f"- Verify Jira server is accessible\n"
+                        f"- Try again in a few moments"
+                    )
+                else:
+                    user_message = f"❌ **Failed to create Jira issue**\n\nError: {error_msg}\n\nPlease check your Jira configuration and try again."
+                
+                state["messages"].append(AIMessage(content=user_message))
         except Exception as e:
             error_msg = f"Error creating Jira issue: {str(e)}"
             state["jira_result"] = {"success": False, "error": error_msg}
-            state["messages"].append(AIMessage(content=f"❌ {error_msg}"))
+            
+            # Provide user-friendly error message
+            error_str = str(e).lower()
+            if 'timeout' in error_str or 'timed out' in error_str:
+                user_message = (
+                    f"❌ **Jira Creation Timeout**\n\n"
+                    f"The request timed out while creating the Jira issue. "
+                    f"Please check your network connection and Jira server status, then try again."
+                )
+            else:
+                user_message = f"❌ **Error creating Jira issue**\n\n{error_msg}\n\nPlease check your configuration and try again."
+            
+            state["messages"].append(AIMessage(content=user_message))
+            import traceback
+            traceback.print_exc()
         
         return state
     
@@ -634,18 +1017,18 @@ class ChatbotAgent:
         """Route after evaluation - decide if we should create Confluence page."""
         # Create Confluence page if tool is available and Jira was created successfully
         # Even if evaluation failed, we can still create the page with basic info
-        if self.confluence_tool and state.get("jira_result", {}).get("success"):
+        # Check for both custom tool and MCP tool
+        has_confluence_capability = (
+            self.confluence_tool or 
+            (self.use_mcp and self.mcp_integration is not None)
+        )
+        
+        if has_confluence_capability and state.get("jira_result", {}).get("success"):
             return "confluence_creation"
         return "end"
     
     def _handle_confluence_creation(self, state: AgentState) -> AgentState:
-        """Create Confluence page for the Jira issue."""
-        if not self.confluence_tool:
-            state["messages"].append(AIMessage(
-                content="⚠ Confluence tool is not configured. Skipping page creation."
-            ))
-            return state
-        
+        """Create Confluence page for the Jira issue using MCP protocol with fallback."""
         jira_result = state.get("jira_result", {})
         evaluation_result = state.get("evaluation_result", {})
         backlog_data = jira_result.get("backlog_data", {})
@@ -669,45 +1052,223 @@ class ChatbotAgent:
                 jira_link=jira_result["link"]
             )
             
-            # Create page
-            confluence_result = self.confluence_tool.create_page(
-                title=f"{issue_key}: {backlog_data.get('summary', 'Untitled')}",
-                content=confluence_content
-            )
+            page_title = f"{issue_key}: {backlog_data.get('summary', 'Untitled')}"
             
-            if confluence_result.get('success'):
+            # Try MCP protocol first if enabled
+            use_mcp = self.use_mcp and self.mcp_integration is not None
+            confluence_result = None
+            tool_used = None
+            
+            if use_mcp:
+                # Initialize MCP if needed (with timeout to prevent blocking)
+                if not self.mcp_integration._initialized:
+                    print("🔄 Initializing MCP integration for Confluence...")
+                    try:
+                        import asyncio
+                        import concurrent.futures
+                        # Initialize with timeout to prevent blocking
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, self.mcp_integration.initialize())
+                            try:
+                                future.result(timeout=15.0)  # 15 second timeout for initialization
+                                print("✓ MCP integration initialized for Confluence")
+                            except concurrent.futures.TimeoutError:
+                                print(f"⚠ MCP initialization timeout (15s) for Confluence")
+                                use_mcp = False
+                    except Exception as e:
+                        print(f"⚠ MCP initialization failed: {e}")
+                        use_mcp = False
+                
+                # Try to get MCP Confluence tool
+                if use_mcp:
+                    # Only get tools if MCP is initialized (don't trigger initialization here)
+                    if self.mcp_integration._initialized:
+                        all_tools = self.mcp_integration.get_tools()
+                        print(f"🔍 [MCP PROTOCOL] Available MCP tools: {[tool.name for tool in all_tools]}")
+                    else:
+                        print(f"🔍 [MCP PROTOCOL] MCP not initialized yet, skipping tool discovery")
+                        all_tools = []
+                    
+                    # Look for Confluence tools - check both exact names and patterns
+                    mcp_confluence_tool = None
+                    confluence_tool_candidates = []
+                    
+                    # Common MCP tool names for Confluence page creation (including Rovo server names)
+                    tool_name_patterns = [
+                        'create_confluence_page', 'confluence_create_page', 
+                        'create_page', 'confluence_page_create',
+                        'confluence_create', 'create_confluence',
+                        'atlassian_confluence_create_page', 'atlassian_create_page',
+                        'rovo_create_page', 'rovo_confluence_create'
+                    ]
+                    
+                    # First try exact name matches
+                    for tool_name in tool_name_patterns:
+                        tool = self.mcp_integration.get_tool(tool_name)
+                        if tool:
+                            confluence_tool_candidates.append((tool_name, tool))
+                            print(f"  ✓ Found potential Confluence tool: {tool_name}")
+                    
+                    # If no exact match, search through all tools for Confluence-related ones
+                    if not confluence_tool_candidates:
+                        for tool in all_tools:
+                            tool_name_lower = tool.name.lower()
+                            # Check if tool name contains confluence/page/create keywords
+                            if any(keyword in tool_name_lower for keyword in 
+                                  ['confluence', 'page', 'create', 'rovo']):
+                                if 'create' in tool_name_lower or 'page' in tool_name_lower:
+                                    confluence_tool_candidates.append((tool.name, tool))
+                                    print(f"  ✓ Found potential Confluence tool by pattern: {tool.name}")
+                    
+                    # Use the first candidate found
+                    if confluence_tool_candidates:
+                        tool_name, mcp_confluence_tool = confluence_tool_candidates[0]
+                        print(f"✓ Selected MCP Confluence tool: {tool_name}")
+                    
+                    if mcp_confluence_tool:
+                        print(f"🚀 [MCP PROTOCOL] Creating Confluence page via MCP tool...")
+                        print(f"   MCP Tool: {mcp_confluence_tool.name}")
+                        print(f"   Title: {page_title}")
+                        tool_used = "MCP Protocol"
+                        
+                        try:
+                            # Call MCP tool with timeout
+                            import asyncio
+                            import concurrent.futures
+                            
+                            # Prepare arguments for MCP tool
+                            # Try different parameter name variations based on common MCP server patterns
+                            # Rovo server might use different parameter names
+                            mcp_args = {
+                                'title': page_title,
+                                'content': confluence_content,
+                                'space_key': Config.CONFLUENCE_SPACE_KEY,
+                                'spaceKey': Config.CONFLUENCE_SPACE_KEY,  # camelCase variant
+                                'space': Config.CONFLUENCE_SPACE_KEY,
+                                'body': confluence_content,  # Some servers use 'body' instead of 'content'
+                                'html': confluence_content,  # Some servers expect HTML
+                                'text': confluence_content  # Some servers expect plain text
+                            }
+                            
+                            # Log the tool being used and arguments
+                            print(f"   Tool Name: {mcp_confluence_tool.name}")
+                            print(f"   Arguments: title='{page_title[:50]}...', space_key='{Config.CONFLUENCE_SPACE_KEY}'")
+                            
+                            # Try calling MCP tool with timeout
+                            with concurrent.futures.ThreadPoolExecutor() as executor:
+                                future = executor.submit(mcp_confluence_tool.invoke, mcp_args)
+                                try:
+                                    mcp_result = future.result(timeout=30.0)  # 30 second timeout
+                                    
+                                    # Parse MCP result
+                                    if isinstance(mcp_result, str):
+                                        # Try to parse as JSON
+                                        import json
+                                        try:
+                                            if mcp_result.strip().startswith('```'):
+                                                # Extract JSON from code block
+                                                lines = mcp_result.split('\n')
+                                                json_lines = [line for line in lines 
+                                                             if not line.strip().startswith('```')]
+                                                mcp_result = '\n'.join(json_lines)
+                                            mcp_data = json.loads(mcp_result)
+                                        except json.JSONDecodeError:
+                                            # If not JSON, check if it contains success indicators
+                                            if 'success' in mcp_result.lower() or 'created' in mcp_result.lower():
+                                                # Extract page ID and link if possible
+                                                confluence_result = {
+                                                    'success': True,
+                                                    'title': page_title,
+                                                    'link': f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId=unknown",
+                                                    'tool_used': 'MCP Protocol'
+                                                }
+                                            else:
+                                                raise Exception(f"MCP tool returned unexpected format: {mcp_result[:200]}")
+                                    elif isinstance(mcp_result, dict):
+                                        mcp_data = mcp_result
+                                    else:
+                                        mcp_data = {'success': False, 'error': f'Unexpected result type: {type(mcp_result)}'}
+                                    
+                                    if isinstance(mcp_data, dict):
+                                        if mcp_data.get('success'):
+                                            confluence_result = {
+                                                'success': True,
+                                                'id': mcp_data.get('id') or mcp_data.get('page_id'),
+                                                'title': mcp_data.get('title', page_title),
+                                                'link': mcp_data.get('link') or 
+                                                       f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={mcp_data.get('id', 'unknown')}",
+                                                'tool_used': 'MCP Protocol'
+                                            }
+                                            print(f"✅ [MCP PROTOCOL] Confluence page created successfully")
+                                        else:
+                                            raise Exception(mcp_data.get('error', 'Unknown MCP error'))
+                                    
+                                except concurrent.futures.TimeoutError:
+                                    print(f"⚠ [MCP PROTOCOL] Timeout after 30 seconds, falling back to direct API")
+                                    tool_used = None  # Will trigger fallback
+                                    raise asyncio.TimeoutError("MCP tool call timeout")
+                                    
+                        except (asyncio.TimeoutError, Exception) as e:
+                            print(f"⚠ [MCP PROTOCOL] Failed: {str(e)}")
+                            print(f"   Falling back to direct Confluence API call")
+                            tool_used = None  # Will trigger fallback
+                            use_mcp = False
+            
+            # Fallback to direct API if MCP failed or not available
+            if not confluence_result and self.confluence_tool:
+                if use_mcp:
+                    print(f"⚠ [MCP PROTOCOL] MCP tool not found or failed, falling back to direct API")
+                    if self.mcp_integration and self.mcp_integration._initialized:
+                        available_tools = [tool.name for tool in self.mcp_integration.get_tools()]
+                        print(f"   Available MCP tools: {available_tools}")
+                        if not available_tools:
+                            print(f"   ⚠ No MCP tools available - MCP integration may not be properly initialized")
+                else:
+                    print(f"⚠ [MCP PROTOCOL] MCP not enabled, using direct API")
+                print(f"🔧 [DIRECT API] Creating Confluence page via direct API call...")
+                tool_used = "Direct API"
+                confluence_result = self.confluence_tool.create_page(
+                    title=page_title,
+                    content=confluence_content
+                )
+                if confluence_result.get('success'):
+                    confluence_result['tool_used'] = 'Direct API'
+            
+            # Handle result
+            if confluence_result and confluence_result.get('success'):
                 state["confluence_result"] = confluence_result
+                tool_info = f" (via {tool_used})" if tool_used else ""
                 state["messages"].append(AIMessage(
-                    content=f"📄 **Confluence Page Created:**\n"
+                    content=f"📄 **Confluence Page Created{tool_info}:**\n"
                            f"Title: {confluence_result['title']}\n"
                            f"Link: {confluence_result['link']}"
                 ))
                 print(f"✓ Confluence page created: {confluence_result['link']}")
             else:
-                error_msg = confluence_result.get('error', 'Unknown error')
-                detailed_error = f"⚠ **Confluence page creation failed:**\n"
-                detailed_error += f"Error: {error_msg}\n\n"
-                detailed_error += "**Possible causes:**\n"
-                detailed_error += "- CONFLUENCE_URL not configured correctly\n"
-                detailed_error += "- CONFLUENCE_SPACE_KEY not set or invalid\n"
-                detailed_error += "- Insufficient permissions for Confluence API\n"
-                detailed_error += "- Network connectivity issues\n\n"
-                detailed_error += "**To fix:**\n"
-                detailed_error += "1. Check your .env file has CONFLUENCE_URL and CONFLUENCE_SPACE_KEY\n"
-                detailed_error += "2. Verify your API token has Confluence write permissions\n"
-                detailed_error += "3. Ensure the space key exists and you have access\n"
-                detailed_error += "See CONFLUENCE_SETUP.md for details."
-                
-                state["messages"].append(AIMessage(content=detailed_error))
+                error_msg = confluence_result.get('error', 'Unknown error') if confluence_result else 'No tool available'
+                user_friendly_msg = (
+                    f"⚠ **Confluence page creation failed:**\n"
+                    f"The system attempted to create the page but encountered an issue.\n"
+                    f"Error: {error_msg}\n\n"
+                    f"**What happened:**\n"
+                    f"- Tried to use MCP protocol first\n"
+                    f"- Fell back to direct API call\n"
+                    f"- Both methods encountered issues\n\n"
+                    f"**Please check:**\n"
+                    f"- CONFLUENCE_URL and CONFLUENCE_SPACE_KEY in .env file\n"
+                    f"- API token has Confluence write permissions\n"
+                    f"- Network connectivity to Confluence\n"
+                )
+                state["messages"].append(AIMessage(content=user_friendly_msg))
                 print(f"✗ Confluence page creation failed: {error_msg}")
+                
         except Exception as e:
-            error_detail = f"⚠ **Confluence page creation failed:**\n"
-            error_detail += f"Exception: {str(e)}\n\n"
-            error_detail += "Please check:\n"
-            error_detail += "- Confluence configuration in .env file\n"
-            error_detail += "- Network connectivity\n"
-            error_detail += "- API credentials"
-            
+            error_detail = (
+                f"⚠ **Confluence page creation failed:**\n"
+                f"Exception: {str(e)}\n\n"
+                f"The system tried both MCP protocol and direct API methods.\n"
+                f"Please check your Confluence configuration and network connectivity."
+            )
             state["messages"].append(AIMessage(content=error_detail))
             print(f"Error creating Confluence page: {e}")
             import traceback

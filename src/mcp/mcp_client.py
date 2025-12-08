@@ -524,25 +524,30 @@ def create_confluence_mcp_client() -> Optional[MCPClient]:
     """
     Create MCP client for Confluence server.
     
-    Note: Atlassian Rovo MCP Server is disabled.
-    Only community packages are used as fallback.
+    Tries official Atlassian Rovo MCP Server first, then falls back to community packages.
     """
     if not MCP_AVAILABLE:
         return None
     
-    # Rovo MCP Server is disabled - skip it
+    import platform
+    is_windows = platform.system() == 'Windows'
+    npx_cmd = 'npx.cmd' if is_windows else 'npx'
     
-    # Only create if credentials are configured (for community packages)
+    # First, try official Atlassian Rovo MCP Server
+    rovo_client = create_rovo_mcp_client()
+    if rovo_client:
+        # Rename to 'confluence' for consistency
+        rovo_client.server_name = 'confluence'
+        print("✓ Using official Atlassian Rovo MCP Server for Confluence")
+        return rovo_client
+    
+    # Fallback to community packages if credentials are configured
     if not (Config.CONFLUENCE_URL and not Config.CONFLUENCE_URL.startswith('https://yourcompany') and
             Config.CONFLUENCE_SPACE_KEY and Config.CONFLUENCE_SPACE_KEY != 'SPACE' and
             Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
             Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
         print("⚠ Confluence credentials not configured, skipping Confluence MCP server")
         return None
-    
-    import platform
-    is_windows = platform.system() == 'Windows'
-    npx_cmd = 'npx.cmd' if is_windows else 'npx'
     
     # Try community MCP server packages
     mcp_server_options = [
