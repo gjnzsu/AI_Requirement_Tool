@@ -121,7 +121,11 @@ class MCPToolWrapper(StructuredTool):
                     timeout=60.0
                 )
                 
-                if result['success']:
+                # Check both success flag and isError flag
+                is_error = result.get('isError', False)
+                success = result.get('success', False)
+                
+                if success and not is_error:
                     # Extract text content
                     content = result.get('content', [])
                     
@@ -145,8 +149,22 @@ class MCPToolWrapper(StructuredTool):
                     
                     return text if text else "Success"
                 else:
-                    error_msg = f"Error: {result.get('error', 'Unknown error')}"
-                    return error_msg
+                    # Handle error case
+                    error_msg = result.get('error', 'Unknown error')
+                    if is_error:
+                        # If isError is True, try to extract error from content
+                        content = result.get('content', [])
+                        if isinstance(content, list) and len(content) > 0:
+                            first_item = content[0]
+                            if isinstance(first_item, dict):
+                                error_detail = first_item.get('text', str(first_item))
+                                error_msg = f"Error: {error_detail}"
+                            else:
+                                error_msg = f"Error: {str(first_item)}"
+                        elif isinstance(content, str):
+                            error_msg = f"Error: {content}"
+                    
+                    return f"Error: {error_msg}" if not error_msg.startswith('Error:') else error_msg
             except asyncio.TimeoutError:
                 return f"Error: Tool '{captured_tool_name}' execution timed out after 60 seconds. The MCP server may be slow or unresponsive."
             except Exception as e:

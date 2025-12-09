@@ -1,11 +1,16 @@
 """
-MCP (Model Context Protocol) Client Integration.
+MCP Integration Utilities.
 
-This module provides MCP client functionality to connect to MCP servers
-and use their tools in the chatbot.
+Provides reusable utilities for MCP tool integration to prevent common issues.
 """
 
-from .mcp_client import MCPClient, MCPToolAdapter
+from .schema_validator import MCPSchemaValidator, MCPContractTester
+from .argument_builder import SchemaAwareArgumentBuilder
+from .response_parser import MCPResponseParser
 
-__all__ = ['MCPClient', 'MCPToolAdapter']
-
+__all__ = [
+    'MCPSchemaValidator',
+    'MCPContractTester',
+    'SchemaAwareArgumentBuilder',
+    'MCPResponseParser',
+]
