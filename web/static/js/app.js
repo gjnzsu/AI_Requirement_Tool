@@ -2,6 +2,7 @@
 
 let currentConversationId = null;
 let conversations = [];
+let currentModel = 'openai'; // Default model
 
 // DOM Elements
 const chatMessages = document.getElementById('chatMessages');
@@ -11,12 +12,44 @@ const newChatBtn = document.getElementById('newChatBtn');
 const conversationsList = document.getElementById('conversationsList');
 const clearAllBtn = document.getElementById('clearAllBtn');
 const searchInput = document.getElementById('searchInput');
+const modelSelect = document.getElementById('modelSelect');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
+    loadCurrentModel();
     setupEventListeners();
 });
+
+// Load current model from backend
+async function loadCurrentModel() {
+    try {
+        const response = await fetch('/api/current-model');
+        const data = await response.json();
+        
+        if (response.ok && data.model) {
+            // Check if model is supported
+            if (data.available_models.includes(data.model)) {
+                currentModel = data.model;
+                if (modelSelect) {
+                    modelSelect.value = data.model;
+                }
+                // Also update localStorage
+                localStorage.setItem('selectedModel', data.model);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading current model:', error);
+        // Fallback to localStorage or default
+        const savedModel = localStorage.getItem('selectedModel');
+        if (savedModel && (savedModel === 'openai' || savedModel === 'gemini')) {
+            currentModel = savedModel;
+            if (modelSelect) {
+                modelSelect.value = savedModel;
+            }
+        }
+    }
+}
 
 // Event Listeners
 function setupEventListeners() {
@@ -31,6 +64,31 @@ function setupEventListeners() {
     newChatBtn.addEventListener('click', createNewChat);
     clearAllBtn.addEventListener('click', clearAllConversations);
     searchInput.addEventListener('input', filterConversations);
+    
+    // Model selector change handler
+    if (modelSelect) {
+        modelSelect.addEventListener('change', handleModelChange);
+    }
+}
+
+// Handle model selection change
+async function handleModelChange(event) {
+    const selectedModel = event.target.value;
+    currentModel = selectedModel;
+    
+    // Save to localStorage for persistence
+    localStorage.setItem('selectedModel', selectedModel);
+    
+    // Show notification
+    const notification = document.createElement('div');
+    notification.className = 'model-change-notification';
+    notification.textContent = `Model switched to ${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)}`;
+    document.body.appendChild(notification);
+    
+    // Remove notification after 2 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 2000);
 }
 
 // Send message
@@ -62,7 +120,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 message: message,
-                conversation_id: currentConversationId
+                conversation_id: currentConversationId,
+                model: currentModel
             })
         });
         
@@ -381,7 +440,8 @@ async function regenerateMessage(messageId) {
                 },
                 body: JSON.stringify({
                     message: userMessage,
-                    conversation_id: currentConversationId
+                    conversation_id: currentConversationId,
+                    model: currentModel
                 })
             });
             

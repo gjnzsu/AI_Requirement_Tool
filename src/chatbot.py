@@ -288,6 +288,72 @@ class Chatbot:
         
         return fallbacks
     
+    def switch_provider(self, provider_name: str):
+        """
+        Switch the LLM provider dynamically.
+        
+        Args:
+            provider_name: Name of the provider to switch to ('openai', 'gemini', 'deepseek')
+        """
+        provider_name = provider_name.lower()
+        
+        if provider_name not in ['openai', 'gemini', 'deepseek']:
+            raise ValueError(f"Unknown provider '{provider_name}'. Available: openai, gemini, deepseek")
+        
+        # Get API key and model for the new provider
+        if provider_name == 'openai':
+            api_key = Config.OPENAI_API_KEY
+            model = Config.OPENAI_MODEL
+        elif provider_name == 'gemini':
+            api_key = Config.GEMINI_API_KEY
+            model = Config.GEMINI_MODEL
+        elif provider_name == 'deepseek':
+            api_key = Config.DEEPSEEK_API_KEY
+            model = Config.DEEPSEEK_MODEL
+        else:
+            raise ValueError(f"Provider '{provider_name}' not configured")
+        
+        if not api_key:
+            raise ValueError(f"API key not found for provider '{provider_name}'. Please configure it in your environment.")
+        
+        # Create new primary provider
+        new_provider = LLMRouter.get_provider(
+            provider_name=provider_name,
+            api_key=api_key,
+            model=model
+        )
+        
+        # Update provider
+        self.provider_name = provider_name
+        self.llm_provider = new_provider
+        self.provider_manager = None  # Reset manager, can recreate if needed
+        
+        # Update agent if it exists
+        if self.use_agent and self.agent:
+            try:
+                # Update agent's provider name and reinitialize LLM
+                self.agent.provider_name = provider_name
+                # Reinitialize LLM with new provider
+                self.agent.llm = self.agent._initialize_llm(model)
+                print(f"✓ Updated agent with new provider: {provider_name} ({model})")
+            except Exception as e:
+                print(f"⚠ Failed to update agent LLM directly: {e}")
+                # Try to reinitialize the entire agent as fallback
+                try:
+                    self.agent = ChatbotAgent(
+                        provider_name=self.provider_name,
+                        model=model,
+                        temperature=self.temperature,
+                        enable_tools=self.enable_mcp_tools,
+                        rag_service=self.rag_service if self.use_rag else None,
+                        use_mcp=self.use_mcp
+                    )
+                    print(f"✓ Reinitialized agent with new provider: {provider_name} ({model})")
+                except Exception as e2:
+                    print(f"⚠ Failed to reinitialize agent: {e2}")
+        
+        print(f"✓ Switched LLM provider to: {provider_name} ({model})")
+    
     def _initialize_tools(self):
         """Initialize MCP tools (Jira, Confluence) on demand."""
         if self._tools_initialized or not self.enable_mcp_tools:

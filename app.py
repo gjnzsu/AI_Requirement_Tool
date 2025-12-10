@@ -95,9 +95,14 @@ def chat():
         data = request.json
         message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model = data.get('model', 'openai').lower()  # Get model from request, default to openai
         
         if not message:
             return jsonify({'error': 'Message is required'}), 400
+        
+        # Validate model
+        if model not in ['openai', 'gemini']:
+            return jsonify({'error': f'Invalid model: {model}. Supported models: openai, gemini'}), 400
         
         # Get or create conversation
         if not conversation_id or (memory_manager and not memory_manager.get_conversation(conversation_id)):
@@ -109,6 +114,15 @@ def chat():
         
         # Get chatbot response
         chatbot = get_chatbot()
+        
+        # Switch provider if different from current
+        if chatbot.provider_name != model:
+            try:
+                chatbot.switch_provider(model)
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'error': f'Failed to switch model: {str(e)}'}), 500
         
         # Set conversation ID for persistent memory
         chatbot.set_conversation_id(conversation_id)
@@ -276,6 +290,18 @@ def new_chat():
         return jsonify({
             'conversation_id': conversation_id,
             'success': True
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/current-model', methods=['GET'])
+def get_current_model():
+    """Get the current model being used by the chatbot."""
+    try:
+        chatbot = get_chatbot()
+        return jsonify({
+            'model': chatbot.provider_name,
+            'available_models': ['openai', 'gemini']
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
