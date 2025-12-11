@@ -14,49 +14,53 @@ from src.mcp.mcp_integration import MCPIntegration
 from config.config import Config
 
 async def test_mcp_fix():
+    logger = get_logger('test.mcp_fix')
+
     """Test if MCP integration initializes without Pydantic errors."""
-    print("=" * 70)
-    print("Testing MCP Integration Fix")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Testing MCP Integration Fix")
+    logger.info("=" * 70)
+    logger.info("")
     
-    print("1. Creating MCPIntegration instance...")
+    logger.info("1. Creating MCPIntegration instance...")
     try:
         integration = MCPIntegration(use_mcp=True)
-        print("   ✓ MCPIntegration created")
+        logger.info("   ✓ MCPIntegration created")
     except Exception as e:
-        print(f"   ✗ Failed to create MCPIntegration: {e}")
+        logger.error(f"   ✗ Failed to create MCPIntegration: {e}")
         return False
     
-    print()
-    print("2. Initializing MCP servers...")
+    logger.info("")
+    logger.info("2. Initializing MCP servers...")
     try:
         await integration.initialize()
-        print("   ✓ MCP Integration initialized successfully")
+        logger.info("   ✓ MCP Integration initialized successfully")
         
         if integration._initialized:
             tools = integration.get_tools()
-            print(f"   ✓ Found {len(tools)} MCP tools")
+            logger.info(f"   ✓ Found {len(tools)} MCP tools")
             for tool in tools:
-                print(f"     - {tool.name}")
+                logger.info(f"     - {tool.name}")
             return True
         else:
-            print("   ⚠ MCP Integration not fully initialized")
+            logger.warning("   ⚠ MCP Integration not fully initialized")
             return False
     except Exception as e:
-        print(f"   ✗ MCP Integration failed: {e}")
+        logger.error(f"   ✗ MCP Integration failed: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
         return False
 
 if __name__ == "__main__":
-    print()
+    logger.info("")
     success = asyncio.run(test_mcp_fix())
-    print()
-    print("=" * 70)
+    logger.info("")
+    logger.info("=" * 70)
     if success:
-        print("✅ FIX VERIFIED: MCP Integration works correctly!")
+        logger.info("✅ FIX VERIFIED: MCP Integration works correctly!")
     else:
-        print("❌ FIX FAILED: MCP Integration still has errors")
-    print("=" * 70)
+        logger.error("❌ FIX FAILED: MCP Integration still has errors")
+    logger.info("=" * 70)
 

@@ -16,87 +16,89 @@ from src.mcp.mcp_integration import MCPIntegration
 from src.mcp.mcp_client import create_custom_jira_mcp_client
 
 async def test_full_mcp_integration():
+    logger = get_logger('test.full_mcp_integration')
+
     """Test the complete MCP integration flow."""
-    print("=" * 70)
-    print("Comprehensive MCP Integration Test")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Comprehensive MCP Integration Test")
+    logger.info("=" * 70)
+    logger.info("")
     
     # Test 1: Configuration
-    print("1. Testing Configuration:")
-    print(f"   USE_MCP: {Config.USE_MCP}")
-    print(f"   JIRA_URL: {Config.JIRA_URL}")
-    print(f"   JIRA_PROJECT_KEY: {Config.JIRA_PROJECT_KEY}")
+    logger.info("1. Testing Configuration:")
+    logger.info(f"   USE_MCP: {Config.USE_MCP}")
+    logger.info(f"   JIRA_URL: {Config.JIRA_URL}")
+    logger.info(f"   JIRA_PROJECT_KEY: {Config.JIRA_PROJECT_KEY}")
     if not Config.USE_MCP:
-        print("   ❌ MCP is disabled in config")
+        logger.error("   ❌ MCP is disabled in config")
         return False
-    print("   ✓ Configuration OK")
-    print()
+    logger.info("   ✓ Configuration OK")
+    logger.info("")
     
     # Test 2: MCP Client Creation
-    print("2. Testing MCP Client Creation:")
+    logger.info("2. Testing MCP Client Creation:")
     try:
         jira_client = create_custom_jira_mcp_client()
         if jira_client:
-            print(f"   ✓ MCP client created")
-            print(f"   Client type: {type(jira_client)}")
-            print(f"   Has call_tool: {hasattr(jira_client, 'call_tool')}")
+            logger.info(f"   ✓ MCP client created")
+            logger.info(f"   Client type: {type(jira_client)}")
+            logger.info(f"   Has call_tool: {hasattr(jira_client, 'call_tool')}")
         else:
-            print("   ❌ Failed to create MCP client")
+            logger.error("   ❌ Failed to create MCP client")
             return False
     except Exception as e:
-        print(f"   ❌ Error creating MCP client: {e}")
+        logger.error(f"   ❌ Error creating MCP client: {e}")
         import traceback
         traceback.print_exc()
         return False
-    print()
+    logger.info("")
     
     # Test 3: MCP Integration Initialization
-    print("3. Testing MCP Integration Initialization:")
+    logger.info("3. Testing MCP Integration Initialization:")
     try:
         integration = MCPIntegration(use_mcp=True)
-        print("   ✓ MCPIntegration created")
+        logger.info("   ✓ MCPIntegration created")
         
         await integration.initialize()
-        print("   ✓ MCP Integration initialized")
+        logger.info("   ✓ MCP Integration initialized")
         
         if not integration._initialized:
-            print("   ❌ Integration not marked as initialized")
+            logger.error("   ❌ Integration not marked as initialized")
             return False
         
         tools = integration.get_tools()
-        print(f"   ✓ Found {len(tools)} tools")
+        logger.info(f"   ✓ Found {len(tools)} tools")
         
         if len(tools) == 0:
-            print("   ❌ No tools available")
+            logger.error("   ❌ No tools available")
             return False
         
         # Verify tool structure
         for tool in tools:
             # Use getattr to access Pydantic attributes safely
             tool_name = getattr(tool, 'name', 'unknown')
-            print(f"     - Tool: {tool_name}")
-            print(f"       Type: {type(tool)}")
+            logger.info(f"     - Tool: {tool_name}")
+            logger.info(f"       Type: {type(tool)}")
             
             # Check for _mcp_client using getattr
             mcp_client = getattr(tool, '_mcp_client', None)
             if mcp_client is None:
-                print(f"       ❌ _mcp_client is None!")
+                logger.error(f"       ❌ _mcp_client is None!")
                 return False
             else:
-                print(f"       ✓ _mcp_client is set")
-                print(f"       Client type: {type(mcp_client)}")
-                print(f"       Has call_tool: {hasattr(mcp_client, 'call_tool')}")
+                logger.info(f"       ✓ _mcp_client is set")
+                logger.info(f"       Client type: {type(mcp_client)}")
+                logger.info(f"       Has call_tool: {hasattr(mcp_client, 'call_tool')}")
         
     except Exception as e:
-        print(f"   ❌ MCP Integration failed: {e}")
+        logger.error(f"   ❌ MCP Integration failed: {e}")
         import traceback
         traceback.print_exc()
         return False
-    print()
+    logger.info("")
     
     # Test 4: Tool Invocation (Dry Run)
-    print("4. Testing Tool Structure (Dry Run):")
+    logger.info("4. Testing Tool Structure (Dry Run):")
     try:
         create_tool = None
         for tool in tools:
@@ -106,49 +108,51 @@ async def test_full_mcp_integration():
                 break
         
         if not create_tool:
-            print("   ❌ create_jira_issue tool not found")
+            logger.error("   ❌ create_jira_issue tool not found")
             return False
         
-        print(f"   ✓ Found create_jira_issue tool")
-        print(f"   Tool type: {type(create_tool)}")
+        logger.info(f"   ✓ Found create_jira_issue tool")
+        logger.info(f"   Tool type: {type(create_tool)}")
         
         # Use getattr to safely access attributes
         mcp_client = getattr(create_tool, '_mcp_client', None)
         tool_name_attr = getattr(create_tool, '_tool_name', None)
         
-        print(f"   _mcp_client: {mcp_client}")
-        print(f"   _tool_name: {tool_name_attr}")
+        logger.info(f"   _mcp_client: {mcp_client}")
+        logger.info(f"   _tool_name: {tool_name_attr}")
         
         # Verify the tool can be invoked (structure check only)
         if mcp_client is None:
-            print("   ❌ _mcp_client is None - cannot invoke tool")
+            logger.error("   ❌ _mcp_client is None - cannot invoke tool")
             return False
         
         if not hasattr(mcp_client, 'call_tool'):
-            print("   ❌ Client does not have call_tool method")
+            logger.error("   ❌ Client does not have call_tool method")
             return False
         
-        print("   ✓ Tool structure is valid")
+        logger.info("   ✓ Tool structure is valid")
         
     except Exception as e:
-        print(f"   ❌ Tool structure check failed: {e}")
+        logger.error(f"   ❌ Tool structure check failed: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
         return False
-    print()
+    logger.info("")
     
-    print("=" * 70)
-    print("✅ All Integration Tests Passed!")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("✅ All Integration Tests Passed!")
+    logger.info("=" * 70)
     return True
 
 if __name__ == "__main__":
-    print()
+    logger.info("")
     success = asyncio.run(test_full_mcp_integration())
-    print()
+    logger.info("")
     if success:
-        print("✅ Integration test PASSED - MCP is ready to use")
+        logger.info("✅ Integration test PASSED - MCP is ready to use")
     else:
-        print("❌ Integration test FAILED - Check errors above")
-    print()
+        logger.error("❌ Integration test FAILED - Check errors above")
+    logger.info("")
 

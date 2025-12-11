@@ -16,25 +16,27 @@ sys.path.insert(0, str(project_root))
 from src.services.memory_manager import MemoryManager
 from src.chatbot import Chatbot
 from config.config import Config
+from src.utils.logger import get_logger
+
 
 
 def simulate_restart_test():
     """Simulate a service restart to verify persistence."""
-    print("=" * 70)
-    print("Testing Conversation Persistence Across Restarts")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Testing Conversation Persistence Across Restarts")
+    logger.info("=" * 70)
+    logger.info("")
     
     # Step 1: Create a conversation (simulating first run)
-    print("Step 1: Creating conversation in 'first session'...")
-    print("-" * 70)
+    logger.info("Step 1: Creating conversation in 'first session'...")
+    logger.info("-" * 70)
     
     memory1 = MemoryManager()
     test_conv_id = f"persistence_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
     # Create conversation
     memory1.create_conversation(test_conv_id, title="Persistence Test Conversation")
-    print(f"✓ Created conversation: {test_conv_id}")
+    logger.info(f"✓ Created conversation: {test_conv_id}")
     
     # Add messages
     memory1.add_message(test_conv_id, "user", "Hello! This is my first message.")
@@ -43,15 +45,15 @@ def simulate_restart_test():
     memory1.add_message(test_conv_id, "assistant", "Yes, I should be able to remember!")
     
     conversation1 = memory1.get_conversation(test_conv_id)
-    print(f"✓ Added {len(conversation1['messages'])} messages")
-    print(f"✓ Conversation saved to database")
-    print()
+    logger.info(f"✓ Added {len(conversation1['messages'])} messages")
+    logger.info(f"✓ Conversation saved to database")
+    logger.info("")
     
     # Step 2: "Restart" - create new memory manager instance (simulating restart)
-    print("Step 2: Simulating service restart...")
-    print("-" * 70)
-    print("  (Creating new MemoryManager instance - like Flask app restart)")
-    print()
+    logger.info("Step 2: Simulating service restart...")
+    logger.info("-" * 70)
+    logger.info("  (Creating new MemoryManager instance - like Flask app restart)")
+    logger.info("")
     
     # Close first instance (simulating service stop)
     del memory1
@@ -66,37 +68,37 @@ def simulate_restart_test():
     conversation2 = memory2.get_conversation(test_conv_id)
     
     if conversation2:
-        print(f"✓ Conversation found after 'restart'!")
-        print(f"  ID: {conversation2['id']}")
-        print(f"  Title: {conversation2['title']}")
-        print(f"  Messages: {len(conversation2['messages'])}")
-        print(f"  Created: {conversation2['created_at']}")
-        print()
+        logger.info(f"✓ Conversation found after 'restart'!")
+        logger.info(f"  ID: {conversation2['id']}")
+        logger.info(f"  Title: {conversation2['title']}")
+        logger.info(f"  Messages: {len(conversation2['messages'])}")
+        logger.info(f"  Created: {conversation2['created_at']}")
+        logger.info("")
         
-        print("  Message history:")
+        logger.info("  Message history:")
         for i, msg in enumerate(conversation2['messages'], 1):
-            print(f"    {i}. [{msg['role']}]: {msg['content']}")
-        print()
+            logger.info(f"    {i}. [{msg['role']}]: {msg['content']}")
+        logger.info("")
     else:
-        print("✗ Conversation NOT found after restart!")
+        logger.error("✗ Conversation NOT found after restart!")
         return False
     
     # Step 3: Add new messages after restart
-    print("Step 3: Adding new messages after 'restart'...")
-    print("-" * 70)
+    logger.info("Step 3: Adding new messages after 'restart'...")
+    logger.info("-" * 70)
     
     memory2.add_message(test_conv_id, "user", "Great! You remembered our conversation!")
     memory2.add_message(test_conv_id, "assistant", "Yes! All your messages are still here.")
     
     conversation3 = memory2.get_conversation(test_conv_id)
-    print(f"✓ Added 2 more messages")
-    print(f"✓ Total messages now: {len(conversation3['messages'])}")
-    print()
+    logger.info(f"✓ Added 2 more messages")
+    logger.info(f"✓ Total messages now: {len(conversation3['messages'])}")
+    logger.info("")
     
     # Step 4: Verify with chatbot integration
     if Config.get_llm_api_key():
-        print("Step 4: Testing with Chatbot integration...")
-        print("-" * 70)
+        logger.info("Step 4: Testing with Chatbot integration...")
+        logger.info("-" * 70)
         
         # Create chatbot instance (simulating Flask app startup)
         chatbot = Chatbot(
@@ -106,74 +108,74 @@ def simulate_restart_test():
         
         # Load the conversation
         if chatbot.load_conversation(test_conv_id):
-            print(f"✓ Chatbot loaded conversation successfully")
-            print(f"  Loaded {len(chatbot.conversation_history)} messages into context")
+            logger.info(f"✓ Chatbot loaded conversation successfully")
+            logger.info(f"  Loaded {len(chatbot.conversation_history)} messages into context")
             
             # Send a message that references previous conversation
             response = chatbot.get_response("What did we talk about earlier?")
-            print(f"✓ Chatbot response: {response[:100]}...")
-            print()
+            logger.info(f"✓ Chatbot response: {response[:100]}...")
+            logger.info("")
             
             # Verify it was saved
             final_conv = chatbot.memory_manager.get_conversation(test_conv_id)
-            print(f"✓ Final message count: {len(final_conv['messages'])}")
+            logger.info(f"✓ Final message count: {len(final_conv['messages'])}")
         else:
-            print("✗ Failed to load conversation in chatbot")
+            logger.error("✗ Failed to load conversation in chatbot")
             return False
     else:
-        print("Step 4: Skipping chatbot test (no API key configured)")
-        print()
+        logger.info("Step 4: Skipping chatbot test (no API key configured)")
+        logger.info("")
     
     # Final verification
-    print("=" * 70)
-    print("Final Verification")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("Final Verification")
+    logger.info("=" * 70)
     
     memory3 = MemoryManager()
     final_conversation = memory3.get_conversation(test_conv_id)
     
     if final_conversation:
-        print(f"✓ Conversation persists: {test_conv_id}")
-        print(f"  Total messages: {len(final_conversation['messages'])}")
-        print(f"  Last updated: {final_conversation['updated_at']}")
-        print()
-        print("=" * 70)
-        print("✅ SUCCESS: Conversations persist across service restarts!")
-        print("=" * 70)
-        print()
-        print("This means:")
-        print("  • When you restart Flask server, conversations are still there")
-        print("  • When you restart chatbot CLI, conversations are still there")
-        print("  • All messages are saved in the database")
-        print("  • Context is maintained across restarts")
+        logger.info(f"✓ Conversation persists: {test_conv_id}")
+        logger.info(f"  Total messages: {len(final_conversation['messages'])}")
+        logger.info(f"  Last updated: {final_conversation['updated_at']}")
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info("✅ SUCCESS: Conversations persist across service restarts!")
+        logger.info("=" * 70)
+        logger.info("")
+        logger.info("This means:")
+        logger.info("  • When you restart Flask server, conversations are still there")
+        logger.info("  • When you restart chatbot CLI, conversations are still there")
+        logger.info("  • All messages are saved in the database")
+        logger.info("  • Context is maintained across restarts")
         return True
     else:
-        print("✗ Final verification failed")
+        logger.error("✗ Final verification failed")
         return False
 
 
 def show_restart_simulation():
     """Show how Flask app handles restarts."""
-    print("\n" + "=" * 70)
-    print("How Flask App Handles Restarts")
-    print("=" * 70)
-    print()
-    print("When Flask app starts:")
-    print("  1. MemoryManager connects to database (data/chatbot_memory.db)")
-    print("  2. All conversations are already in the database")
-    print("  3. API endpoints query database directly:")
-    print("     • GET /api/conversations → memory_manager.list_conversations()")
-    print("     • GET /api/conversations/<id> → memory_manager.get_conversation(id)")
-    print("     • POST /api/chat → saves to database automatically")
-    print()
-    print("When you restart Flask:")
-    print("  ✓ MemoryManager reconnects to same database")
-    print("  ✓ All conversations are immediately available")
-    print("  ✓ No data loss")
-    print("  ✓ Web UI shows all previous conversations")
-    print()
-    print("Database location: data/chatbot_memory.db")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("How Flask App Handles Restarts")
+    logger.info("=" * 70)
+    logger.info("")
+    logger.info("When Flask app starts:")
+    logger.info("  1. MemoryManager connects to database (data/chatbot_memory.db)")
+    logger.info("  2. All conversations are already in the database")
+    logger.info("  3. API endpoints query database directly:")
+    logger.info("     • GET /api/conversations → memory_manager.list_conversations()")
+    logger.info("     • GET /api/conversations/<id> → memory_manager.get_conversation(id)")
+    logger.info("     • POST /api/chat → saves to database automatically")
+    logger.info("")
+    logger.info("When you restart Flask:")
+    logger.info("  ✓ MemoryManager reconnects to same database")
+    logger.info("  ✓ All conversations are immediately available")
+    logger.info("  ✓ No data loss")
+    logger.info("  ✓ Web UI shows all previous conversations")
+    logger.info("")
+    logger.info("Database location: data/chatbot_memory.db")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
@@ -181,9 +183,9 @@ if __name__ == "__main__":
     show_restart_simulation()
     
     if success:
-        print("\n✅ All persistence tests passed!")
+        logger.info("\n✅ All persistence tests passed!")
         sys.exit(0)
     else:
-        print("\n❌ Some tests failed")
+        logger.error("\n❌ Some tests failed")
         sys.exit(1)
 

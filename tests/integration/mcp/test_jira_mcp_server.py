@@ -36,29 +36,29 @@ class Colors:
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.CYAN}{'=' * 70}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.CYAN}{text}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.CYAN}{'=' * 70}{Colors.RESET}\n")
+    logger.info(f"\n{Colors.BOLD}{Colors.CYAN}{'=' * 70}{Colors.RESET}")
+    logger.info(f"{Colors.BOLD}{Colors.CYAN}{text}{Colors.RESET}")
+    logger.info(f"{Colors.BOLD}{Colors.CYAN}{'=' * 70}{Colors.RESET}\n")
 
 
 def print_success(text: str):
     """Print success message."""
-    print(f"{Colors.GREEN}✓ {text}{Colors.RESET}")
+    logger.info(f"{Colors.GREEN}✓ {text}{Colors.RESET}")
 
 
 def print_warning(text: str):
     """Print warning message."""
-    print(f"{Colors.YELLOW}⚠ {text}{Colors.RESET}")
+    logger.warning(f"{Colors.YELLOW}⚠ {text}{Colors.RESET}")
 
 
 def print_error(text: str):
     """Print error message."""
-    print(f"{Colors.RED}✗ {text}{Colors.RESET}")
+    logger.error(f"{Colors.RED}✗ {text}{Colors.RESET}")
 
 
 def print_info(text: str):
     """Print info message."""
-    print(f"{Colors.BLUE}ℹ {text}{Colors.RESET}")
+    logger.info(f"{Colors.BLUE}ℹ {text}{Colors.RESET}")
 
 
 async def test_rovo_mcp_server() -> Dict[str, Any]:
@@ -102,7 +102,7 @@ async def test_rovo_mcp_server() -> Dict[str, Any]:
             print_info(f"Available tools: {len(tools)}")
             if tools:
                 for tool_name in tools.keys():
-                    print(f"  - {tool_name}")
+                    logger.info(f"  - {tool_name}")
             else:
                 print_warning("No tools discovered")
                 
@@ -173,7 +173,7 @@ async def test_community_jira_servers() -> Dict[str, Any]:
             }
             print_success(f"mcp-jira connected! Tools: {len(tools)}")
             for tool_name in tools.keys():
-                print(f"  - {tool_name}")
+                logger.info(f"  - {tool_name}")
         except Exception as e:
             results['mcp-jira']['error'] = str(e)
             print_error(f"mcp-jira connection failed: {e}")
@@ -208,7 +208,7 @@ async def test_community_jira_servers() -> Dict[str, Any]:
             }
             print_success(f"mcp-atlassian connected! Tools: {len(tools)}")
             for tool_name in tools.keys():
-                print(f"  - {tool_name}")
+                logger.info(f"  - {tool_name}")
         except Exception as e:
             results['mcp-atlassian']['error'] = str(e)
             print_error(f"mcp-atlassian connection failed: {e}")
@@ -253,7 +253,7 @@ async def test_mcp_integration() -> Dict[str, Any]:
             print_success("MCP Integration initialized successfully!")
             print_info(f"Total tools available: {len(tools)}")
             for tool in tools:
-                print(f"  - {tool.name}: {tool.description[:60]}...")
+                logger.info(f"  - {tool.name}: {tool.description[:60]}...")
         else:
             result['error'] = "Integration not initialized"
             print_warning("MCP Integration not initialized")
@@ -282,6 +282,8 @@ async def test_custom_tools() -> Dict[str, Any]:
     
     try:
         from src.tools.jira_tool import JiraTool
+from src.utils.logger import get_logger
+
         
         print_info("Testing custom JiraTool...")
         tool = JiraTool()
@@ -332,9 +334,9 @@ def print_summary(all_results: Dict[str, Any]):
     else:
         print_error(f"Custom Tools: ✗ Failed - {custom.get('error', 'Unknown error')}")
     
-    print("\n" + "=" * 70)
-    print(f"{Colors.BOLD}Recommendations:{Colors.RESET}")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info(f"{Colors.BOLD}Recommendations:{Colors.RESET}")
+    logger.info("=" * 70)
     
     # Provide recommendations
     if rovo.get('success'):
@@ -346,11 +348,11 @@ def print_summary(all_results: Dict[str, Any]):
         print_info("✓ Use custom tools - They work perfectly as fallback")
     else:
         print_warning("⚠ No MCP servers working. Check:")
-        print("  1. Node.js and npm are installed")
-        print("  2. MCP server packages are installed (npm install -g mcp-remote)")
-        print("  3. Jira credentials are configured in .env file")
+        logger.info("  1. Node.js and npm are installed")
+        logger.info("  2. MCP server packages are installed (npm install -g mcp-remote)")
+        logger.info("  3. Jira credentials are configured in .env file")
     
-    print()
+    logger.info("")
 
 
 async def main():
@@ -379,16 +381,16 @@ async def main():
     
     print_header("Test Complete")
     print_info("The chatbot will automatically use the best available option:")
-    print("  1. Atlassian Rovo MCP Server (if available)")
-    print("  2. Community MCP packages (if available)")
-    print("  3. Custom tools (always available)")
+    logger.info("  1. Atlassian Rovo MCP Server (if available)")
+    logger.info("  2. Community MCP packages (if available)")
+    logger.info("  3. Custom tools (always available)")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.info("\n\nTest interrupted by user")
     except Exception as e:
         print_error(f"Test failed with error: {e}")
         traceback.print_exc()

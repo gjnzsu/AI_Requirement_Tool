@@ -4,6 +4,8 @@ Helper functions for test setup and utilities.
 
 import sys
 from pathlib import Path
+from src.utils.logger import get_logger
+
 
 
 def setup_test_path():

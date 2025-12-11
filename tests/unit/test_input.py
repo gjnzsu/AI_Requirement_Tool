@@ -4,33 +4,35 @@ Run this to test if your terminal input is working.
 """
 
 import sys
+from src.utils.logger import get_logger
 
-print("=" * 70)
-print("Input/Output Test")
-print("=" * 70)
-print()
-print("This script tests if input() works in your terminal.")
-print("Type something and press Enter. Type 'quit' to exit.")
-print()
+
+logger.info("=" * 70)
+logger.info("Input/Output Test")
+logger.info("=" * 70)
+logger.info("")
+logger.info("This script tests if input() works in your terminal.")
+logger.info("Type something and press Enter. Type 'quit' to exit.")
+logger.info("")
 sys.stdout.flush()
 
 while True:
     try:
         user_input = input("You: ").strip()
-        print(f"Received: '{user_input}'")
+        logger.info(f"Received: '{user_input}'")
         sys.stdout.flush()
         
         if user_input.lower() in ['quit', 'exit', 'bye']:
-            print("Goodbye!")
+            logger.info("Goodbye!")
             break
             
     except KeyboardInterrupt:
-        print("\n\nInterrupted. Goodbye!")
+        logger.info("\n\nInterrupted. Goodbye!")
         break
     except EOFError:
-        print("\n\nEOF. Goodbye!")
+        logger.info("\n\nEOF. Goodbye!")
         break
     except Exception as e:
-        print(f"\nError: {e}")
+        logger.error(f"\nError: {e}")
         break
 

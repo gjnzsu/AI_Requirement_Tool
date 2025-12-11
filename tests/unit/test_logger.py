@@ -12,13 +12,16 @@ sys.path.insert(0, str(project_root))
 from src.utils.logger import get_logger
 from config.config import Config
 
+# Use a separate logger for test output
+test_logger = get_logger('test.logger')
+
 
 def test_logger_no_duplicates():
     """Test that logger doesn't create duplicate messages."""
-    print("=" * 70)
-    print("Testing Logger - No Duplicate Messages")
-    print("=" * 70)
-    print()
+    test_logger.info("=" * 70)
+    test_logger.info("Testing Logger - No Duplicate Messages")
+    test_logger.info("=" * 70)
+    test_logger.info("")
     
     # Ensure Config is set for testing
     Config.LOG_LEVEL = 'INFO'
@@ -30,38 +33,38 @@ def test_logger_no_duplicates():
     logger2 = get_logger('chatbot.agent')  # Should return the same instance
     logger3 = get_logger('chatbot.test')
     
-    print("Created 3 logger instances:")
-    print(f"  - logger1: {logger1.name}, handlers: {len(logger1.handlers)}")
-    print(f"  - logger2: {logger2.name}, handlers: {len(logger2.handlers)}")
-    print(f"  - logger3: {logger3.name}, handlers: {len(logger3.handlers)}")
-    print()
+    test_logger.info("Created 3 logger instances:")
+    test_logger.info(f"  - logger1: {logger1.name}, handlers: {len(logger1.handlers)}")
+    test_logger.info(f"  - logger2: {logger2.name}, handlers: {len(logger2.handlers)}")
+    test_logger.info(f"  - logger3: {logger3.name}, handlers: {len(logger3.handlers)}")
+    test_logger.info("")
     
     # Verify they're the same instance
     assert logger1 is logger2, "Same logger name should return same instance"
     assert logger1 is not logger3, "Different logger names should return different instances"
     
-    print("Testing log messages (should appear only once each):")
-    print("-" * 70)
+    test_logger.info("Testing log messages (should appear only once each):")
+    test_logger.info("-" * 70)
     logger1.info("Test INFO message from logger1")
     logger3.warning("Test WARNING message from logger3")
     logger1.error("Test ERROR message from logger1")
-    print("-" * 70)
-    print()
+    test_logger.info("-" * 70)
+    test_logger.info("")
     
     # Verify handler counts
-    print("Handler verification:")
-    print(f"  logger1 handlers: {len(logger1.handlers)}")
-    print(f"  logger2 handlers: {len(logger2.handlers)}")
-    print(f"  logger3 handlers: {len(logger3.handlers)}")
-    print(f"  logger1.propagate: {logger1.propagate}")
-    print(f"  logger2.propagate: {logger2.propagate}")
-    print(f"  logger3.propagate: {logger3.propagate}")
-    print()
+    test_logger.info("Handler verification:")
+    test_logger.info(f"  logger1 handlers: {len(logger1.handlers)}")
+    test_logger.info(f"  logger2 handlers: {len(logger2.handlers)}")
+    test_logger.info(f"  logger3 handlers: {len(logger3.handlers)}")
+    test_logger.info(f"  logger1.propagate: {logger1.propagate}")
+    test_logger.info(f"  logger2.propagate: {logger2.propagate}")
+    test_logger.info(f"  logger3.propagate: {logger3.propagate}")
+    test_logger.info("")
     
     # Call get_logger again to ensure no duplicate handlers
     logger1_again = get_logger('chatbot.agent')
-    print(f"  After calling get_logger again: {len(logger1_again.handlers)} handlers")
-    print()
+    test_logger.info(f"  After calling get_logger again: {len(logger1_again.handlers)} handlers")
+    test_logger.info("")
     
     # Assertions
     assert len(logger1.handlers) == 1, f"Logger1 should have exactly 1 handler, got {len(logger1.handlers)}"
@@ -72,13 +75,14 @@ def test_logger_no_duplicates():
     assert logger3.propagate is False, "Logger3 propagation should be False"
     assert len(logger1_again.handlers) == 1, "Should still have 1 handler after calling get_logger again"
     
-    print("✓ PASS: Each logger has exactly 1 handler (no duplicates)")
-    print("✓ PASS: Propagation is disabled (prevents duplicate messages)")
-    print("✓ PASS: Multiple calls to get_logger don't add duplicate handlers")
+    test_logger.info("PASS: Each logger has exactly 1 handler (no duplicates)")
+    test_logger.info("PASS: Propagation is disabled (prevents duplicate messages)")
+    test_logger.info("PASS: Multiple calls to get_logger don't add duplicate handlers")
     
-    print("\n" + "=" * 70)
-    print("Logger duplicate test completed successfully!")
-    print("=" * 70)
+    test_logger.info("")
+    test_logger.info("=" * 70)
+    test_logger.info("Logger duplicate test completed successfully!")
+    test_logger.info("=" * 70)
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ Popular Python Libraries:
     
     with open(python_doc, 'w', encoding='utf-8') as f:
         f.write(python_content)
-    print(f"✓ Created: {python_doc}")
+    logger.info(f"✓ Created: {python_doc}")
     
     # Sample document 2: Flask Guide
     flask_doc = data_dir / "flask_guide.txt"
@@ -96,57 +96,59 @@ Common Flask Extensions:
     
     with open(flask_doc, 'w', encoding='utf-8') as f:
         f.write(flask_content)
-    print(f"✓ Created: {flask_doc}")
+    logger.info(f"✓ Created: {flask_doc}")
     
     return [python_doc, flask_doc]
 
 
 def test_rag_ingestion():
+    logger = get_logger('test.rag_ingestion')
+
     """Test document ingestion."""
-    print("\n" + "=" * 70)
-    print("Step 1: Ingesting Documents into Knowledge Base")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 1: Ingesting Documents into Knowledge Base")
+    logger.info("=" * 70)
     
     # Create sample documents
-    print("\nCreating sample documents...")
+    logger.info("\nCreating sample documents...")
     sample_files = create_sample_documents()
     
     # Initialize RAG service
-    print("\nInitializing RAG service...")
+    logger.info("\nInitializing RAG service...")
     try:
         rag = RAGService()
-        print("✓ RAG Service initialized")
+        logger.info("✓ RAG Service initialized")
     except Exception as e:
-        print(f"✗ Failed to initialize RAG Service: {e}")
-        print("\nMake sure OPENAI_API_KEY is set in your .env file")
+        logger.error(f"✗ Failed to initialize RAG Service: {e}")
+        logger.info("\nMake sure OPENAI_API_KEY is set in your .env file")
         return None
     
     # Ingest documents
-    print("\nIngesting documents...")
+    logger.info("\nIngesting documents...")
     document_ids = []
     for file_path in sample_files:
         try:
             doc_id = rag.ingest_document(str(file_path))
             document_ids.append(doc_id)
-            print(f"✓ Ingested: {file_path.name}")
+            logger.info(f"✓ Ingested: {file_path.name}")
         except Exception as e:
-            print(f"✗ Failed to ingest {file_path.name}: {e}")
+            logger.error(f"✗ Failed to ingest {file_path.name}: {e}")
     
     # Show statistics
-    print("\nKnowledge Base Statistics:")
+    logger.info("\nKnowledge Base Statistics:")
     stats = rag.get_statistics()
-    print(f"  Total documents: {stats['total_documents']}")
-    print(f"  Total chunks: {stats['total_chunks']}")
-    print(f"  Average chunks per document: {stats['average_chunks_per_document']}")
+    logger.info(f"  Total documents: {stats['total_documents']}")
+    logger.info(f"  Total chunks: {stats['total_chunks']}")
+    logger.info(f"  Average chunks per document: {stats['average_chunks_per_document']}")
     
     return rag
 
 
 def test_rag_retrieval(rag_service):
     """Test retrieval functionality."""
-    print("\n" + "=" * 70)
-    print("Step 2: Testing Retrieval")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 2: Testing Retrieval")
+    logger.info("=" * 70)
     
     test_queries = [
         "What is Python?",
@@ -155,47 +157,47 @@ def test_rag_retrieval(rag_service):
     ]
     
     for query in test_queries:
-        print(f"\nQuery: '{query}'")
-        print("-" * 70)
+        logger.info(f"\nQuery: '{query}'")
+        logger.info("-" * 70)
         
         try:
             results = rag_service.retrieve(query, top_k=2)
             
             if results:
                 for i, result in enumerate(results, 1):
-                    print(f"\n[{i}] Similarity Score: {result['similarity']:.3f}")
-                    print(f"    Content: {result['content'][:150]}...")
+                    logger.info(f"\n[{i}] Similarity Score: {result['similarity']:.3f}")
+                    logger.info(f"    Content: {result['content'][:150]}...")
                     if result.get('metadata', {}).get('file_name'):
-                        print(f"    Source: {result['metadata']['file_name']}")
+                        logger.info(f"    Source: {result['metadata']['file_name']}")
             else:
-                print("  No results found")
+                logger.info("  No results found")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            logger.error(f"  ✗ Error: {e}")
 
 
 def test_rag_chatbot():
     """Test RAG-enabled chatbot."""
-    print("\n" + "=" * 70)
-    print("Step 3: Testing RAG-Enabled Chatbot")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 3: Testing RAG-Enabled Chatbot")
+    logger.info("=" * 70)
     
     if not Config.OPENAI_API_KEY:
-        print("\n⚠ OPENAI_API_KEY not configured.")
-        print("   Set OPENAI_API_KEY in your .env file to test chatbot.")
+        logger.warning("\n⚠ OPENAI_API_KEY not configured.")
+        logger.info("   Set OPENAI_API_KEY in your .env file to test chatbot.")
         return
     
     # Create chatbot with RAG enabled
-    print("\nCreating chatbot with RAG enabled...")
+    logger.info("\nCreating chatbot with RAG enabled...")
     try:
         chatbot = Chatbot(use_rag=True, rag_top_k=3)
         
         if not chatbot.rag_service:
-            print("⚠ RAG service not available in chatbot")
+            logger.warning("⚠ RAG service not available in chatbot")
             return
         
-        print("✓ Chatbot created with RAG support")
+        logger.info("✓ Chatbot created with RAG support")
     except Exception as e:
-        print(f"✗ Failed to create chatbot: {e}")
+        logger.error(f"✗ Failed to create chatbot: {e}")
         return
     
     # Test questions
@@ -206,38 +208,38 @@ def test_rag_chatbot():
         "How do I create a Flask app?"
     ]
     
-    print("\nAsking questions (RAG context will be automatically included):\n")
+    logger.info("\nAsking questions (RAG context will be automatically included):\n")
     
     for question in test_questions:
-        print(f"Q: {question}")
-        print("-" * 70)
+        logger.info(f"Q: {question}")
+        logger.info("-" * 70)
         
         try:
             response = chatbot.get_response(question)
-            print(f"A: {response}")
-            print()
+            logger.info(f"A: {response}")
+            logger.info("")
         except Exception as e:
-            print(f"✗ Error: {e}\n")
+            logger.error(f"✗ Error: {e}\n")
 
 
 def main():
     """Run all RAG tests."""
-    print("=" * 70)
-    print("RAG System Test")
-    print("=" * 70)
-    print("\nThis test will:")
-    print("  1. Create sample documents")
-    print("  2. Ingest them into the knowledge base")
-    print("  3. Test retrieval functionality")
-    print("  4. Test RAG-enabled chatbot")
-    print()
+    logger.info("=" * 70)
+    logger.info("RAG System Test")
+    logger.info("=" * 70)
+    logger.info("\nThis test will:")
+    logger.info("  1. Create sample documents")
+    logger.info("  2. Ingest them into the knowledge base")
+    logger.info("  3. Test retrieval functionality")
+    logger.info("  4. Test RAG-enabled chatbot")
+    logger.info("")
     
     # Check prerequisites
     if not Config.OPENAI_API_KEY:
-        print("⚠ Warning: OPENAI_API_KEY not found")
-        print("   RAG requires OpenAI API key for embeddings.")
-        print("   Set it in your .env file: OPENAI_API_KEY=your-key")
-        print()
+        logger.warning("⚠ Warning: OPENAI_API_KEY not found")
+        logger.info("   RAG requires OpenAI API key for embeddings.")
+        logger.info("   Set it in your .env file: OPENAI_API_KEY=your-key")
+        logger.info("")
         response = input("Continue anyway? (y/n): ")
         if response.lower() != 'y':
             return
@@ -246,7 +248,7 @@ def main():
     rag_service = test_rag_ingestion()
     
     if not rag_service:
-        print("\n⚠ Cannot continue without RAG service")
+        logger.warning("\n⚠ Cannot continue without RAG service")
         return
     
     # Step 2: Test retrieval
@@ -255,24 +257,26 @@ def main():
     # Step 3: Test chatbot
     test_rag_chatbot()
     
-    print("\n" + "=" * 70)
-    print("Test Complete!")
-    print("=" * 70)
-    print("\nTo use RAG in your chatbot:")
-    print("  1. Ingest documents: rag_service.ingest_document('file.txt')")
-    print("  2. Create chatbot: chatbot = Chatbot(use_rag=True)")
-    print("  3. Ask questions: chatbot.get_response('your question')")
-    print("\nRAG context is automatically included in responses!")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Test Complete!")
+    logger.info("=" * 70)
+    logger.info("\nTo use RAG in your chatbot:")
+    logger.info("  1. Ingest documents: rag_service.ingest_document('file.txt')")
+    logger.info("  2. Create chatbot: chatbot = Chatbot(use_rag=True)")
+    logger.info("  3. Ask questions: chatbot.get_response('your question')")
+    logger.info("\nRAG context is automatically included in responses!")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.info("\n\nTest interrupted by user")
     except Exception as e:
-        print(f"\n✗ Unexpected error: {e}")
+        logger.error(f"\n✗ Unexpected error: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
 

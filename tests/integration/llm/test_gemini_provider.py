@@ -13,56 +13,59 @@ sys.path.insert(0, str(project_root))
 
 from src.llm import LLMRouter
 from config.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger('test.gemini')
 
 
 def test_gemini():
     """Test Gemini Pro configuration."""
-    print("=" * 80)
-    print("Testing Gemini Pro Configuration")
-    print("=" * 80)
-    print()
+    logger.info("=" * 80)
+    logger.info("Testing Gemini Pro Configuration")
+    logger.info("=" * 80)
+    logger.info("")
     
     # Check configuration
-    print("Checking configuration...")
+    logger.info("Checking configuration...")
     if Config.LLM_PROVIDER.lower() != 'gemini':
-        print(f"  ⚠ LLM_PROVIDER is set to '{Config.LLM_PROVIDER}', not 'gemini'")
-        print("  Set it with: $env:LLM_PROVIDER='gemini'")
+        logger.warning(f"LLM_PROVIDER is set to '{Config.LLM_PROVIDER}', not 'gemini'")
+        logger.info("Set it with: $env:LLM_PROVIDER='gemini'")
         return False
     
     api_key = Config.GEMINI_API_KEY
     if not api_key or api_key.startswith('your-'):
-        print("  ✗ GEMINI_API_KEY not set")
-        print("  Set it with: $env:GEMINI_API_KEY='your-api-key'")
+        logger.error("GEMINI_API_KEY not set")
+        logger.info("Set it with: $env:GEMINI_API_KEY='your-api-key'")
         return False
     
     model = Config.GEMINI_MODEL
-    print(f"  ✓ Provider: {Config.LLM_PROVIDER}")
-    print(f"  ✓ Model: {model}")
-    print(f"  ✓ API Key: {api_key[:10]}...")
-    print()
+    logger.info(f"Provider: {Config.LLM_PROVIDER}")
+    logger.info(f"Model: {model}")
+    logger.info(f"API Key: {api_key[:10]}...")
+    logger.info("")
     
     # Check if package is installed
-    print("Checking dependencies...")
+    logger.info("Checking dependencies...")
     try:
         import google.generativeai as genai
-        print("  ✓ google-generativeai package is installed")
+        logger.info("google-generativeai package is installed")
     except ImportError:
-        print("  ✗ google-generativeai package not installed")
-        print("  Install it with: pip install google-generativeai")
+        logger.error("google-generativeai package not installed")
+        logger.info("Install it with: pip install google-generativeai")
         return False
     
-    print()
+    logger.info("")
     
     # Check proxy configuration
     proxy = Config.GEMINI_PROXY or Config.HTTPS_PROXY or Config.HTTP_PROXY
     if proxy:
-        print(f"  ✓ Proxy configured: {proxy}")
+        logger.info(f"Proxy configured: {proxy}")
     else:
-        print("  ℹ No proxy configured")
-    print()
+        logger.info("No proxy configured")
+    logger.info("")
     
     # Test API connection
-    print("Testing Gemini API connection...")
+    logger.info("Testing Gemini API connection...")
     try:
         provider_kwargs = {}
         if proxy:
@@ -74,11 +77,11 @@ def test_gemini():
             model=model,
             **provider_kwargs
         )
-        print(f"  ✓ Provider initialized: {provider.get_provider_name()}")
-        print()
+        logger.info(f"Provider initialized: {provider.get_provider_name()}")
+        logger.info("")
         
         # Test a simple request
-        print("Sending test request to Gemini...")
+        logger.info("Sending test request to Gemini...")
         response = provider.generate_response(
             system_prompt="You are a helpful assistant.",
             user_prompt="Say 'Hello, Gemini is working!' in JSON format: {\"message\": \"...\"}",
@@ -86,24 +89,24 @@ def test_gemini():
             json_mode=True
         )
         
-        print("  ✓ Response received!")
-        print()
-        print("Response:")
-        print("-" * 80)
-        print(response)
-        print("-" * 80)
-        print()
-        print("✅ Gemini Pro is configured correctly!")
+        logger.info("Response received!")
+        logger.info("")
+        logger.info("Response:")
+        logger.info("-" * 80)
+        logger.info(response)
+        logger.info("-" * 80)
+        logger.info("")
+        logger.info("Gemini Pro is configured correctly!")
         return True
         
     except Exception as e:
-        print(f"  ✗ Error: {str(e)}")
-        print()
-        print("Troubleshooting:")
-        print("  1. Verify your API key is correct")
-        print("  2. Check if you have API quota/credits")
-        print("  3. Ensure the model name is correct")
-        print("  4. Check your internet connection")
+        logger.error(f"Error: {str(e)}")
+        logger.info("")
+        logger.info("Troubleshooting:")
+        logger.info("  1. Verify your API key is correct")
+        logger.info("  2. Check if you have API quota/credits")
+        logger.info("  3. Ensure the model name is correct")
+        logger.info("  4. Check your internet connection")
         return False
 
 

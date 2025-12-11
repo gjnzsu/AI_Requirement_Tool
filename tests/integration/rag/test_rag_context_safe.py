@@ -68,18 +68,20 @@ def create_test_documents():
     with open(doc2, 'w', encoding='utf-8') as f:
         f.write(doc2_content)
     
-    print("✓ Created test documents:")
-    print(f"  - {doc1.name}")
-    print(f"  - {doc2.name}")
+    logger.info("✓ Created test documents:")
+    logger.info(f"  - {doc1.name}")
+    logger.info(f"  - {doc2.name}")
     
     return [doc1, doc2]
 
 
 def test_rag_retrieval():
+    logger = get_logger('test.rag_retrieval')
+
     """Test if RAG can retrieve the specific information."""
-    print("\n" + "=" * 70)
-    print("Step 1: Testing RAG Retrieval")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 1: Testing RAG Retrieval")
+    logger.info("=" * 70)
     
     rag = RAGService()
     
@@ -91,54 +93,54 @@ def test_rag_retrieval():
         "What database does Project Alpha use?"
     ]
     
-    print("\nTesting retrieval for specific queries:\n")
+    logger.info("\nTesting retrieval for specific queries:\n")
     
     for query in test_queries:
-        print(f"Query: '{query}'")
+        logger.info(f"Query: '{query}'")
         try:
             results = rag.retrieve(query, top_k=2)
             
             if results:
-                print(f"  ✓ Found {len(results)} relevant chunks")
+                logger.info(f"  ✓ Found {len(results)} relevant chunks")
                 for i, result in enumerate(results[:1], 1):  # Show top result
-                    print(f"    [{i}] Similarity: {result['similarity']:.3f}")
-                    print(f"        Content preview: {result['content'][:100]}...")
+                    logger.info(f"    [{i}] Similarity: {result['similarity']:.3f}")
+                    logger.info(f"        Content preview: {result['content'][:100]}...")
             else:
-                print("  ✗ No results found")
+                logger.error("  ✗ No results found")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
-        print()
+            logger.error(f"  ✗ Error: {e}")
+        logger.info("")
 
 
 def verify_rag_integration():
     """Verify RAG is properly integrated."""
-    print("\n" + "=" * 70)
-    print("Step 2: Verifying RAG Integration")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 2: Verifying RAG Integration")
+    logger.info("=" * 70)
     
     try:
         # Check RAG service
         rag = RAGService()
         stats = rag.get_statistics()
         
-        print(f"\nKnowledge Base Status:")
-        print(f"  Total documents: {stats['total_documents']}")
-        print(f"  Total chunks: {stats['total_chunks']}")
+        logger.info(f"\nKnowledge Base Status:")
+        logger.info(f"  Total documents: {stats['total_documents']}")
+        logger.info(f"  Total chunks: {stats['total_chunks']}")
         
         if stats['total_documents'] == 0:
-            print("\n  ⚠ No documents in knowledge base!")
-            print("     RAG won't work without ingested documents.")
+            logger.warning("\n  ⚠ No documents in knowledge base!")
+            logger.info("     RAG won't work without ingested documents.")
             return False
         
-        print(f"\nChatbot RAG Status:")
-        print(f"  RAG service available: True")
-        print(f"  Knowledge base has documents: {stats['total_documents'] > 0}")
-        print(f"  Ready for chatbot integration: True")
+        logger.info(f"\nChatbot RAG Status:")
+        logger.info(f"  RAG service available: True")
+        logger.info(f"  Knowledge base has documents: {stats['total_documents'] > 0}")
+        logger.info(f"  Ready for chatbot integration: True")
         
-        print("\n  ✓ RAG is properly integrated!")
+        logger.info("\n  ✓ RAG is properly integrated!")
         return True
     except Exception as e:
-        print(f"\n  ⚠ Error checking RAG: {e}")
+        logger.error(f"\n  ⚠ Error checking RAG: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -146,59 +148,61 @@ def verify_rag_integration():
 
 def main():
     """Run all tests."""
-    print("=" * 70)
-    print("RAG Context Verification Test (Safe Version)")
-    print("=" * 70)
-    print("\nThis test verifies that:")
-    print("  1. Documents are ingested into RAG store")
-    print("  2. RAG can retrieve relevant information")
-    print("  3. RAG is ready for chatbot integration")
-    print("\nNote: This version skips chatbot tests to avoid dead loops")
-    print("      from Jira/Confluence connection attempts.")
-    print()
+    logger.info("=" * 70)
+    logger.info("RAG Context Verification Test (Safe Version)")
+    logger.info("=" * 70)
+    logger.info("\nThis test verifies that:")
+    logger.info("  1. Documents are ingested into RAG store")
+    logger.info("  2. RAG can retrieve relevant information")
+    logger.info("  3. RAG is ready for chatbot integration")
+    logger.info("\nNote: This version skips chatbot tests to avoid dead loops")
+    logger.info("      from Jira/Confluence connection attempts.")
+    logger.info("")
     
     # Create test documents
-    print("\n" + "=" * 70)
-    print("Preparing Test Documents")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Preparing Test Documents")
+    logger.info("=" * 70)
     test_files = create_test_documents()
     
     # Ingest documents
-    print("\nIngesting documents into RAG store...")
+    logger.info("\nIngesting documents into RAG store...")
     rag = RAGService()
     for file_path in test_files:
         try:
             doc_id = rag.ingest_document(str(file_path))
-            print(f"✓ Ingested: {file_path.name}")
+            logger.info(f"✓ Ingested: {file_path.name}")
         except Exception as e:
-            print(f"✗ Failed to ingest {file_path.name}: {e}")
+            logger.error(f"✗ Failed to ingest {file_path.name}: {e}")
             return
     
     # Run tests
     test_rag_retrieval()
     verify_rag_integration()
     
-    print("\n" + "=" * 70)
-    print("Test Complete!")
-    print("=" * 70)
-    print("\n✓ RAG retrieval is working correctly!")
-    print("\nTo test with chatbot (manual test):")
-    print("  from src.chatbot import Chatbot")
-    print("  chatbot = Chatbot(use_rag=True)")
-    print("  response = chatbot.get_response('What is Acme Corporation?')")
-    print("  print(response)")
-    print("\nIf the response mentions 'Acme Corporation', '2020', 'Tech City', etc.,")
-    print("then RAG is working correctly! ✓")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Test Complete!")
+    logger.info("=" * 70)
+    logger.info("\n✓ RAG retrieval is working correctly!")
+    logger.info("\nTo test with chatbot (manual test):")
+    logger.info("  from src.chatbot import Chatbot")
+    logger.info("  chatbot = Chatbot(use_rag=True)")
+    logger.info("  response = chatbot.get_response('What is Acme Corporation?')")
+    logger.info("  print(response)")
+    logger.info("\nIf the response mentions 'Acme Corporation', '2020', 'Tech City', etc.,")
+    logger.info("then RAG is working correctly! ✓")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.info("\n\nTest interrupted by user")
     except Exception as e:
-        print(f"\n✗ Unexpected error: {e}")
+        logger.error(f"\n✗ Unexpected error: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
 

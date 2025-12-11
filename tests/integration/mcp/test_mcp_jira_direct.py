@@ -16,42 +16,46 @@ from src.agent.agent_graph import ChatbotAgent, AgentState
 from langchain_core.messages import HumanMessage
 
 async def test_mcp_jira_direct():
+    logger = get_logger('test.mcp_jira_direct')
+
     """Directly test Jira creation with MCP."""
-    print("=" * 70)
-    print("Direct Test: Jira Creation with MCP")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Direct Test: Jira Creation with MCP")
+    logger.info("=" * 70)
+    logger.info("")
     
     # Ensure MCP is enabled
     import os
+from src.utils.logger import get_logger
+
     os.environ['USE_MCP'] = 'true'
     
-    print("Configuration:")
-    print(f"  USE_MCP = {Config.USE_MCP}")
-    print()
+    logger.info("Configuration:")
+    logger.info(f"  USE_MCP = {Config.USE_MCP}")
+    logger.info("")
     
     # Initialize agent
-    print("Initializing agent...")
+    logger.info("Initializing agent...")
     agent = ChatbotAgent(
         provider_name=Config.LLM_PROVIDER,
         enable_tools=True,
         use_mcp=True
     )
-    print("✓ Agent initialized")
-    print()
+    logger.info("✓ Agent initialized")
+    logger.info("")
     
     # Initialize MCP if needed
     if agent.mcp_integration and not agent.mcp_integration._initialized:
-        print("Initializing MCP integration...")
+        logger.info("Initializing MCP integration...")
         await agent.mcp_integration.initialize()
-        print("✓ MCP initialized")
-        print()
+        logger.info("✓ MCP initialized")
+        logger.info("")
     
     # Create a test state that will trigger Jira creation
-    print("=" * 70)
-    print("Testing Jira Creation Handler Directly")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Testing Jira Creation Handler Directly")
+    logger.info("=" * 70)
+    logger.info("")
     
     test_state: AgentState = {
         "messages": [HumanMessage(content="Create a Jira issue")],
@@ -65,66 +69,66 @@ async def test_mcp_jira_direct():
         "next_action": None
     }
     
-    print("Calling _handle_jira_creation directly...")
-    print()
+    logger.info("Calling _handle_jira_creation directly...")
+    logger.info("")
     
     # Call the handler directly
     result_state = agent._handle_jira_creation(test_state)
     
-    print()
-    print("=" * 70)
-    print("Result:")
-    print("=" * 70)
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Result:")
+    logger.info("=" * 70)
     
     jira_result = result_state.get("jira_result")
     if jira_result and jira_result.get("success"):
-        print(f"✅ SUCCESS! Jira issue created:")
-        print(f"   Key: {jira_result.get('key')}")
-        print(f"   Link: {jira_result.get('link')}")
-        print(f"   Tool Used: {jira_result.get('tool_used', 'Unknown')}")
-        print()
+        logger.info(f"✅ SUCCESS! Jira issue created:")
+        logger.info(f"   Key: {jira_result.get('key')}")
+        logger.info(f"   Link: {jira_result.get('link')}")
+        logger.info(f"   Tool Used: {jira_result.get('tool_used', 'Unknown')}")
+        logger.info("")
         
         # Get the response message
         messages = result_state.get("messages", [])
         if messages:
             last_msg = messages[-1]
             if hasattr(last_msg, 'content'):
-                print("Response message:")
-                print(last_msg.content)
+                logger.info("Response message:")
+                logger.info(last_msg.content)
         
         return True
     else:
-        print("❌ Failed to create Jira issue")
+        logger.error("❌ Failed to create Jira issue")
         if jira_result:
-            print(f"   Error: {jira_result.get('error', 'Unknown error')}")
+            logger.error(f"   Error: {jira_result.get('error', 'Unknown error')}")
         
         # Show messages
         messages = result_state.get("messages", [])
         if messages:
-            print("\nMessages:")
+            logger.info("\nMessages:")
             for msg in messages:
                 if hasattr(msg, 'content'):
-                    print(f"  - {msg.content[:100]}...")
+                    logger.info(f"  - {msg.content[:100]}...")
         
         return False
 
 def main():
     """Main test function."""
-    print("\n")
+    logger.info("\n")
     
     success = asyncio.run(test_mcp_jira_direct())
     
-    print("\n" + "=" * 70)
+    logger.info("\n" + "=" * 70)
     if success:
-        print("✅ Test PASSED - MCP tool was used successfully!")
-        print()
-        print("Check the console output above for:")
-        print("  - '🚀 Using MCP Tool' (confirms MCP was used)")
-        print("  - '✅ MCP Tool SUCCESS' (confirms it worked)")
+        logger.info("✅ Test PASSED - MCP tool was used successfully!")
+        logger.info("")
+        logger.info("Check the console output above for:")
+        logger.info("  - '🚀 Using MCP Tool' (confirms MCP was used)")
+        logger.info("  - '✅ MCP Tool SUCCESS' (confirms it worked)")
     else:
-        print("❌ Test FAILED")
-        print("   Check the output above for error details")
-    print("=" * 70)
+        logger.error("❌ Test FAILED")
+        logger.error("   Check the output above for error details")
+    logger.info("=" * 70)
 
 if __name__ == "__main__":
     main()

@@ -44,9 +44,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
     
     def test_0_health_check_confluence_mcp_server(self):
         """Test Case 0: Health check on Atlassian MCP server readiness."""
-        print("\n" + "="*80)
-        print("Test Case 0: Health Check on Atlassian MCP Server Readiness")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 0: Health Check on Atlassian MCP Server Readiness")
+        logger.info("="*80)
         
         async def run_health_check():
             self.mcp_integration = MCPIntegration(use_mcp=True)
@@ -56,30 +56,30 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         
         health_status = asyncio.run(run_health_check())
         
-        print(f"\nHealth Status:")
-        print(f"  Healthy: {health_status.get('healthy', False)}")
-        print(f"  Reason: {health_status.get('reason', 'N/A')}")
-        print(f"  Confluence Tools Available: {health_status.get('confluence_tools_available', False)}")
-        print(f"  Tool Count: {health_status.get('confluence_tool_count', 0)}")
-        print(f"  Tool Names: {health_status.get('confluence_tool_names', [])}")
-        print(f"  Has Create Page Tool: {health_status.get('has_create_page_tool', False)}")
-        print(f"  Has Get Page Tool: {health_status.get('has_get_page_tool', False)}")
+        logger.info(f"\nHealth Status:")
+        logger.info(f"  Healthy: {health_status.get('healthy', False)}")
+        logger.info(f"  Reason: {health_status.get('reason', 'N/A')}")
+        logger.info(f"  Confluence Tools Available: {health_status.get('confluence_tools_available', False)}")
+        logger.info(f"  Tool Count: {health_status.get('confluence_tool_count', 0)}")
+        logger.info(f"  Tool Names: {health_status.get('confluence_tool_names', [])}")
+        logger.info(f"  Has Create Page Tool: {health_status.get('has_create_page_tool', False)}")
+        logger.info(f"  Has Get Page Tool: {health_status.get('has_get_page_tool', False)}")
         
         # Assert health check returns proper structure
         self.assertIn('healthy', health_status)
         self.assertIn('reason', health_status)
         self.assertIn('confluence_tools_available', health_status)
         
-        print("\n[PASS] Test Case 0: PASSED")
+        logger.info("\n[PASS] Test Case 0: PASSED")
         return health_status
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_1_mcp_protocol_called_and_logged(self, mock_config_module, mock_config_agent):
         """Test Case 1: MCP protocol path is called and logged when creating Confluence page."""
-        print("\n" + "="*80)
-        print("Test Case 1: MCP Protocol Called and Logged for Confluence Creation")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 1: MCP Protocol Called and Logged for Confluence Creation")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -176,17 +176,17 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertIsNotNone(result_state.get("confluence_result"))
             self.assertTrue(result_state["confluence_result"].get("success"))
             
-            print("\n[PASS] Test Case 1: PASSED")
-            print(f"  MCP tool was called: {mock_mcp_tool.invoke.called}")
-            print(f"  Logging contains 'MCP PROTOCOL': {'MCP PROTOCOL' in output}")
+            logger.info("\n[PASS] Test Case 1: PASSED")
+            logger.info(f"  MCP tool was called: {mock_mcp_tool.invoke.called}")
+            logger.info(f"  Logging contains 'MCP PROTOCOL': {'MCP PROTOCOL' in output}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_2_retrieve_confluence_page_info_via_mcp(self, mock_config_module, mock_config_agent):
         """Test Case 2: MCP API can retrieve Confluence page info."""
-        print("\n" + "="*80)
-        print("Test Case 2: Retrieve Confluence Page Info via MCP API")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 2: Retrieve Confluence Page Info via MCP API")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -247,17 +247,17 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertEqual(page_info.get('id'), '12345')
             self.assertEqual(page_info.get('tool_used'), 'MCP Protocol')
             
-            print("\n[PASS] Test Case 2: PASSED")
-            print(f"  Retrieved page ID: {page_info.get('id')}")
-            print(f"  Tool used: {page_info.get('tool_used')}")
+            logger.info("\n[PASS] Test Case 2: PASSED")
+            logger.info(f"  Retrieved page ID: {page_info.get('id')}")
+            logger.info(f"  Tool used: {page_info.get('tool_used')}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_3_non_jira_flows_dont_trigger_confluence_mcp(self, mock_config_module, mock_config_agent):
         """Test Case 3: Non-Jira flows don't trigger Confluence MCP API."""
-        print("\n" + "="*80)
-        print("Test Case 3: Non-Jira Flows Don't Trigger Confluence MCP API")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 3: Non-Jira Flows Don't Trigger Confluence MCP API")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.USE_MCP = True
@@ -314,16 +314,16 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertEqual(len(confluence_calls), 0, 
                            "Confluence MCP should not be called for general chat")
             
-            print("\n[PASS] Test Case 3: PASSED")
-            print(f"  Confluence MCP calls: {len(confluence_calls)}")
+            logger.info("\n[PASS] Test Case 3: PASSED")
+            logger.info(f"  Confluence MCP calls: {len(confluence_calls)}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_4_timeout_fallback_to_direct_api(self, mock_config_module, mock_config_agent):
         """Test Case 4: Timeout fallback to direct API with user-friendly message."""
-        print("\n" + "="*80)
-        print("Test Case 4: Timeout Fallback to Direct API")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 4: Timeout Fallback to Direct API")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -429,17 +429,17 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertIn("falling back", output.lower() or "",
                          "Should log fallback to direct API")
             
-            print("\n[PASS] Test Case 4: PASSED")
-            print(f"  Direct API called: {mock_confluence_tool.create_page.called}")
-            print(f"  Fallback logged: {'falling back' in output.lower()}")
+            logger.info("\n[PASS] Test Case 4: PASSED")
+            logger.info(f"  Direct API called: {mock_confluence_tool.create_page.called}")
+            logger.info(f"  Fallback logged: {'falling back' in output.lower()}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_5_confluence_tooling_queries_go_to_general_chat(self, mock_config_module, mock_config_agent):
         """Test Case 5: General chat queries about Confluence tooling go to general chat."""
-        print("\n" + "="*80)
-        print("Test Case 5: Confluence Tooling Queries Go to General Chat")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 5: Confluence Tooling Queries Go to General Chat")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.USE_MCP = True
@@ -493,17 +493,17 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertEqual(detected_intent, "general_chat",
                            f"Query '{query}' should route to general_chat, got {detected_intent}")
             
-            print(f"  [OK] '{query}' -> general_chat")
+            logger.info(f"  [OK] '{query}' -> general_chat")
         
-        print("\n[PASS] Test Case 5: PASSED")
+        logger.info("\n[PASS] Test Case 5: PASSED")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_6_jira_creation_workflow_langgraph(self, mock_config_module, mock_config_agent):
         """Test Case 6: Jira creation workflow in LangGraph."""
-        print("\n" + "="*80)
-        print("Test Case 6: Jira Creation Workflow in LangGraph")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 6: Jira Creation Workflow in LangGraph")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.USE_MCP = True
@@ -590,7 +590,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.assertEqual(detected_intent, "jira_creation",
                                f"Query '{query}' should route to jira_creation, got {detected_intent}")
                 
-                print(f"  [OK] '{query[:40]}...' -> jira_creation")
+                logger.info(f"  [OK] '{query[:40]}...' -> jira_creation")
             
             # Test full workflow invocation (mocked)
             test_query = "pls create a jira ticket. the requirement is 'integrate MCP server'"
@@ -625,18 +625,18 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertEqual(state_after_intent.get("intent"), "jira_creation",
                            "Should detect jira_creation intent")
             
-            print(f"\n  [OK] Full workflow test: '{test_query[:50]}...'")
-            print(f"       Intent detected: {state_after_intent.get('intent')}")
+            logger.info(f"\n  [OK] Full workflow test: '{test_query[:50]}...'")
+            logger.info(f"       Intent detected: {state_after_intent.get('intent')}")
             
-            print("\n[PASS] Test Case 6: PASSED")
+            logger.info("\n[PASS] Test Case 6: PASSED")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_7_basic_model_call_works(self, mock_config_module, mock_config_agent):
         """Test Case 7: Basic model call function works correctly."""
-        print("\n" + "="*80)
-        print("Test Case 7: Basic Model Call Function Works")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 7: Basic Model Call Function Works")
+        logger.info("="*80)
         
         # Mock configuration with proper string values
         mock_config_module.USE_MCP = True
@@ -701,8 +701,8 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.assertIn("Hello", last_message.content or "", 
                             "Should contain greeting response")
             
-            print(f"  [OK] LLM was called: {mock_llm.invoke.called}")
-            print(f"  [OK] Response generated: {len(messages)} messages in state")
+            logger.info(f"  [OK] LLM was called: {mock_llm.invoke.called}")
+            logger.info(f"  [OK] Response generated: {len(messages)} messages in state")
             
             # Test error handling - connection error
             mock_llm.invoke = Mock(side_effect=Exception("Connection error."))
@@ -734,17 +734,17 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.assertIn("connection", error_content.lower(), 
                             "Should mention connection issue")
             
-            print(f"  [OK] Error handling works: connection error handled gracefully")
+            logger.error(f"  [OK] Error handling works: connection error handled gracefully")
             
-            print("\n[PASS] Test Case 7: PASSED")
+            logger.info("\n[PASS] Test Case 7: PASSED")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_8_jira_creation_timeout_handling(self, mock_config_module, mock_config_agent):
         """Test Case 8: Jira creation timeout handling and fallback."""
-        print("\n" + "="*80)
-        print("Test Case 8: Jira Creation Timeout Handling")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 8: Jira Creation Timeout Handling")
+        logger.info("="*80)
         
         # Mock configuration
         mock_config_module.USE_MCP = True
@@ -847,19 +847,19 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 content = last_message.content or ""
                 self.assertIn("Successfully created", content, "Should show success message")
             
-            print(f"  [OK] MCP tool timeout handled: {mock_mcp_tool.invoke.called}")
-            print(f"  [OK] Fallback to custom tool: {mock_jira_tool.create_issue.called}")
-            print(f"  [OK] Issue created successfully: {jira_result.get('key')}")
+            logger.info(f"  [OK] MCP tool timeout handled: {mock_mcp_tool.invoke.called}")
+            logger.info(f"  [OK] Fallback to custom tool: {mock_jira_tool.create_issue.called}")
+            logger.info(f"  [OK] Issue created successfully: {jira_result.get('key')}")
             
-            print("\n[PASS] Test Case 8: PASSED")
+            logger.info("\n[PASS] Test Case 8: PASSED")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
     def test_9_cloudid_handling_for_rovo_tools(self, mock_config_module, mock_config_agent):
         """Test Case 9: cloudId handling for Rovo MCP tools."""
-        print("\n" + "="*80)
-        print("Test Case 9: cloudId Handling for Rovo MCP Tools")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 9: cloudId Handling for Rovo MCP Tools")
+        logger.info("="*80)
         
         # Mock configuration
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -917,7 +917,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.agent.confluence_tool = mock_confluence_tool
             
             # Test 1: cloudId retrieved successfully
-            print("\n[Test 9.1] cloudId retrieved from getAccessibleAtlassianResources")
+            logger.info("\n[Test 9.1] cloudId retrieved from getAccessibleAtlassianResources")
             mock_rovo_tool.invoke = Mock(return_value='{"success": true, "id": "12345"}')
             
             state = AgentState(
@@ -938,21 +938,21 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             
             # Verify getAccessibleAtlassianResources was called
             if cloud_id:
-                print(f"  ✓ cloudId retrieved: {cloud_id}")
+                logger.info(f"  ✓ cloudId retrieved: {cloud_id}")
             else:
                 # If _get_cloud_id doesn't work, test the full flow
-                print("  → Testing full flow with cloudId retrieval...")
+                logger.info("  → Testing full flow with cloudId retrieval...")
             
             # Test 2: cloudId missing - should fallback gracefully
-            print("\n[Test 9.2] cloudId missing - graceful fallback")
+            logger.info("\n[Test 9.2] cloudId missing - graceful fallback")
             mock_resources_tool.invoke = Mock(return_value='{"resources": []}')  # No cloudId
             
             # The tool call should fail validation and fallback to direct API
             # This is tested implicitly through the existing fallback mechanism
             
-            print("\n[PASS] Test Case 9: PASSED")
-            print("  [OK] cloudId handling tested")
-            print("  [OK] Fallback mechanism works when cloudId unavailable")
+            logger.info("\n[PASS] Test Case 9: PASSED")
+            logger.info("  [OK] cloudId handling tested")
+            logger.info("  [OK] Fallback mechanism works when cloudId unavailable")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
@@ -968,9 +968,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         5. API response verification
         6. State updates
         """
-        print("\n" + "="*80)
-        print("Test Case 10: End-to-End Confluence Integration Flow")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 10: End-to-End Confluence Integration Flow")
+        logger.info("="*80)
         
         # Mock configuration
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -1144,7 +1144,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.agent.jira_tool = mock_jira_fallback
             
             # Test 1: Full end-to-end flow with MCP
-            print("\n[Test 10.1] Full end-to-end flow with MCP tools")
+            logger.info("\n[Test 10.1] Full end-to-end flow with MCP tools")
             
             # Create initial state with Jira result (simulating after Jira creation)
             # In the actual flow, jira_creation node creates Jira first, then triggers confluence_creation
@@ -1177,7 +1177,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 "next_action": None
             }
             
-            print("  → Testing Confluence page creation with full parameters...")
+            logger.info("  → Testing Confluence page creation with full parameters...")
             
             # Clear previous captures for this test
             captured_calls.clear()
@@ -1189,13 +1189,13 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertIsNotNone(final_state.get("confluence_result"), "Confluence result should be set")
             self.assertTrue(final_state["confluence_result"].get("success"), "Confluence creation should succeed")
             confluence_link = final_state["confluence_result"].get("link")
-            print(f"  ✓ Confluence page created: {confluence_link}")
+            logger.info(f"  ✓ Confluence page created: {confluence_link}")
             
             # Verify API call was made correctly
-            print("\n  [API Call Verification]")
+            logger.info("\n  [API Call Verification]")
             self.assertTrue(mock_rovo_tool.invoke.called, "Confluence MCP tool should be called")
             invoke_call_count = mock_rovo_tool.invoke.call_count
-            print(f"  → Tool invoke called {invoke_call_count} time(s)")
+            logger.info(f"  → Tool invoke called {invoke_call_count} time(s)")
             
             # Extract captured arguments from our capture function
             captured_args = {}
@@ -1223,14 +1223,14 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             
             # Verify all required parameters were passed
             self.assertGreater(len(captured_args), 0, "Arguments should be captured")
-            print(f"  → Captured argument keys: {sorted(captured_args.keys())}")
-            print(f"  → Captured argument values summary:")
+            logger.info(f"  → Captured argument keys: {sorted(captured_args.keys())}")
+            logger.info(f"  → Captured argument values summary:")
             for key in sorted(captured_args.keys()):
                 value = captured_args[key]
                 if isinstance(value, str) and len(value) > 50:
-                    print(f"    {key}: {str(value)[:50]}... (length: {len(value)})")
+                    logger.info(f"    {key}: {str(value)[:50]}... (length: {len(value)})")
                 else:
-                    print(f"    {key}: {value}")
+                    logger.info(f"    {key}: {value}")
             
             # Verify required parameters are present
             required_params = ['cloudId', 'spaceId', 'title', 'body']
@@ -1257,19 +1257,19 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             if content_format_val is not None:
                 self.assertEqual(content_format_val, 'markdown', 
                               f"contentFormat should be 'markdown' for Rovo MCP Server. Got: {content_format_val[:50] if isinstance(content_format_val, str) else content_format_val}")
-                print(f"  ✓ contentFormat: {content_format_val}")
+                logger.info(f"  ✓ contentFormat: {content_format_val}")
             else:
                 # Check if it should have been added - if it's in the schema, it should be there
-                print(f"  ⚠ contentFormat not in arguments (may be optional or auto-added)")
+                logger.warning(f"  ⚠ contentFormat not in arguments (may be optional or auto-added)")
             
-            print(f"  ✓ cloudId: {cloud_id_val}")
-            print(f"  ✓ spaceId: {space_id_val}")
-            print(f"  ✓ title: {title_val[:50]}...")
-            print(f"  ✓ body length: {len(body_val)} characters")
-            print(f"  ✓ All required parameters verified")
+            logger.info(f"  ✓ cloudId: {cloud_id_val}")
+            logger.info(f"  ✓ spaceId: {space_id_val}")
+            logger.info(f"  ✓ title: {title_val[:50]}...")
+            logger.info(f"  ✓ body length: {len(body_val)} characters")
+            logger.info(f"  ✓ All required parameters verified")
             
             # Verify API response handling
-            print("\n  [API Response Verification]")
+            logger.info("\n  [API Response Verification]")
             confluence_result = final_state["confluence_result"]
             self.assertIsNotNone(confluence_result, "Confluence result should exist")
             self.assertTrue(confluence_result.get('success'), "Confluence creation should succeed")
@@ -1291,25 +1291,25 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertIn('viewpage.action', page_link, "Link should be a Confluence page URL")
             self.assertIn(jira_key, page_title_result, "Page title should contain Jira key")
             
-            print(f"  ✓ Tool used: {confluence_result['tool_used']}")
-            print(f"  ✓ Page ID: {page_id}")
-            print(f"  ✓ Page title: {page_title_result}")
-            print(f"  ✓ Page link: {page_link}")
+            logger.info(f"  ✓ Tool used: {confluence_result['tool_used']}")
+            logger.info(f"  ✓ Page ID: {page_id}")
+            logger.info(f"  ✓ Page title: {page_title_result}")
+            logger.info(f"  ✓ Page link: {page_link}")
             
             # Verify state was updated correctly
-            print("\n  [State Verification]")
+            logger.info("\n  [State Verification]")
             self.assertEqual(final_state['intent'], 'jira_creation', "Intent should be preserved")
             self.assertIsNotNone(final_state.get('jira_result'), "Jira result should be preserved")
             self.assertTrue(final_state['jira_result']['success'], "Jira result should be successful")
-            print("  ✓ State updated correctly")
+            logger.info("  ✓ State updated correctly")
             
             # Test 2: Verify cloudId retrieval was called
-            print("\n[Test 10.2] cloudId retrieval verification")
+            logger.info("\n[Test 10.2] cloudId retrieval verification")
             self.assertTrue(mock_resources_tool.invoke.called, "getAccessibleAtlassianResources should be called")
-            print("  ✓ cloudId retrieval tool was called")
+            logger.info("  ✓ cloudId retrieval tool was called")
             
             # Test 3: Verify fallback mechanism (simulate MCP failure)
-            print("\n[Test 10.3] Fallback mechanism verification")
+            logger.info("\n[Test 10.3] Fallback mechanism verification")
             mock_rovo_tool.invoke = Mock(side_effect=Exception("MCP tool failed"))
             mock_rovo_tool.invoke.reset_mock()
             mock_confluence_tool.create_page.reset_mock()
@@ -1342,15 +1342,15 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertTrue(mock_confluence_tool.create_page.called, "Fallback tool should be called")
             self.assertIsNotNone(fallback_final_state.get("confluence_result"))
             self.assertTrue(fallback_final_state["confluence_result"].get("success"))
-            print("  ✓ Fallback to direct API worked correctly")
+            logger.info("  ✓ Fallback to direct API worked correctly")
             
-            print("\n[PASS] Test Case 10: PASSED")
-            print("  [OK] End-to-end flow works correctly")
-            print("  [OK] All API calls made with correct parameters")
-            print("  [OK] API responses handled correctly")
-            print("  [OK] cloudId retrieved and used")
-            print("  [OK] contentFormat included")
-            print("  [OK] Fallback mechanism works")
+            logger.info("\n[PASS] Test Case 10: PASSED")
+            logger.info("  [OK] End-to-end flow works correctly")
+            logger.info("  [OK] All API calls made with correct parameters")
+            logger.info("  [OK] API responses handled correctly")
+            logger.info("  [OK] cloudId retrieved and used")
+            logger.info("  [OK] contentFormat included")
+            logger.info("  [OK] Fallback mechanism works")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
@@ -1361,9 +1361,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         Ensures our code calls StructuredTool.invoke() with correct signature.
         This test would have caught the 'missing input parameter' error.
         """
-        print("\n" + "="*80)
-        print("Test Case 11: Tool Invoke Contract Validation")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 11: Tool Invoke Contract Validation")
+        logger.info("="*80)
         
         import inspect
         from langchain_core.tools import StructuredTool
@@ -1385,7 +1385,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         real_invoke = StructuredTool.invoke
         real_sig = inspect.signature(real_invoke)
         
-        print(f"  Real StructuredTool.invoke() signature: {real_sig}")
+        logger.info(f"  Real StructuredTool.invoke() signature: {real_sig}")
         
         # Create a contract-validating wrapper
         call_log = []
@@ -1410,7 +1410,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                             f"  StructuredTool.invoke() requires 'input' as keyword argument."
                         )
                         contract_violations.append(error_msg)
-                        print(f"  ✗ {error_msg}")
+                        logger.error(f"  ✗ {error_msg}")
                         raise AssertionError(error_msg)
                     else:
                         error_msg = (
@@ -1419,7 +1419,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                             f"  Called with: args={args}, kwargs={kwargs}"
                         )
                         contract_violations.append(error_msg)
-                        print(f"  ✗ {error_msg}")
+                        logger.error(f"  ✗ {error_msg}")
                         raise AssertionError(error_msg)
                 
                 # Try to bind to real signature (without 'self' for instance methods)
@@ -1432,7 +1432,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 else:
                     bound = real_sig.bind(*args, **kwargs)
                 bound.apply_defaults()
-                print(f"  ✓ Contract valid: 'input' keyword argument present")
+                logger.info(f"  ✓ Contract valid: 'input' keyword argument present")
                 return json.dumps({"success": True, "id": "contract-test"})
             except TypeError as e:
                 error_msg = (
@@ -1442,7 +1442,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                     f"  Error: {e}"
                 )
                 contract_violations.append(error_msg)
-                print(f"  ✗ {error_msg}")
+                logger.error(f"  ✗ {error_msg}")
                 raise AssertionError(error_msg) from e
         
         # Create agent with mocked MCP integration
@@ -1456,7 +1456,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             mock_rovo_tool.name = "createConfluencePage"
             
             # Create args_schema
-            from pydantic import BaseModel, Field
+            from pydantic import BaseModel,
+from src.utils.logger import get_logger
+ Field
             class MockArgsSchema(BaseModel):
                 cloudId: str = Field(description="Cloud ID")
                 spaceId: str = Field(description="Space ID")
@@ -1541,10 +1543,10 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                         f"Call details: {last_call}"
                     )
             
-            print("\n[PASS] Test Case 11: PASSED")
-            print("  [OK] StructuredTool.invoke() contract validated")
-            print("  [OK] No contract violations detected")
-            print(f"  [OK] Tool was called {len(call_log)} time(s) with correct signature")
+            logger.info("\n[PASS] Test Case 11: PASSED")
+            logger.info("  [OK] StructuredTool.invoke() contract validated")
+            logger.info("  [OK] No contract violations detected")
+            logger.info(f"  [OK] Tool was called {len(call_log)} time(s) with correct signature")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
@@ -1555,9 +1557,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         Ensures contentFormat uses valid enum values as expected by Rovo MCP Server.
         This test would have caught the 'invalid_enum_value' error for 'storage'.
         """
-        print("\n" + "="*80)
-        print("Test Case 12: ContentFormat Enum Contract Validation")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 12: ContentFormat Enum Contract Validation")
+        logger.info("="*80)
         
         # Mock configuration
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -1688,12 +1690,12 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.assertIn(cf_value, valid_content_formats,
                             f"contentFormat '{cf_value}' is not in valid enum values: {valid_content_formats}")
             
-            print(f"  ✓ contentFormat values used: {content_format_values}")
-            print(f"  ✓ All values are in valid enum: {valid_content_formats}")
+            logger.info(f"  ✓ contentFormat values used: {content_format_values}")
+            logger.info(f"  ✓ All values are in valid enum: {valid_content_formats}")
             
-            print("\n[PASS] Test Case 12: PASSED")
-            print("  [OK] contentFormat enum contract validated")
-            print("  [OK] Only valid enum values used")
+            logger.info("\n[PASS] Test Case 12: PASSED")
+            logger.info("  [OK] contentFormat enum contract validated")
+            logger.info("  [OK] Only valid enum values used")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
@@ -1704,9 +1706,9 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         Validates that the code correctly extracts enum values from tool schema
         and uses them instead of hardcoded values.
         """
-        print("\n" + "="*80)
-        print("Test Case 13: Schema Enum Extraction Contract")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("Test Case 13: Schema Enum Extraction Contract")
+        logger.info("="*80)
         
         # Mock configuration
         mock_config_module.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
@@ -1829,20 +1831,20 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             self.assertIn(used_format, schema_enum_values,
                          f"Used contentFormat '{used_format}' should be from schema enum: {schema_enum_values}")
             
-            print(f"  ✓ Schema enum values: {schema_enum_values}")
-            print(f"  ✓ Used contentFormat: {used_format}")
-            print(f"  ✓ Value is from schema enum: {used_format in schema_enum_values}")
+            logger.info(f"  ✓ Schema enum values: {schema_enum_values}")
+            logger.info(f"  ✓ Used contentFormat: {used_format}")
+            logger.info(f"  ✓ Value is from schema enum: {used_format in schema_enum_values}")
             
-            print("\n[PASS] Test Case 13: PASSED")
-            print("  [OK] Schema enum extraction works correctly")
-            print("  [OK] Enum values from schema are used")
+            logger.info("\n[PASS] Test Case 13: PASSED")
+            logger.info("  [OK] Schema enum extraction works correctly")
+            logger.info("  [OK] Enum values from schema are used")
 
 
 def run_all_tests():
     """Run all test cases."""
-    print("\n" + "="*80)
-    print("Confluence MCP Integration Test Suite")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("Confluence MCP Integration Test Suite")
+    logger.info("="*80)
     
     # Create test suite
     loader = unittest.TestLoader()
@@ -1874,23 +1876,23 @@ def run_all_tests():
     result = runner.run(suite)
     
     # Print summary
-    print("\n" + "="*80)
-    print("Test Summary")
-    print("="*80)
-    print(f"Tests run: {result.testsRun}")
-    print(f"Failures: {len(result.failures)}")
-    print(f"Errors: {len(result.errors)}")
-    print(f"Success: {result.wasSuccessful()}")
+    logger.info("\n" + "="*80)
+    logger.info("Test Summary")
+    logger.info("="*80)
+    logger.info(f"Tests run: {result.testsRun}")
+    logger.info(f"Failures: {len(result.failures)}")
+    logger.error(f"Errors: {len(result.errors)}")
+    logger.info(f"Success: {result.wasSuccessful()}")
     
     if result.failures:
-        print("\nFailures:")
+        logger.info("\nFailures:")
         for test, traceback in result.failures:
-            print(f"  - {test}: {traceback}")
+            logger.info(f"  - {test}: {traceback}")
     
     if result.errors:
-        print("\nErrors:")
+        logger.error("\nErrors:")
         for test, traceback in result.errors:
-            print(f"  - {test}: {traceback}")
+            logger.info(f"  - {test}: {traceback}")
     
     return result.wasSuccessful()
 

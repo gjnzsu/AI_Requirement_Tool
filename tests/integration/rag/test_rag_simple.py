@@ -16,70 +16,73 @@ sys.path.insert(0, str(project_root))
 
 from src.rag import RAGService
 from config.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger('test.rag_simple')
 
 
 def quick_rag_test():
     """Quick test to verify RAG is working."""
-    print("=" * 70)
-    print("Quick RAG Test")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("Quick RAG Test")
+    logger.info("=" * 70)
     
     # Check if documents exist
     rag = RAGService()
     stats = rag.get_statistics()
     
-    print(f"\nKnowledge Base Status:")
-    print(f"  Documents: {stats['total_documents']}")
-    print(f"  Chunks: {stats['total_chunks']}")
+    logger.info(f"\nKnowledge Base Status:")
+    logger.info(f"  Documents: {stats['total_documents']}")
+    logger.info(f"  Chunks: {stats['total_chunks']}")
     
     if stats['total_documents'] == 0:
-        print("\n⚠ No documents in knowledge base!")
-        print("   Ingest some documents first:")
-        print("   rag = RAGService()")
-        print("   rag.ingest_document('your_file.pdf')")
+        logger.warning("\n⚠ No documents in knowledge base!")
+        logger.info("   Ingest some documents first:")
+        logger.info("   rag = RAGService()")
+        logger.info("   rag.ingest_document('your_file.pdf')")
         return
     
     # Test retrieval
-    print("\n" + "=" * 70)
-    print("Testing Retrieval")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Testing Retrieval")
+    logger.info("=" * 70)
     
     test_query = "Python programming"
-    print(f"\nQuery: '{test_query}'")
+    logger.info(f"\nQuery: '{test_query}'")
     
     try:
         results = rag.retrieve(test_query, top_k=3)
         
         if results:
-            print(f"\n✓ Found {len(results)} relevant chunks:\n")
+            logger.info(f"\n✓ Found {len(results)} relevant chunks:\n")
             for i, result in enumerate(results, 1):
-                print(f"[{i}] Similarity: {result['similarity']:.3f}")
-                print(f"    Content: {result['content'][:150]}...")
+                logger.info(f"[{i}] Similarity: {result['similarity']:.3f}")
+                logger.info(f"    Content: {result['content'][:150]}...")
                 if result.get('metadata', {}).get('file_name'):
-                    print(f"    Source: {result['metadata']['file_name']}")
-                print()
+                    logger.info(f"    Source: {result['metadata']['file_name']}")
+                logger.info("")
             
-            print("=" * 70)
-            print("✓ RAG is working! Retrieval successful.")
-            print("=" * 70)
-            print("\nTo use with chatbot:")
-            print("  chatbot = Chatbot(use_rag=True)")
-            print("  chatbot.get_response('your question')")
+            logger.info("=" * 70)
+            logger.info("✓ RAG is working! Retrieval successful.")
+            logger.info("=" * 70)
+            logger.info("\nTo use with chatbot:")
+            logger.info("  chatbot = Chatbot(use_rag=True)")
+            logger.info("  chatbot.get_response('your question')")
         else:
-            print("\n✗ No results found")
-            print("   Try ingesting more documents or different query")
+            logger.error("\n✗ No results found")
+            logger.info("   Try ingesting more documents or different query")
             
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        logger.error(f"\n✗ Error: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
 
 
 if __name__ == "__main__":
     try:
         quick_rag_test()
     except KeyboardInterrupt:
-        print("\n\nTest interrupted")
+        logger.info("\n\nTest interrupted")
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        logger.error(f"\n✗ Error: {e}")
 

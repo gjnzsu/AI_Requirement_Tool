@@ -15,115 +15,119 @@ from src.mcp.mcp_integration import MCPIntegration
 from src.mcp.mcp_client import create_custom_jira_mcp_client
 
 async def test_mcp_enabled():
+    logger = get_logger('test.mcp_enabled')
+
     """Test if MCP is enabled and custom server is available."""
-    print("=" * 70)
-    print("Testing MCP Configuration")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Testing MCP Configuration")
+    logger.info("=" * 70)
+    logger.info("")
     
     # Check config
-    print("1. Checking Configuration:")
-    print(f"   USE_MCP = {Config.USE_MCP}")
-    print(f"   JIRA_URL = {Config.JIRA_URL[:50]}..." if len(Config.JIRA_URL) > 50 else f"   JIRA_URL = {Config.JIRA_URL}")
-    print(f"   JIRA_EMAIL = {Config.JIRA_EMAIL}")
-    print(f"   JIRA_API_TOKEN = {'***' + Config.JIRA_API_TOKEN[-4:] if len(Config.JIRA_API_TOKEN) > 4 else 'Not set'}")
-    print(f"   JIRA_PROJECT_KEY = {Config.JIRA_PROJECT_KEY}")
-    print()
+    logger.info("1. Checking Configuration:")
+    logger.info(f"   USE_MCP = {Config.USE_MCP}")
+    logger.info(f"   JIRA_URL = {Config.JIRA_URL[:50]}..." if len(Config.JIRA_URL) > 50 else f"   JIRA_URL = {Config.JIRA_URL}")
+    logger.info(f"   JIRA_EMAIL = {Config.JIRA_EMAIL}")
+    logger.info(f"   JIRA_API_TOKEN = {'***' + Config.JIRA_API_TOKEN[-4:] if len(Config.JIRA_API_TOKEN) > 4 else 'Not set'}")
+    logger.info(f"   JIRA_PROJECT_KEY = {Config.JIRA_PROJECT_KEY}")
+    logger.info("")
     
     # Check if MCP is enabled
     if not Config.USE_MCP:
-        print("❌ MCP is DISABLED in configuration")
-        print("   Set USE_MCP=true to enable")
+        logger.error("❌ MCP is DISABLED in configuration")
+        logger.info("   Set USE_MCP=true to enable")
         return False
     
-    print("✓ MCP is ENABLED in configuration")
-    print()
+    logger.info("✓ MCP is ENABLED in configuration")
+    logger.info("")
     
     # Test custom Jira MCP client creation
-    print("2. Testing Custom Jira MCP Client:")
+    logger.info("2. Testing Custom Jira MCP Client:")
     try:
         jira_client = create_custom_jira_mcp_client()
         if jira_client:
-            print(f"   ✓ Custom Jira MCP client created")
-            print(f"   Command: {' '.join(jira_client.command)}")
-            print()
+            logger.info(f"   ✓ Custom Jira MCP client created")
+            logger.info(f"   Command: {' '.join(jira_client.command)}")
+            logger.info("")
             
             # Try to connect
-            print("3. Testing MCP Server Connection:")
+            logger.info("3. Testing MCP Server Connection:")
             try:
                 await jira_client.connect()
-                print("   ✓ MCP server connected successfully")
-                print(f"   Available tools: {', '.join(jira_client.get_tools().keys())}")
+                logger.info("   ✓ MCP server connected successfully")
+                logger.info(f"   Available tools: {', '.join(jira_client.get_tools().keys())}")
                 return True
             except Exception as e:
-                print(f"   ❌ Failed to connect to MCP server: {e}")
+                logger.error(f"   ❌ Failed to connect to MCP server: {e}")
                 return False
         else:
-            print("   ❌ Could not create custom Jira MCP client")
-            print("   Check your Jira credentials in configuration")
+            logger.error("   ❌ Could not create custom Jira MCP client")
+            logger.info("   Check your Jira credentials in configuration")
             return False
     except Exception as e:
-        print(f"   ❌ Error creating MCP client: {e}")
+        logger.error(f"   ❌ Error creating MCP client: {e}")
         return False
 
 async def test_mcp_integration():
     """Test MCP integration initialization."""
-    print()
-    print("=" * 70)
-    print("Testing MCP Integration")
-    print("=" * 70)
-    print()
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Testing MCP Integration")
+    logger.info("=" * 70)
+    logger.info("")
     
     try:
         integration = MCPIntegration(use_mcp=True)
-        print("✓ MCPIntegration created")
+        logger.info("✓ MCPIntegration created")
         
-        print("Initializing MCP servers...")
+        logger.info("Initializing MCP servers...")
         await integration.initialize()
         
         if integration._initialized:
-            print(f"✓ MCP Integration initialized successfully")
+            logger.info(f"✓ MCP Integration initialized successfully")
             tools = integration.get_tools()
-            print(f"   Available tools: {len(tools)}")
+            logger.info(f"   Available tools: {len(tools)}")
             for tool in tools:
-                print(f"     - {tool.name}")
+                logger.info(f"     - {tool.name}")
             return True
         else:
-            print("⚠ MCP Integration not initialized")
-            print("   This might be normal if servers failed to connect")
+            logger.warning("⚠ MCP Integration not initialized")
+            logger.error("   This might be normal if servers failed to connect")
             return False
     except Exception as e:
-        print(f"❌ MCP Integration failed: {e}")
+        logger.error(f"❌ MCP Integration failed: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
         return False
 
 async def main():
     """Main test function."""
-    print("\n")
+    logger.info("\n")
     
     # Test 1: Check if MCP is enabled
     mcp_enabled = await test_mcp_enabled()
     
     if not mcp_enabled:
-        print("\n" + "=" * 70)
-        print("MCP is not properly configured. Please:")
-        print("1. Set USE_MCP=true (environment variable or .env file)")
-        print("2. Verify Jira credentials are set correctly")
-        print("=" * 70)
+        logger.info("\n" + "=" * 70)
+        logger.info("MCP is not properly configured. Please:")
+        logger.info("1. Set USE_MCP=true (environment variable or .env file)")
+        logger.info("2. Verify Jira credentials are set correctly")
+        logger.info("=" * 70)
         return
     
     # Test 2: Test MCP integration
     integration_ok = await test_mcp_integration()
     
-    print("\n" + "=" * 70)
+    logger.info("\n" + "=" * 70)
     if integration_ok:
-        print("✅ MCP is ENABLED and WORKING!")
-        print("   You can now use MCP tools when creating Jira issues.")
+        logger.info("✅ MCP is ENABLED and WORKING!")
+        logger.info("   You can now use MCP tools when creating Jira issues.")
     else:
-        print("⚠ MCP is enabled but integration needs attention.")
-        print("   Check the errors above for details.")
-    print("=" * 70)
+        logger.warning("⚠ MCP is enabled but integration needs attention.")
+        logger.error("   Check the errors above for details.")
+    logger.info("=" * 70)
 
 if __name__ == "__main__":
     asyncio.run(main())

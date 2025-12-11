@@ -72,18 +72,20 @@ def create_test_documents():
     with open(doc2, 'w', encoding='utf-8') as f:
         f.write(doc2_content)
     
-    print("✓ Created test documents:")
-    print(f"  - {doc1.name}")
-    print(f"  - {doc2.name}")
+    logger.info("✓ Created test documents:")
+    logger.info(f"  - {doc1.name}")
+    logger.info(f"  - {doc2.name}")
     
     return [doc1, doc2]
 
 
 def test_rag_retrieval():
+    logger = get_logger('test.rag_retrieval')
+
     """Test if RAG can retrieve the specific information."""
-    print("\n" + "=" * 70)
-    print("Step 1: Testing RAG Retrieval")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 1: Testing RAG Retrieval")
+    logger.info("=" * 70)
     
     rag = RAGService()
     
@@ -95,36 +97,36 @@ def test_rag_retrieval():
         "What database does Project Alpha use?"
     ]
     
-    print("\nTesting retrieval for specific queries:\n")
+    logger.info("\nTesting retrieval for specific queries:\n")
     
     for query in test_queries:
-        print(f"Query: '{query}'")
+        logger.info(f"Query: '{query}'")
         results = rag.retrieve(query, top_k=2)
         
         if results:
-            print(f"  ✓ Found {len(results)} relevant chunks")
+            logger.info(f"  ✓ Found {len(results)} relevant chunks")
             for i, result in enumerate(results[:1], 1):  # Show top result
-                print(f"    [{i}] Similarity: {result['similarity']:.3f}")
-                print(f"        Content preview: {result['content'][:100]}...")
+                logger.info(f"    [{i}] Similarity: {result['similarity']:.3f}")
+                logger.info(f"        Content preview: {result['content'][:100]}...")
         else:
-            print("  ✗ No results found")
-        print()
+            logger.error("  ✗ No results found")
+        logger.info("")
 
 
 def test_chatbot_with_rag():
     """Test chatbot with RAG enabled."""
-    print("\n" + "=" * 70)
-    print("Step 2: Testing Chatbot with RAG")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 2: Testing Chatbot with RAG")
+    logger.info("=" * 70)
     
     if not Config.OPENAI_API_KEY:
-        print("\n⚠ OPENAI_API_KEY not configured.")
-        print("   Cannot test chatbot without API key.")
+        logger.warning("\n⚠ OPENAI_API_KEY not configured.")
+        logger.info("   Cannot test chatbot without API key.")
         return
     
     # Create chatbot with RAG (with timeout protection)
-    print("\nCreating chatbot with RAG enabled...")
-    print("  (This may take a moment - initializing LLM provider...)")
+    logger.info("\nCreating chatbot with RAG enabled...")
+    logger.info("  (This may take a moment - initializing LLM provider...)")
     
     import signal
     import threading
@@ -145,40 +147,40 @@ def test_chatbot_with_rag():
     init_thread.join(timeout=30)  # 30 second timeout
     
     if init_thread.is_alive():
-        print("⚠ Chatbot initialization is taking too long (possible network hang)")
-        print("   This might be due to Jira/Confluence connection attempts.")
-        print("   Skipping chatbot test to avoid dead loop.")
-        print("\n   To test RAG with chatbot manually:")
-        print("     from src.chatbot import Chatbot")
-        print("     chatbot = Chatbot(use_rag=True)")
-        print("     chatbot.get_response('What is Acme Corporation?')")
+        logger.warning("⚠ Chatbot initialization is taking too long (possible network hang)")
+        logger.info("   This might be due to Jira/Confluence connection attempts.")
+        logger.info("   Skipping chatbot test to avoid dead loop.")
+        logger.info("\n   To test RAG with chatbot manually:")
+        logger.info("     from src.chatbot import Chatbot")
+        logger.info("     chatbot = Chatbot(use_rag=True)")
+        logger.info("     chatbot.get_response('What is Acme Corporation?')")
         return
     
     if init_error:
-        print(f"✗ Error initializing chatbot: {init_error}")
+        logger.error(f"✗ Error initializing chatbot: {init_error}")
         return
     
     if not chatbot:
-        print("✗ Failed to initialize chatbot")
+        logger.error("✗ Failed to initialize chatbot")
         return
     
     if not chatbot.rag_service:
-        print("✗ RAG service not available in chatbot!")
-        print("   Check configuration and API keys.")
+        logger.error("✗ RAG service not available in chatbot!")
+        logger.info("   Check configuration and API keys.")
         return
     
-    print("✓ Chatbot created with RAG support")
+    logger.info("✓ Chatbot created with RAG support")
     
     # Test with just ONE question to avoid hanging
     test_question = "What is Acme Corporation?"
     
-    print(f"\nAsking ONE test question:")
-    print("=" * 70)
-    print(f"\nQ: {test_question}")
-    print("-" * 70)
+    logger.info(f"\nAsking ONE test question:")
+    logger.info("=" * 70)
+    logger.info(f"\nQ: {test_question}")
+    logger.info("-" * 70)
     
     try:
-        print("  (Calling LLM API - this may take 10-20 seconds...)")
+        logger.info("  (Calling LLM API - this may take 10-20 seconds...)")
         response = chatbot.get_response(test_question)
         
         # Check if response contains information from our documents
@@ -195,73 +197,73 @@ def test_chatbot_with_rag():
         if "150" in response_lower or "employees" in response_lower:
             checks.append("✓ Mentions employee count")
         
-        print(f"A: {response[:300]}...")  # Show first 300 chars
+        logger.info(f"A: {response[:300]}...")  # Show first 300 chars
         
         if checks:
-            print(f"\n  ✓ RAG Context Detected:")
+            logger.info(f"\n  ✓ RAG Context Detected:")
             for check in checks:
-                print(f"    {check}")
-            print("\n  RAG is working! The chatbot is using knowledge from your documents.")
+                logger.info(f"    {check}")
+            logger.info("\n  RAG is working! The chatbot is using knowledge from your documents.")
         else:
-            print(f"\n  ⚠ Response may not be using RAG context")
-            print(f"     (or LLM is generating generic response)")
-            print(f"     Check if documents were ingested correctly.")
+            logger.warning(f"\n  ⚠ Response may not be using RAG context")
+            logger.info(f"     (or LLM is generating generic response)")
+            logger.info(f"     Check if documents were ingested correctly.")
         
     except Exception as e:
-        print(f"✗ Error: {e}")
+        logger.error(f"✗ Error: {e}")
         import traceback
         traceback.print_exc()
 
 
 def test_chatbot_without_rag():
     """Test chatbot WITHOUT RAG for comparison."""
-    print("\n" + "=" * 70)
-    print("Step 3: Testing Chatbot WITHOUT RAG (for comparison)")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 3: Testing Chatbot WITHOUT RAG (for comparison)")
+    logger.info("=" * 70)
     
     if not Config.OPENAI_API_KEY:
-        print("\n⚠ OPENAI_API_KEY not configured. Skipping comparison.")
+        logger.warning("\n⚠ OPENAI_API_KEY not configured. Skipping comparison.")
         return
     
-    print("\nSkipping comparison test to avoid initialization delays.")
-    print("  (Chatbot initialization can hang on Jira/Confluence connections)")
-    print("\n  To test comparison manually:")
-    print("    chatbot_no_rag = Chatbot(use_rag=False)")
-    print("    chatbot_no_rag.get_response('What is Acme Corporation?')")
-    print("\n  Compare responses - RAG version should mention specific facts")
-    print("  from your documents, while non-RAG version will be generic.")
+    logger.info("\nSkipping comparison test to avoid initialization delays.")
+    logger.info("  (Chatbot initialization can hang on Jira/Confluence connections)")
+    logger.info("\n  To test comparison manually:")
+    logger.info("    chatbot_no_rag = Chatbot(use_rag=False)")
+    logger.info("    chatbot_no_rag.get_response('What is Acme Corporation?')")
+    logger.info("\n  Compare responses - RAG version should mention specific facts")
+    logger.info("  from your documents, while non-RAG version will be generic.")
 
 
 def verify_rag_integration():
     """Verify RAG is properly integrated."""
-    print("\n" + "=" * 70)
-    print("Step 4: Verifying RAG Integration")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Step 4: Verifying RAG Integration")
+    logger.info("=" * 70)
     
     try:
         # Check RAG service
         rag = RAGService()
         stats = rag.get_statistics()
         
-        print(f"\nKnowledge Base Status:")
-        print(f"  Total documents: {stats['total_documents']}")
-        print(f"  Total chunks: {stats['total_chunks']}")
+        logger.info(f"\nKnowledge Base Status:")
+        logger.info(f"  Total documents: {stats['total_documents']}")
+        logger.info(f"  Total chunks: {stats['total_chunks']}")
         
         if stats['total_documents'] == 0:
-            print("\n  ⚠ No documents in knowledge base!")
-            print("     RAG won't work without ingested documents.")
+            logger.warning("\n  ⚠ No documents in knowledge base!")
+            logger.info("     RAG won't work without ingested documents.")
             return False
         
         # Check chatbot RAG integration status
-        print(f"\nChatbot RAG Status:")
-        print(f"  RAG service available: True")
-        print(f"  Knowledge base has documents: {stats['total_documents'] > 0}")
-        print(f"  Ready for chatbot integration: True")
+        logger.info(f"\nChatbot RAG Status:")
+        logger.info(f"  RAG service available: True")
+        logger.info(f"  Knowledge base has documents: {stats['total_documents'] > 0}")
+        logger.info(f"  Ready for chatbot integration: True")
         
-        print("\n  ✓ RAG is properly integrated!")
+        logger.info("\n  ✓ RAG is properly integrated!")
         return True
     except Exception as e:
-        print(f"\n  ⚠ Error checking RAG: {e}")
+        logger.error(f"\n  ⚠ Error checking RAG: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -269,41 +271,41 @@ def verify_rag_integration():
 
 def main():
     """Run all tests."""
-    print("=" * 70)
-    print("RAG Context Verification Test")
-    print("=" * 70)
-    print("\nThis test verifies that:")
-    print("  1. Documents are ingested into RAG store")
-    print("  2. RAG can retrieve relevant information")
-    print("  3. Chatbot uses RAG context in responses")
-    print("  4. Responses contain information from your documents")
-    print()
+    logger.info("=" * 70)
+    logger.info("RAG Context Verification Test")
+    logger.info("=" * 70)
+    logger.info("\nThis test verifies that:")
+    logger.info("  1. Documents are ingested into RAG store")
+    logger.info("  2. RAG can retrieve relevant information")
+    logger.info("  3. Chatbot uses RAG context in responses")
+    logger.info("  4. Responses contain information from your documents")
+    logger.info("")
     
     # Check prerequisites
     if not Config.OPENAI_API_KEY:
-        print("⚠ Warning: OPENAI_API_KEY not found")
-        print("   RAG requires OpenAI API key for embeddings.")
-        print("   Set it in your .env file: OPENAI_API_KEY=your-key")
-        print("   Skipping chatbot tests (will only test retrieval)")
+        logger.warning("⚠ Warning: OPENAI_API_KEY not found")
+        logger.info("   RAG requires OpenAI API key for embeddings.")
+        logger.info("   Set it in your .env file: OPENAI_API_KEY=your-key")
+        logger.info("   Skipping chatbot tests (will only test retrieval)")
         skip_chatbot_tests = True
     else:
         skip_chatbot_tests = False
     
     # Create test documents
-    print("\n" + "=" * 70)
-    print("Preparing Test Documents")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Preparing Test Documents")
+    logger.info("=" * 70)
     test_files = create_test_documents()
     
     # Ingest documents
-    print("\nIngesting documents into RAG store...")
+    logger.info("\nIngesting documents into RAG store...")
     rag = RAGService()
     for file_path in test_files:
         try:
             doc_id = rag.ingest_document(str(file_path))
-            print(f"✓ Ingested: {file_path.name}")
+            logger.info(f"✓ Ingested: {file_path.name}")
         except Exception as e:
-            print(f"✗ Failed to ingest {file_path.name}: {e}")
+            logger.error(f"✗ Failed to ingest {file_path.name}: {e}")
             return
     
     # Run tests
@@ -312,60 +314,62 @@ def main():
     
     # Only run chatbot tests if API key is available
     if not skip_chatbot_tests:
-        print("\n" + "=" * 70)
-        print("Note: Chatbot tests may take time due to LLM API calls")
-        print("      and tool initialization (Jira/Confluence connections)")
-        print("=" * 70)
+        logger.info("\n" + "=" * 70)
+        logger.info("Note: Chatbot tests may take time due to LLM API calls")
+        logger.info("      and tool initialization (Jira/Confluence connections)")
+        logger.info("=" * 70)
         
         # Ask user if they want to continue (with timeout)
-        print("\n⚠ Chatbot initialization may hang if Jira/Confluence")
-        print("   credentials are invalid or network is slow.")
-        print("\nOptions:")
-        print("  1. Continue with chatbot test (may take 30+ seconds)")
-        print("  2. Skip chatbot test (recommended if you see hanging)")
-        print("\nProceeding with chatbot test in 3 seconds...")
-        print("  (Press Ctrl+C to skip)")
+        logger.warning("\n⚠ Chatbot initialization may hang if Jira/Confluence")
+        logger.info("   credentials are invalid or network is slow.")
+        logger.info("\nOptions:")
+        logger.info("  1. Continue with chatbot test (may take 30+ seconds)")
+        logger.info("  2. Skip chatbot test (recommended if you see hanging)")
+        logger.info("\nProceeding with chatbot test in 3 seconds...")
+        logger.info("  (Press Ctrl+C to skip)")
         
         import time
         try:
             time.sleep(3)
         except KeyboardInterrupt:
-            print("\nSkipping chatbot tests (user interrupted)")
+            logger.info("\nSkipping chatbot tests (user interrupted)")
             skip_chatbot_tests = True
         
         if not skip_chatbot_tests:
             test_chatbot_with_rag()
             test_chatbot_without_rag()
     else:
-        print("\n" + "=" * 70)
-        print("Skipping Chatbot Tests (no API key)")
-        print("=" * 70)
-        print("\nTo test chatbot with RAG:")
-        print("  1. Set OPENAI_API_KEY in your .env file")
-        print("  2. Run the test again")
-        print("  3. Or test manually:")
-        print("     chatbot = Chatbot(use_rag=True)")
-        print("     chatbot.get_response('What is Acme Corporation?')")
+        logger.info("\n" + "=" * 70)
+        logger.info("Skipping Chatbot Tests (no API key)")
+        logger.info("=" * 70)
+        logger.info("\nTo test chatbot with RAG:")
+        logger.info("  1. Set OPENAI_API_KEY in your .env file")
+        logger.info("  2. Run the test again")
+        logger.info("  3. Or test manually:")
+        logger.info("     chatbot = Chatbot(use_rag=True)")
+        logger.info("     chatbot.get_response('What is Acme Corporation?')")
     
-    print("\n" + "=" * 70)
-    print("Test Complete!")
-    print("=" * 70)
-    print("\nHow to verify RAG is working:")
-    print("  1. Check if responses mention specific facts from your documents")
-    print("  2. Compare responses with/without RAG (should be different)")
-    print("  3. Ask questions that can ONLY be answered from your documents")
-    print("\nIf responses contain information from your documents,")
-    print("then RAG is working correctly! ✓")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Test Complete!")
+    logger.info("=" * 70)
+    logger.info("\nHow to verify RAG is working:")
+    logger.info("  1. Check if responses mention specific facts from your documents")
+    logger.info("  2. Compare responses with/without RAG (should be different)")
+    logger.info("  3. Ask questions that can ONLY be answered from your documents")
+    logger.info("\nIf responses contain information from your documents,")
+    logger.info("then RAG is working correctly! ✓")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.info("\n\nTest interrupted by user")
     except Exception as e:
-        print(f"\n✗ Unexpected error: {e}")
+        logger.error(f"\n✗ Unexpected error: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
 

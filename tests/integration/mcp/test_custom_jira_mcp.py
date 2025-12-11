@@ -15,54 +15,56 @@ from config.config import Config
 
 
 async def test_custom_jira_mcp():
+    logger = get_logger('test.custom_jira_mcp')
+
     """Test the custom Jira MCP server."""
-    print("=" * 70)
-    print("Testing Custom Jira MCP Server")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("Testing Custom Jira MCP Server")
+    logger.info("=" * 70)
+    logger.info("")
     
     # Check credentials
     if not (Config.JIRA_URL and not Config.JIRA_URL.startswith('https://yourcompany') and
             Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
             Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
-        print("⚠ Jira credentials not configured")
-        print("   Set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN in .env file")
+        logger.warning("⚠ Jira credentials not configured")
+        logger.info("   Set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN in .env file")
         return
     
-    print("✓ Jira credentials configured")
-    print()
+    logger.info("✓ Jira credentials configured")
+    logger.info("")
     
     # Create client
-    print("Creating custom Jira MCP client...")
+    logger.info("Creating custom Jira MCP client...")
     try:
         client = create_custom_jira_mcp_client()
         if not client:
-            print("✗ Failed to create custom Jira MCP client")
+            logger.error("✗ Failed to create custom Jira MCP client")
             return
         
-        print(f"✓ Client created")
-        print(f"  Command: {' '.join(client.command)}")
-        print()
+        logger.info(f"✓ Client created")
+        logger.info(f"  Command: {' '.join(client.command)}")
+        logger.info("")
         
         # Try to connect
-        print("Connecting to custom Jira MCP server...")
+        logger.info("Connecting to custom Jira MCP server...")
         try:
             await asyncio.wait_for(client.connect(), timeout=20.0)
-            print("✓ Connected successfully!")
-            print()
+            logger.info("✓ Connected successfully!")
+            logger.info("")
             
             # List tools
             tools = client.get_tools()
-            print(f"Available tools: {len(tools)}")
+            logger.info(f"Available tools: {len(tools)}")
             for tool_name in tools.keys():
-                print(f"  - {tool_name}")
-            print()
+                logger.info(f"  - {tool_name}")
+            logger.info("")
             
             # Test a tool call (create_jira_issue)
-            print("Testing tool: create_jira_issue")
-            print("  Note: This will create a test issue in Jira")
-            print("  (Skipping actual creation to avoid test issues)")
-            print("  Tool is available and ready to use!")
+            logger.info("Testing tool: create_jira_issue")
+            logger.info("  Note: This will create a test issue in Jira")
+            logger.info("  (Skipping actual creation to avoid test issues)")
+            logger.info("  Tool is available and ready to use!")
             # Uncomment below to actually create a test issue:
             # try:
             #     test_args = {
@@ -89,32 +91,34 @@ async def test_custom_jira_mcp():
             #         result_json = result
             #     
             #     if result_json.get('success'):
-            #         print("✓ Tool call successful!")
-            #         print(f"  Ticket ID: {result_json.get('ticket_id')}")
-            #         print(f"  Link: {result_json.get('link')}")
+            #         logger.info("✓ Tool call successful!")
+            #         logger.info(f"  Ticket ID: {result_json.get('ticket_id')}")
+            #         logger.info(f"  Link: {result_json.get('link')}")
             #     else:
-            #         print(f"✗ Tool call failed: {result_json.get('error')}")
+            #         logger.error(f"✗ Tool call failed: {result_json.get('error')}")
             # except Exception as e:
-            #     print(f"✗ Tool call error: {e}")
+            #     logger.error(f"✗ Tool call error: {e}")
             #     import traceback
             #     traceback.print_exc()
             
         except asyncio.TimeoutError:
-            print("✗ Connection timeout (20s)")
+            logger.error("✗ Connection timeout (20s)")
         except Exception as e:
-            print(f"✗ Connection failed: {e}")
+            logger.error(f"✗ Connection failed: {e}")
             import traceback
             traceback.print_exc()
             
     except Exception as e:
-        print(f"✗ Failed to create client: {e}")
+        logger.error(f"✗ Failed to create client: {e}")
         import traceback
+from src.utils.logger import get_logger
+
         traceback.print_exc()
     
-    print()
-    print("=" * 70)
-    print("Test Complete")
-    print("=" * 70)
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Test Complete")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
