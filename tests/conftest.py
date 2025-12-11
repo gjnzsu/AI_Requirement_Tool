@@ -1,0 +1,72 @@
+"""
+Pytest configuration and shared fixtures for all tests.
+"""
+
+import sys
+from pathlib import Path
+
+# Add project root to path for all tests
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import pytest
+from unittest.mock import Mock, MagicMock, AsyncMock
+from config.config import Config
+
+
+@pytest.fixture(scope="session")
+def project_root_path():
+    """Return the project root path."""
+    return Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="function")
+def mock_config():
+    """Provide a mock Config object for testing."""
+    config = Mock(spec=Config)
+    config.JIRA_URL = "https://test.atlassian.net"
+    config.JIRA_EMAIL = "test@example.com"
+    config.JIRA_API_TOKEN = "test-token"
+    config.JIRA_PROJECT_KEY = "TEST"
+    config.OPENAI_API_KEY = "test-openai-key"
+    config.GEMINI_API_KEY = "test-gemini-key"
+    config.LLM_PROVIDER = "openai"
+    config.USE_MCP = True
+    config.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
+    config.CONFLUENCE_SPACE_KEY = "TEST"
+    return config
+
+
+@pytest.fixture(scope="function")
+def mock_mcp_client():
+    """Provide a mock MCP client for testing."""
+    client = AsyncMock()
+    client._initialized = True
+    client.tools = {
+        'create_jira_issue': {
+            'name': 'create_jira_issue',
+            'description': 'Create a Jira issue',
+            'inputSchema': {
+                'type': 'object',
+                'properties': {
+                    'summary': {'type': 'string'},
+                    'description': {'type': 'string'},
+                    'project_key': {'type': 'string'}
+                },
+                'required': ['summary', 'project_key']
+            }
+        }
+    }
+    return client
+
+
+@pytest.fixture(scope="function")
+def mock_llm_provider():
+    """Provide a mock LLM provider for testing."""
+    provider = Mock()
+    provider.get_provider_name.return_value = "openai"
+    provider.model = "gpt-4"
+    provider.invoke = AsyncMock(return_value="Mocked LLM response")
+    return provider
+

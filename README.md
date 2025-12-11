@@ -55,12 +55,24 @@ generative-ai-chatbot
 │       └── helpers.py
 ├── config/
 │   └── config.py          # Configuration management
-├── web/                    # Web UI frontend
+├── tests/                 # Test suite
+│   ├── unit/             # Unit tests (isolated components)
+│   ├── integration/     # Integration tests (component interactions)
+│   │   ├── mcp/         # MCP integration tests
+│   │   ├── rag/         # RAG integration tests
+│   │   ├── agent/       # Agent framework tests
+│   │   ├── llm/         # LLM provider tests
+│   │   └── memory/      # Memory system tests
+│   ├── e2e/             # End-to-end tests
+│   └── fixtures/        # Test fixtures and utilities
+├── web/                  # Web UI frontend
 │   ├── templates/
 │   └── static/
-├── app.py                  # Flask web server
-├── requirements.txt       # Python dependencies
-└── README.md              # This file
+├── app.py                # Flask web server
+├── requirements.txt     # Python dependencies
+├── pytest.ini          # Pytest configuration
+├── run_tests.py         # Test runner script
+└── README.md            # This file
 ```
 
 ## 🛠️ Setup Instructions
@@ -289,14 +301,53 @@ Tools are automatically selected based on intent:
 
 ## 🧪 Testing
 
-### Test Scripts
+### Test Structure
+
+Tests are organized in the `tests/` directory:
+
+```
+tests/
+├── unit/              # Unit tests (isolated components)
+├── integration/       # Integration tests (component interactions)
+│   ├── mcp/          # MCP integration tests
+│   ├── rag/          # RAG integration tests
+│   ├── agent/        # Agent framework tests
+│   ├── llm/          # LLM provider tests
+│   └── memory/       # Memory system tests
+├── e2e/              # End-to-end tests
+└── fixtures/         # Test fixtures and utilities
+```
+
+### Running Tests
 
 ```bash
-# Test MCP configuration
-python test_mcp_enabled.py
+# Run all tests
+python run_tests.py
 
-# Test MCP integration
-python test_mcp_integration_full.py
+# Run specific test categories
+python run_tests.py --unit          # Unit tests only
+python run_tests.py --integration   # Integration tests only
+python run_tests.py --e2e          # End-to-end tests only
+
+# Run tests by feature
+python run_tests.py --mcp          # MCP tests
+python run_tests.py --rag          # RAG tests
+python run_tests.py --agent        # Agent tests
+python run_tests.py --llm          # LLM provider tests
+python run_tests.py --memory       # Memory tests
+
+# Using pytest directly
+pytest tests/                       # Run all tests
+pytest tests/unit/                 # Run unit tests
+pytest tests/integration/mcp/      # Run MCP tests
+pytest -v -m mcp                  # Run tests marked with 'mcp'
+```
+
+### Test Configuration
+
+- **pytest.ini** - Pytest configuration with test markers
+- **conftest.py** - Shared fixtures and test configuration
+- **run_tests.py** - Convenient test runner script
 
 # Test Jira creation
 python test_mcp_jira_creation.py
