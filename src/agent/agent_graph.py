@@ -569,9 +569,36 @@ class ChatbotAgent:
         ]
         
         # Expanded RAG keywords for knowledge/documentation queries
-        rag_keywords = ['what is', 'what are', 'how to', 'how do', 'explain', 'tell me about',
-                       'document', 'documentation', 'guide', 'help with', 'information about',
-                       'describe', 'definition', 'meaning', 'example']
+        # These keywords trigger RAG to search through ingested documents
+        rag_keywords = [
+            # Question patterns
+            'what is', 'what are', 'what was', 'what were', 'what does', 'what do',
+            'how to', 'how do', 'how does', 'how can', 'how should', 'how would',
+            'why is', 'why are', 'why does', 'why do',
+            'when is', 'when are', 'when does', 'when do',
+            'where is', 'where are', 'where does', 'where do',
+            'who is', 'who are', 'who does', 'who do',
+            # Explanation patterns
+            'explain', 'explains', 'explained', 'explaining',
+            'tell me about', 'tell me more', 'tell me',
+            'describe', 'describes', 'described', 'describing',
+            'define', 'defines', 'defined', 'definition',
+            'meaning of', 'meaning',
+            # Information seeking patterns
+            'information about', 'info about', 'information on', 'info on',
+            'details about', 'details on', 'more about', 'more on',
+            'learn about', 'learn more', 'know about', 'know more',
+            # Documentation patterns
+            'document', 'documentation', 'documents',
+            'guide', 'guides', 'tutorial', 'tutorials',
+            'help with', 'help me', 'help understanding',
+            'example', 'examples', 'sample', 'samples',
+            # Knowledge patterns
+            'understand', 'understanding', 'understand how',
+            'show me', 'show how', 'show',
+            'find', 'find out', 'find information',
+            'search', 'search for', 'look for', 'look up'
+        ]
         
         # General chat keywords (simple questions, greetings)
         general_chat_keywords = ['hello', 'hi', 'hey', 'who are you', 'what are you',
@@ -620,10 +647,24 @@ class ChatbotAgent:
                     return state
         
         # Check for RAG intent keywords (knowledge/documentation queries)
-        if any(keyword in user_input for keyword in rag_keywords):
-            state["intent"] = "rag_query"
-            logger.debug("Intent: rag_query (keyword match)")
-            return state
+        # Use case-insensitive matching and check if any keyword appears in the input
+        user_input_lower = user_input.lower()
+        rag_keyword_found = any(keyword in user_input_lower for keyword in rag_keywords)
+        
+        # Also check if RAG service is available (if not, route to general_chat)
+        if rag_keyword_found:
+            # Check if RAG service is available
+            rag_service_available = getattr(self, '_rag_service', None) is not None
+            if rag_service_available:
+                matched_keywords = [k for k in rag_keywords if k in user_input_lower]
+                state["intent"] = "rag_query"
+                logger.info(f"Intent: rag_query (matched keywords: {matched_keywords[:3]})")
+                logger.debug(f"Full user input: {user_input[:100]}")
+                return state
+            else:
+                logger.warning("RAG keyword detected but RAG service not available - RAG may be disabled or not initialized")
+                logger.debug(f"Matched RAG keywords: {[k for k in rag_keywords if k in user_input_lower][:3]}")
+                # Fall through to general_chat
         
         # Check for general chat keywords (simple questions, greetings)
         if any(keyword in user_input for keyword in general_chat_keywords):
@@ -880,6 +921,19 @@ class ChatbotAgent:
                     logger.warning(f"LLM call error after {elapsed:.2f}s: {executor_error}")
                     logger.debug(f"Error type: {error_type}")
                     
+                    # Check for HTTP status codes in error attributes
+                    http_status_code = None
+                    if hasattr(executor_error, 'status_code'):
+                        http_status_code = executor_error.status_code
+                    elif hasattr(executor_error, 'response') and hasattr(executor_error.response, 'status_code'):
+                        http_status_code = executor_error.response.status_code
+                    elif '429' in error_str or 'status code 429' in error_str:
+                        http_status_code = 429
+                    elif '401' in error_str or 'status code 401' in error_str:
+                        http_status_code = 401
+                    elif '403' in error_str or 'status code 403' in error_str:
+                        http_status_code = 403
+                    
                     # Detect error category by checking both type name and error message
                     is_connection_error = (
                         'Connection' in error_type or 
@@ -888,8 +942,9 @@ class ChatbotAgent:
                         'network' in error_str or
                         'unreachable' in error_str or
                         'timeout' in error_str
-                    )
+                    ) and http_status_code is None
                     is_auth_error = (
+                        http_status_code in [401, 403] or
                         'Authentication' in error_type or 
                         'auth' in error_str or 
                         'api key' in error_str or
@@ -897,9 +952,12 @@ class ChatbotAgent:
                         'invalid' in error_str and 'key' in error_str
                     )
                     is_rate_limit_error = (
+                        http_status_code == 429 or
                         'RateLimit' in error_type or 
                         'rate limit' in error_str or
-                        'rate_limit' in error_str
+                        'rate_limit' in error_str or
+                        'quota' in error_str or
+                        '429' in error_str
                     )
                     
                     # Provide user-friendly error messages based on error category
@@ -921,10 +979,19 @@ class ChatbotAgent:
                         )
                         logger.debug("Authentication error detected")
                     elif is_rate_limit_error:
+                        # Provide detailed, user-friendly rate limit message
+                        provider_name = self.provider_name.capitalize() if self.provider_name else "API"
                         user_message = (
-                            "I apologize, but the API rate limit has been exceeded. "
-                            "Please wait a moment and try again."
+                            f"⚠️ Rate Limit Exceeded\n\n"
+                            f"I apologize, but the {provider_name} API rate limit has been exceeded. "
+                            f"This means you've made too many requests in a short period.\n\n"
+                            f"**What you can do:**\n"
+                            f"• Wait a few minutes and try again\n"
+                            f"• Switch to a different model (OpenAI, DeepSeek) if available\n"
+                            f"• Check your API quota/usage limits in your {provider_name} account\n\n"
+                            f"Rate limits are temporary and will reset after a short waiting period."
                         )
+                        logger.warning(f"Rate limit error detected (HTTP {http_status_code or 'N/A'}): {executor_error}")
                         logger.debug("Rate limit error detected")
                     else:
                         # Generic error message for unexpected errors

@@ -152,7 +152,39 @@ def chat():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Enhanced error handling with user-friendly messages
+        error_type = type(e).__name__
+        error_str = str(e).lower()
+        
+        # Check for HTTP status codes
+        http_status_code = None
+        if hasattr(e, 'status_code'):
+            http_status_code = e.status_code
+        elif hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+            http_status_code = e.response.status_code
+        elif '429' in error_str:
+            http_status_code = 429
+        
+        # Detect error categories
+        is_rate_limit = (
+            http_status_code == 429 or
+            'RateLimit' in error_type or
+            'rate limit' in error_str or
+            'quota' in error_str or
+            '429' in error_str
+        )
+        
+        if is_rate_limit:
+            error_message = (
+                "Rate limit exceeded. The API has received too many requests. "
+                "Please wait a few minutes and try again, or switch to a different model."
+            )
+            status_code = 429
+        else:
+            error_message = str(e)
+            status_code = 500
+        
+        return jsonify({'error': error_message}), status_code
 
 @app.route('/api/conversations', methods=['GET'])
 def get_conversations():
@@ -357,5 +389,18 @@ if __name__ == '__main__':
     print("Open your browser and navigate to: http://localhost:5000")
     print("=" * 70)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use stat reloader on Windows to avoid socket errors
+    import sys
+    use_reloader = True
+    reloader_type = 'stat' if sys.platform == 'win32' else 'auto'
+    
+    try:
+        app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=use_reloader, reloader_type=reloader_type)
+    except OSError as e:
+        # Handle Windows socket errors during reload
+        if sys.platform == 'win32' and '10038' in str(e):
+            print("⚠ Reloader error detected, restarting without reloader...")
+            app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+        else:
+            raise
 

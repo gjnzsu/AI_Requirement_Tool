@@ -619,8 +619,84 @@ class Chatbot:
             return response
             
         except Exception as e:
-            error_msg = f"I apologize, but I encountered an error: {str(e)}"
-            logger.error(f"Error in get_response: {e}", exc_info=True)
+            # Enhanced error handling with user-friendly messages
+            error_type = type(e).__name__
+            error_str = str(e).lower()
+            
+            # Check for HTTP status codes
+            http_status_code = None
+            if hasattr(e, 'status_code'):
+                http_status_code = e.status_code
+            elif hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+                http_status_code = e.response.status_code
+            elif '429' in error_str:
+                http_status_code = 429
+            
+            # Detect error categories
+            is_rate_limit = (
+                http_status_code == 429 or
+                'RateLimit' in error_type or
+                'rate limit' in error_str or
+                'quota' in error_str or
+                '429' in error_str
+            )
+            is_auth_error = (
+                http_status_code in [401, 403] or
+                'auth' in error_str or
+                'unauthorized' in error_str or
+                'api key' in error_str
+            )
+            is_connection_error = (
+                'Connection' in error_type or
+                'connection' in error_str or
+                'network' in error_str or
+                'timeout' in error_str
+            )
+            
+            # Provide user-friendly error messages
+            if is_rate_limit:
+                provider_name = self.provider_name.capitalize() if self.provider_name else "API"
+                error_msg = (
+                    f"⚠️ Rate Limit Exceeded\n\n"
+                    f"I apologize, but the {provider_name} API rate limit has been exceeded. "
+                    f"This means you've made too many requests in a short period.\n\n"
+                    f"**What you can do:**\n"
+                    f"• Wait a few minutes and try again\n"
+                    f"• Switch to a different model (OpenAI, DeepSeek) if available\n"
+                    f"• Check your API quota/usage limits in your {provider_name} account\n\n"
+                    f"Rate limits are temporary and will reset after a short waiting period."
+                )
+                logger.warning(f"Rate limit error: {e}")
+            elif is_auth_error:
+                error_msg = (
+                    "🔐 Authentication Error\n\n"
+                    "I apologize, but there's an authentication issue with the API. "
+                    "Please check that your API key is correctly configured and has the necessary permissions."
+                )
+                logger.warning(f"Authentication error: {e}")
+            elif is_connection_error:
+                error_msg = (
+                    "🌐 Connection Error\n\n"
+                    "I'm having trouble connecting to the AI service. This could be due to:\n"
+                    "• Network connectivity issues\n"
+                    "• API service temporarily unavailable\n"
+                    "• Firewall or proxy settings\n\n"
+                    "Please check your network connection and try again."
+                )
+                logger.warning(f"Connection error: {e}")
+            else:
+                # Generic error with helpful context
+                error_msg = (
+                    "❌ Error Occurred\n\n"
+                    "I apologize, but I encountered an error while processing your request. "
+                    "Please try again in a moment. If the problem persists, you may want to:\n"
+                    "• Check your API key configuration\n"
+                    "• Verify your network connection\n"
+                    "• Try switching to a different model\n"
+                    "• Wait a moment and retry"
+                )
+                logger.error(f"Error in get_response: {e}", exc_info=True)
+            
             return error_msg
 
     def _handle_jira_creation(self, user_input: str) -> str:

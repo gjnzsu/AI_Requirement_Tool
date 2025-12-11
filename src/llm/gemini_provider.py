@@ -62,12 +62,34 @@ class GeminiProvider(LLMProvider):
         if json_mode:
             generation_config["response_mime_type"] = "application/json"
         
-        response = self.client.generate_content(
-            full_prompt,
-            generation_config=genai.types.GenerationConfig(**generation_config)
-        )
-        
-        return response.text.strip()
+        try:
+            response = self.client.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(**generation_config)
+            )
+            
+            return response.text.strip()
+        except Exception as e:
+            # Check for rate limit errors (HTTP 429)
+            error_str = str(e).lower()
+            error_type = type(e).__name__
+            
+            # Check if it's a rate limit error
+            if '429' in error_str or 'rate limit' in error_str or 'quota' in error_str:
+                # Create a custom exception with status_code attribute for better error handling
+                class RateLimitError(Exception):
+                    def __init__(self, message):
+                        super().__init__(message)
+                        self.status_code = 429
+                        self.error_type = 'RateLimitError'
+                
+                raise RateLimitError(
+                    f"Gemini API rate limit exceeded: {str(e)}. "
+                    f"Please wait a few minutes before trying again."
+                )
+            
+            # Re-raise other exceptions as-is
+            raise
     
     def supports_json_mode(self) -> bool:
         """Gemini supports JSON mode via response_mime_type."""

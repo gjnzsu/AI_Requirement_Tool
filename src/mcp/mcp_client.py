@@ -451,9 +451,13 @@ def create_rovo_mcp_client() -> Optional[MCPClient]:
         # Rovo uses OAuth 2.1, so we don't need API tokens in env
         # The OAuth flow will be handled by mcp-remote
         env = {
+            # Set JIRA_BASE_URL for external MCP servers that expect this variable name
+            'JIRA_BASE_URL': Config.JIRA_URL if Config.JIRA_URL and not Config.JIRA_URL.startswith('https://yourcompany') else None,
             # Optional: Can specify Atlassian site URL if needed
-            # 'ATLASSIAN_SITE_URL': Config.JIRA_URL,
+            'ATLASSIAN_SITE_URL': Config.JIRA_URL if Config.JIRA_URL and not Config.JIRA_URL.startswith('https://yourcompany') else None,
         }
+        # Remove None values
+        env = {k: v for k, v in env.items() if v is not None}
         
         client = MCPClient('atlassian-rovo', command, env)
         logger.info("Created Atlassian Rovo MCP client (Official)")
@@ -492,6 +496,7 @@ def create_custom_jira_mcp_client() -> Optional[MCPClient]:
         
         env = {
             'JIRA_URL': Config.JIRA_URL,
+            'JIRA_BASE_URL': Config.JIRA_URL,  # Some MCP servers expect JIRA_BASE_URL
             'JIRA_EMAIL': Config.JIRA_EMAIL,
             'JIRA_API_TOKEN': Config.JIRA_API_TOKEN,
             'JIRA_PROJECT_KEY': Config.JIRA_PROJECT_KEY
