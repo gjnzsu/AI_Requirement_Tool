@@ -329,29 +329,36 @@ class Chatbot:
         self.llm_provider = new_provider
         self.provider_manager = None  # Reset manager, can recreate if needed
         
-        # Update agent if it exists
+        # Update agent if it exists - always reinitialize to ensure clean state
         if self.use_agent and self.agent:
             try:
-                # Update agent's provider name and reinitialize LLM
-                self.agent.provider_name = provider_name
-                # Reinitialize LLM with new provider
-                self.agent.llm = self.agent._initialize_llm(model)
-                logger.info(f"Updated agent with new provider: {provider_name} ({model})")
+                # Reinitialize the entire agent to ensure clean state with new provider
+                # This ensures the graph and all nodes use the new LLM
+                logger.info(f"Reinitializing agent with new provider: {provider_name} ({model})")
+                self.agent = ChatbotAgent(
+                    provider_name=provider_name.lower(),
+                    model=model,
+                    temperature=self.temperature,
+                    enable_tools=self.enable_mcp_tools,
+                    rag_service=self.rag_service if self.use_rag else None,
+                    use_mcp=self.use_mcp
+                )
+                logger.info(f"Successfully reinitialized agent with provider: {provider_name} ({model})")
+                logger.debug(f"Agent provider_name: {self.agent.provider_name}")
+                logger.debug(f"Agent LLM base_url: {getattr(self.agent.llm, 'base_url', 'N/A')}")
             except Exception as e:
-                logger.warning(f"Failed to update agent LLM directly: {e}")
-                # Try to reinitialize the entire agent as fallback
+                logger.error(f"Failed to reinitialize agent with provider {provider_name}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Try fallback: update LLM directly without rebuilding graph
                 try:
-                    self.agent = ChatbotAgent(
-                        provider_name=self.provider_name,
-                        model=model,
-                        temperature=self.temperature,
-                        enable_tools=self.enable_mcp_tools,
-                        rag_service=self.rag_service if self.use_rag else None,
-                        use_mcp=self.use_mcp
-                    )
-                    logger.info(f"Reinitialized agent with new provider: {provider_name} ({model})")
+                    logger.warning("Attempting fallback: updating LLM directly")
+                    self.agent.provider_name = provider_name.lower()
+                    self.agent.llm = self.agent._initialize_llm(model)
+                    logger.info(f"Updated agent LLM directly: {provider_name} ({model})")
                 except Exception as e2:
-                    logger.warning(f"Failed to reinitialize agent: {e2}")
+                    logger.error(f"Fallback also failed: {e2}")
+                    # Don't raise - allow fallback to non-agent mode
         
         logger.info(f"Switched LLM provider to: {provider_name} ({model})")
     

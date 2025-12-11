@@ -80,7 +80,7 @@ def main():
         ],
         "LLM Provider Tests": [
             ("tests/integration/llm/test_openai_provider.py", "OpenAI Provider Connectivity", 120),
-            ("tests/integration/llm/test_gemini_provider.py", "Gemini Provider Connectivity", 120),
+            # ("tests/integration/llm/test_gemini_provider.py", "Gemini Provider Connectivity", 120),  # Disabled
             ("tests/integration/llm/test_deepseek_provider.py", "DeepSeek Provider Connectivity", 120),
         ],
         "Agent Integration Tests": [

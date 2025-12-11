@@ -115,8 +115,8 @@ def chat():
         # Get chatbot response
         chatbot = get_chatbot()
         
-        # Switch provider if different from current
-        if chatbot.provider_name != model:
+        # Switch provider if different from current (case-insensitive comparison)
+        if chatbot.provider_name.lower() != model.lower():
             try:
                 chatbot.switch_provider(model)
             except ValueError as e:

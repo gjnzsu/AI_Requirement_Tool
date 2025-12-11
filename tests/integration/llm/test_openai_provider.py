@@ -6,6 +6,15 @@ import os
 import sys
 from pathlib import Path
 
+# Fix PowerShell encoding issues on Windows
+if sys.platform == 'win32':
+    import io
+    # Set UTF-8 encoding for stdout/stderr in PowerShell
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -26,14 +35,26 @@ def test_openai_api():
     
     # Check API key
     api_key = Config.OPENAI_API_KEY
-    if not api_key:
+    if not api_key or api_key.strip() == '':
         logger.error("ERROR: OPENAI_API_KEY not found in configuration")
         logger.info("Set it in .env file or environment variables")
+        logger.info("PowerShell: $env:OPENAI_API_KEY='your-api-key'")
+        return False
+    
+    api_key = api_key.strip()  # Remove any whitespace
+    
+    # Check for placeholder values
+    if api_key.lower() in ['your-openai-api-key', 'your_api_key', '']:
+        logger.error("ERROR: OPENAI_API_KEY appears to be a placeholder value")
+        logger.info("Please set a valid API key in .env file or environment variables")
         return False
     
     if not api_key.startswith('sk-'):
         logger.warning(f"API key format may be invalid (should start with 'sk-')")
-        logger.info(f"Current key starts with: {api_key[:5]}...")
+        if len(api_key) >= 5:
+            logger.info(f"Current key starts with: {api_key[:5]}...")
+        else:
+            logger.info(f"Current key is too short (length: {len(api_key)})")
     else:
         logger.info(f"API key format looks valid (starts with 'sk-')")
     
@@ -143,13 +164,24 @@ def test_openai_api():
         return False
 
 if __name__ == "__main__":
-    success = test_openai_api()
-    logger.info("")
-    logger.info("=" * 70)
-    if success:
-        logger.info("API test passed - LLM should work")
-    else:
-        logger.error("API test failed - Check the errors above")
-    logger.info("=" * 70)
-    sys.exit(0 if success else 1)
+    try:
+        success = test_openai_api()
+        logger.info("")
+        logger.info("=" * 70)
+        if success:
+            logger.info("API test passed - LLM should work")
+            exit_code = 0
+        else:
+            logger.error("API test failed - Check the errors above")
+            exit_code = 1
+        logger.info("=" * 70)
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        logger.info("\nTest interrupted by user")
+        sys.exit(130)
+    except Exception as e:
+        logger.error(f"\nUnexpected error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        sys.exit(1)
 
