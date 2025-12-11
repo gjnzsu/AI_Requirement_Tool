@@ -17,7 +17,9 @@ sys.path.insert(0, str(project_root))
 from src.rag import RAGService
 from src.chatbot import Chatbot
 from config.config import Config
+from src.utils.logger import get_logger
 
+logger = get_logger('test.rag_service')
 
 def create_sample_documents():
     """Create sample documents for testing."""
@@ -276,7 +278,5 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"\n✗ Unexpected error: {e}")
         import traceback
-from src.utils.logger import get_logger
-
         traceback.print_exc()
 

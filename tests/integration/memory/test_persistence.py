@@ -18,7 +18,7 @@ from src.chatbot import Chatbot
 from config.config import Config
 from src.utils.logger import get_logger
 
-
+logger = get_logger('test.memory.persistence')
 
 def simulate_restart_test():
     """Simulate a service restart to verify persistence."""

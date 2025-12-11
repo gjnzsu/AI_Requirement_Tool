@@ -35,9 +35,9 @@ def test_confluence_mcp_server():
                 future = executor.submit(asyncio.run, mcp_integration.initialize())
                 future.result(timeout=35.0)  # Slightly longer than MCP timeout
         except concurrent.futures.TimeoutError:
-            logger.warning("   ⚠ MCP initialization timed out (this is expected if servers are slow)")
+            logger.warning("   [WARNING] MCP initialization timed out (this is expected if servers are slow)")
         except Exception as e:
-            logger.error(f"   ⚠ MCP initialization error: {e}")
+            logger.error(f"   [ERROR] MCP initialization error: {e}")
         
         # Check if we have any tools available (even if initialization timed out)
         logger.info("\n3. Checking available MCP tools...")
@@ -45,7 +45,7 @@ def test_confluence_mcp_server():
             all_tools = mcp_integration.get_tools()
             logger.info(f"   Total tools available: {len(all_tools)}")
         except Exception as e:
-            logger.warning(f"   ⚠ Could not get tools: {e}")
+            logger.warning(f"   [WARNING] Could not get tools: {e}")
             all_tools = []
         
         # Filter Confluence tools
@@ -69,7 +69,7 @@ def test_confluence_mcp_server():
                     desc = tool.description[:60] + "..." if len(tool.description) > 60 else tool.description
                     logger.info(f"       Description: {desc}")
         else:
-            logger.warning("\n   ⚠ No Confluence MCP tools found")
+            logger.warning("\n   [WARNING] No Confluence MCP tools found")
             logger.info("   Possible reasons:")
             logger.info("     - Confluence MCP server timed out during initialization (15s timeout)")
             logger.info("     - Confluence MCP server is not running or not configured")
@@ -98,7 +98,7 @@ def test_confluence_mcp_server():
             
             logger.info("   ✓ Tool is callable (connectivity verified)")
         else:
-            logger.warning("\n4. ⚠ No create tools found for testing")
+            logger.warning("\n4. [WARNING] No create tools found for testing")
         
         logger.info("\n" + "=" * 70)
         logger.info("✓ Confluence MCP Server Test: PASSED")

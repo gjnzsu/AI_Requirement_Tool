@@ -101,8 +101,8 @@ def chat():
             return jsonify({'error': 'Message is required'}), 400
         
         # Validate model
-        if model not in ['openai', 'gemini']:
-            return jsonify({'error': f'Invalid model: {model}. Supported models: openai, gemini'}), 400
+        if model not in ['openai', 'gemini', 'deepseek']:
+            return jsonify({'error': f'Invalid model: {model}. Supported models: openai, gemini, deepseek'}), 400
         
         # Get or create conversation
         if not conversation_id or (memory_manager and not memory_manager.get_conversation(conversation_id)):
@@ -301,7 +301,7 @@ def get_current_model():
         chatbot = get_chatbot()
         return jsonify({
             'model': chatbot.provider_name,
-            'available_models': ['openai', 'gemini']
+            'available_models': ['openai', 'gemini', 'deepseek']
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

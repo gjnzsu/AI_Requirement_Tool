@@ -319,7 +319,7 @@ class ChatbotAgent:
         Initialize the LangGraph agent.
         
         Args:
-            provider_name: LLM provider ('openai' or 'gemini')
+            provider_name: LLM provider ('openai', 'gemini', or 'deepseek')
             model: Model name (if None, uses default from Config)
             temperature: Sampling temperature
             enable_tools: Whether to enable Jira/Confluence tools
@@ -385,8 +385,8 @@ class ChatbotAgent:
                     model=model_name,
                     temperature=self.temperature,
                     api_key=api_key,
-                    timeout=15.0,  # Reduced timeout to 15 seconds
-                    max_retries=1  # Reduced retries to 1 to avoid long waits
+                    timeout=60.0,  # Increased timeout to 60 seconds for better reliability
+                    max_retries=2  # Increased retries for better reliability
                 )
                 logger.info(f"LLM initialized: {self.provider_name} ({model_name})")
                 return llm
@@ -422,6 +422,37 @@ class ChatbotAgent:
                     temperature=self.temperature,
                     google_api_key=api_key
                 )
+        elif self.provider_name == "deepseek":
+            api_key = Config.DEEPSEEK_API_KEY
+            model_name = model or Config.DEEPSEEK_MODEL
+            if not api_key:
+                raise ValueError("DEEPSEEK_API_KEY not found in configuration")
+            
+            # DeepSeek uses OpenAI-compatible API, so we use ChatOpenAI with custom base_url
+            try:
+                # Try with timeout and max_retries (LangChain 0.1.0+)
+                llm = ChatOpenAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    api_key=api_key,
+                    base_url="https://api.deepseek.com",
+                    timeout=60.0,  # Increased timeout to 60 seconds for DeepSeek API
+                    max_retries=2  # Increased retries for better reliability
+                )
+                logger.info(f"LLM initialized: {self.provider_name} ({model_name})")
+                return llm
+            except TypeError:
+                # Fallback if parameters not supported
+                logger.warning("LLM timeout parameter not supported, using default")
+                return ChatOpenAI(
+                    model=model_name,
+                    temperature=self.temperature,
+                    api_key=api_key,
+                    base_url="https://api.deepseek.com"
+                )
+            except Exception as e:
+                logger.error(f"LLM initialization error: {e}")
+                raise
         else:
             raise ValueError(f"Unsupported provider: {self.provider_name}")
     
@@ -441,10 +472,25 @@ class ChatbotAgent:
         if self.jira_tool:
             try:
                 from src.llm import LLMRouter
+                # Get API key and model based on provider
+                if self.provider_name == "openai":
+                    api_key = Config.OPENAI_API_KEY
+                    model = Config.OPENAI_MODEL
+                elif self.provider_name == "gemini":
+                    api_key = Config.GEMINI_API_KEY
+                    model = Config.GEMINI_MODEL
+                elif self.provider_name == "deepseek":
+                    api_key = Config.DEEPSEEK_API_KEY
+                    model = Config.DEEPSEEK_MODEL
+                else:
+                    # Fallback to OpenAI if provider not recognized
+                    api_key = Config.OPENAI_API_KEY
+                    model = Config.OPENAI_MODEL
+                
                 llm_provider = LLMRouter.get_provider(
                     provider_name=self.provider_name,
-                    api_key=Config.OPENAI_API_KEY if self.provider_name == "openai" else Config.GEMINI_API_KEY,
-                    model=Config.OPENAI_MODEL if self.provider_name == "openai" else Config.GEMINI_MODEL
+                    api_key=api_key,
+                    model=model
                 )
                 self.jira_evaluator = JiraMaturityEvaluator(
                     jira_url=Config.JIRA_URL,
@@ -804,17 +850,22 @@ class ChatbotAgent:
             import time
             start_time = time.time()
             
+            # Use longer timeout wrapper - should be longer than LLM's internal timeout
+            # LLM timeout is 60s for OpenAI/DeepSeek, 30s for Gemini
+            # Wrapper timeout should be longer to allow LLM to handle its own timeout gracefully
+            timeout_value = 90.0 if self.provider_name in ["openai", "deepseek"] else 45.0
+            
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(self.llm.invoke, messages)
                 try:
-                    response = future.result(timeout=20.0)  # 20 second timeout (reduced from 30s)
+                    response = future.result(timeout=timeout_value)
                     elapsed = time.time() - start_time
                     logger.debug(f"LLM response received in {elapsed:.2f}s")
                     messages.append(response)
                     state["messages"] = messages
                 except concurrent.futures.TimeoutError:
                     elapsed = time.time() - start_time
-                    logger.warning(f"LLM response timeout ({elapsed:.2f}s) for general chat")
+                    logger.warning(f"LLM response timeout ({elapsed:.2f}s) for {self.provider_name}")
                     logger.debug("Check: API key validity, network connection, model name")
                     error_msg = AIMessage(
                         content="I apologize, but the request timed out. Please check your API key and network connection. The API may be slow or unavailable."
@@ -1516,472 +1567,472 @@ class ChatbotAgent:
                             logger.debug(f"MCP Tool: {mcp_confluence_tool.name}")
                             logger.debug(f"Title: {page_title}")
                             tool_used = "MCP Protocol"
-                        
-                        try:
-                            # Call MCP tool with timeout
-                            import asyncio
-                            import concurrent.futures
                             
-                            # Get tool schema to determine correct parameter names
-                            tool_schema = None
-                            if hasattr(mcp_confluence_tool, '_tool_schema'):
-                                tool_schema = mcp_confluence_tool._tool_schema
-                            elif hasattr(mcp_confluence_tool, 'args_schema') and mcp_confluence_tool.args_schema:
-                                # Extract schema from Pydantic model
-                                tool_schema = {'inputSchema': {'properties': {}}}
-                                if hasattr(mcp_confluence_tool.args_schema, 'model_fields'):
-                                    for field_name, field_info in mcp_confluence_tool.args_schema.model_fields.items():
-                                        tool_schema['inputSchema']['properties'][field_name] = {
-                                            'type': 'string',  # Default, could be improved
-                                            'description': field_info.description if hasattr(field_info, 'description') else ''
-                                        }
-                            
-                            # Prepare arguments based on tool schema
-                            mcp_args = {}
-                            
-                            # Check if this is a Rovo tool (camelCase naming) - these require cloudId
-                            is_rovo_tool = any(char.isupper() for char in mcp_confluence_tool.name) and 'Confluence' in mcp_confluence_tool.name
-                            
-                            # Get cloudId early if this is a Rovo tool
-                            cloud_id = None
-                            if is_rovo_tool:
-                                logger.debug("Detected Rovo tool - retrieving cloudId...")
-                                cloud_id = self._get_cloud_id()
-                                if cloud_id:
-                                    logger.info(f"cloudId retrieved: {cloud_id}")
-                                else:
-                                    logger.warning("cloudId not available - tool call may fail")
-                            
-                            # Check what parameters the tool expects
-                            if tool_schema and 'inputSchema' in tool_schema:
-                                input_schema = tool_schema['inputSchema']
-                                properties = input_schema.get('properties', {})
-                                required = input_schema.get('required', [])
+                            try:
+                                # Call MCP tool with timeout
+                                import asyncio
+                                import concurrent.futures
                                 
-                                # Map our data to the tool's expected parameters
-                                # Common parameter name mappings
-                                param_mapping = {
-                                    'title': ['title', 'name', 'pageTitle', 'page_title'],
-                                    'content': ['content', 'body', 'html', 'text', 'description'],
-                                    'space': ['space', 'spaceKey', 'space_key', 'spaceId', 'space_id']
-                                }
+                                # Get tool schema to determine correct parameter names
+                                tool_schema = None
+                                if hasattr(mcp_confluence_tool, '_tool_schema'):
+                                    tool_schema = mcp_confluence_tool._tool_schema
+                                elif hasattr(mcp_confluence_tool, 'args_schema') and mcp_confluence_tool.args_schema:
+                                    # Extract schema from Pydantic model
+                                    tool_schema = {'inputSchema': {'properties': {}}}
+                                    if hasattr(mcp_confluence_tool.args_schema, 'model_fields'):
+                                        for field_name, field_info in mcp_confluence_tool.args_schema.model_fields.items():
+                                            tool_schema['inputSchema']['properties'][field_name] = {
+                                                'type': 'string',  # Default, could be improved
+                                                'description': field_info.description if hasattr(field_info, 'description') else ''
+                                            }
                                 
-                                # Extract contentFormat enum values if available
-                                content_format_enum = None
-                                content_format_param = None
-                                for param_name in properties.keys():
-                                    param_lower = param_name.lower()
-                                    if 'contentformat' in param_lower or param_name == 'contentFormat':
-                                        content_format_param = param_name
-                                        param_def = properties[param_name]
-                                        # Check for enum values
-                                        if 'enum' in param_def:
-                                            content_format_enum = param_def['enum']
-                                        elif 'anyOf' in param_def:
-                                            # Check anyOf for enum
-                                            for any_of_item in param_def['anyOf']:
-                                                if 'enum' in any_of_item:
-                                                    content_format_enum = any_of_item['enum']
-                                                    break
-                                        break
+                                # Prepare arguments based on tool schema
+                                mcp_args = {}
                                 
-                                # Try to match tool parameters to our data
-                                for param_name in properties.keys():
-                                    param_lower = param_name.lower()
+                                # Check if this is a Rovo tool (camelCase naming) - these require cloudId
+                                is_rovo_tool = any(char.isupper() for char in mcp_confluence_tool.name) and 'Confluence' in mcp_confluence_tool.name
+                                
+                                # Get cloudId early if this is a Rovo tool
+                                cloud_id = None
+                                if is_rovo_tool:
+                                    logger.debug("Detected Rovo tool - retrieving cloudId...")
+                                    cloud_id = self._get_cloud_id()
+                                    if cloud_id:
+                                        logger.info(f"cloudId retrieved: {cloud_id}")
+                                    else:
+                                        logger.warning("cloudId not available - tool call may fail")
+                                
+                                # Check what parameters the tool expects
+                                if tool_schema and 'inputSchema' in tool_schema:
+                                    input_schema = tool_schema['inputSchema']
+                                    properties = input_schema.get('properties', {})
+                                    required = input_schema.get('required', [])
                                     
-                                    # Map cloudId parameter FIRST (required for Rovo MCP Server)
-                                    if 'cloudid' in param_lower or param_name == 'cloudId':
-                                        if cloud_id:
-                                            mcp_args[param_name] = cloud_id
-                                        # If cloudId is required but not available, we'll handle it in the required params check
-                                    # Map contentFormat parameter BEFORE content (to avoid matching 'content' in 'contentFormat')
-                                    elif 'contentformat' in param_lower or param_name == 'contentFormat':
-                                        # Rovo MCP Server expects contentFormat - check schema for valid enum values
-                                        # Default to "markdown" for Rovo tools if enum not specified
-                                        if content_format_enum:
-                                            # Use first enum value (usually "markdown" for Rovo)
-                                            mcp_args[param_name] = content_format_enum[0]
-                                            logger.debug(f"Using contentFormat from schema enum: {content_format_enum[0]}")
-                                        else:
-                                            # Default to "markdown" for Rovo MCP Server
-                                            mcp_args[param_name] = "markdown"
-                                            logger.debug("Using default contentFormat: markdown")
-                                    # Map title/name parameters
-                                    elif any(mapped in param_lower for mapped in ['title', 'name', 'pagetitle']):
-                                        mcp_args[param_name] = page_title
-                                    # Map content/body/description parameters (check AFTER contentFormat)
-                                    elif any(mapped in param_lower for mapped in ['content', 'body', 'html', 'text', 'description']):
-                                        # If contentFormat is markdown, convert HTML to markdown
-                                        content_format_value = mcp_args.get(content_format_param if content_format_param else 'contentFormat', '')
-                                        if content_format_value == 'markdown':
-                                            # Convert HTML to markdown for Rovo MCP Server
-                                            body_content = self._html_to_markdown(confluence_content)
-                                            mcp_args[param_name] = body_content
-                                            logger.debug(f"Converted HTML content to markdown (length: {len(body_content)} chars)")
-                                        else:
-                                            mcp_args[param_name] = confluence_content
-                                    # Map space parameters
-                                    elif any(mapped in param_lower for mapped in ['space', 'spacekey', 'spaceid']):
-                                        # Check if parameter expects numeric ID (spaceId) vs string key (spaceKey)
-                                        param_def = properties.get(param_name, {})
-                                        param_type = param_def.get('type', '')
+                                    # Map our data to the tool's expected parameters
+                                    # Common parameter name mappings
+                                    param_mapping = {
+                                        'title': ['title', 'name', 'pageTitle', 'page_title'],
+                                        'content': ['content', 'body', 'html', 'text', 'description'],
+                                        'space': ['space', 'spaceKey', 'space_key', 'spaceId', 'space_id']
+                                    }
+                                    
+                                    # Extract contentFormat enum values if available
+                                    content_format_enum = None
+                                    content_format_param = None
+                                    for param_name in properties.keys():
+                                        param_lower = param_name.lower()
+                                        if 'contentformat' in param_lower or param_name == 'contentFormat':
+                                            content_format_param = param_name
+                                            param_def = properties[param_name]
+                                            # Check for enum values
+                                            if 'enum' in param_def:
+                                                content_format_enum = param_def['enum']
+                                            elif 'anyOf' in param_def:
+                                                # Check anyOf for enum
+                                                for any_of_item in param_def['anyOf']:
+                                                    if 'enum' in any_of_item:
+                                                        content_format_enum = any_of_item['enum']
+                                                        break
+                                            break
+                                    
+                                    # Try to match tool parameters to our data
+                                    for param_name in properties.keys():
+                                        param_lower = param_name.lower()
                                         
-                                        # Rovo MCP Server uses spaceId - check schema to see if it expects string or number
-                                        if 'spaceid' in param_lower or param_name == 'spaceId':
-                                            # Check the expected type from schema
-                                            expected_type = param_def.get('type', '')
-                                            # Rovo MCP Server expects spaceId as a string (even though API uses numeric ID)
-                                            space_key = Config.CONFLUENCE_SPACE_KEY
-                                            space_id = self._get_space_id(space_key, cloud_id)
-                                            if space_id:
-                                                # Convert to string as Pydantic validation expects string type
-                                                mcp_args[param_name] = str(space_id)
-                                                logger.debug(f"Converted space key '{space_key}' to space ID (as string): {mcp_args[param_name]}")
+                                        # Map cloudId parameter FIRST (required for Rovo MCP Server)
+                                        if 'cloudid' in param_lower or param_name == 'cloudId':
+                                            if cloud_id:
+                                                mcp_args[param_name] = cloud_id
+                                            # If cloudId is required but not available, we'll handle it in the required params check
+                                        # Map contentFormat parameter BEFORE content (to avoid matching 'content' in 'contentFormat')
+                                        elif 'contentformat' in param_lower or param_name == 'contentFormat':
+                                            # Rovo MCP Server expects contentFormat - check schema for valid enum values
+                                            # Default to "markdown" for Rovo tools if enum not specified
+                                            if content_format_enum:
+                                                # Use first enum value (usually "markdown" for Rovo)
+                                                mcp_args[param_name] = content_format_enum[0]
+                                                logger.debug(f"Using contentFormat from schema enum: {content_format_enum[0]}")
                                             else:
-                                                # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                logger.warning(f"Could not get space ID for '{space_key}', using space key as-is (may fail)")
-                                                mcp_args[param_name] = space_key
-                                        else:
-                                            # Use string space key (spaceKey, space_key, etc.)
-                                            mcp_args[param_name] = Config.CONFLUENCE_SPACE_KEY
-                                
-                                # Ensure all required parameters are provided
-                                for req_param in required:
-                                    if req_param not in mcp_args:
-                                        # Try to provide a default or raise an error
-                                        if 'title' in req_param.lower() or 'name' in req_param.lower():
-                                            mcp_args[req_param] = page_title
-                                        elif 'content' in req_param.lower() or 'body' in req_param.lower() or 'description' in req_param.lower():
+                                                # Default to "markdown" for Rovo MCP Server
+                                                mcp_args[param_name] = "markdown"
+                                                logger.debug("Using default contentFormat: markdown")
+                                        # Map title/name parameters
+                                        elif any(mapped in param_lower for mapped in ['title', 'name', 'pagetitle']):
+                                            mcp_args[param_name] = page_title
+                                        # Map content/body/description parameters (check AFTER contentFormat)
+                                        elif any(mapped in param_lower for mapped in ['content', 'body', 'html', 'text', 'description']):
                                             # If contentFormat is markdown, convert HTML to markdown
                                             content_format_value = mcp_args.get(content_format_param if content_format_param else 'contentFormat', '')
                                             if content_format_value == 'markdown':
+                                                # Convert HTML to markdown for Rovo MCP Server
                                                 body_content = self._html_to_markdown(confluence_content)
-                                                mcp_args[req_param] = body_content
-                                                logger.debug(f"Converted HTML content to markdown for required param {req_param}")
+                                                mcp_args[param_name] = body_content
+                                                logger.debug(f"Converted HTML content to markdown (length: {len(body_content)} chars)")
                                             else:
-                                                mcp_args[req_param] = confluence_content
-                                        elif 'space' in req_param.lower():
-                                            # Check if it's spaceId (string representation of numeric ID) or spaceKey (string)
-                                            if 'spaceid' in req_param.lower() or req_param == 'spaceId':
-                                                # Rovo MCP Server expects spaceId as a string (even though it represents a numeric ID)
+                                                mcp_args[param_name] = confluence_content
+                                        # Map space parameters
+                                        elif any(mapped in param_lower for mapped in ['space', 'spacekey', 'spaceid']):
+                                            # Check if parameter expects numeric ID (spaceId) vs string key (spaceKey)
+                                            param_def = properties.get(param_name, {})
+                                            param_type = param_def.get('type', '')
+                                            
+                                            # Rovo MCP Server uses spaceId - check schema to see if it expects string or number
+                                            if 'spaceid' in param_lower or param_name == 'spaceId':
+                                                # Check the expected type from schema
+                                                expected_type = param_def.get('type', '')
+                                                # Rovo MCP Server expects spaceId as a string (even though API uses numeric ID)
                                                 space_key = Config.CONFLUENCE_SPACE_KEY
                                                 space_id = self._get_space_id(space_key, cloud_id)
                                                 if space_id:
                                                     # Convert to string as Pydantic validation expects string type
-                                                    mcp_args[req_param] = str(space_id)
-                                                    logger.debug(f"Converted space key '{space_key}' to space ID (as string) for required param {req_param}: {mcp_args[req_param]}")
+                                                    mcp_args[param_name] = str(space_id)
+                                                    logger.debug(f"Converted space key '{space_key}' to space ID (as string): {mcp_args[param_name]}")
                                                 else:
                                                     # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                    logger.warning(f"Could not get space ID for '{space_key}', using space key as-is for {req_param} (may fail)")
-                                                    mcp_args[req_param] = space_key
+                                                    logger.warning(f"Could not get space ID for '{space_key}', using space key as-is (may fail)")
+                                                    mcp_args[param_name] = space_key
                                             else:
-                                                # Use string space key
-                                                mcp_args[req_param] = Config.CONFLUENCE_SPACE_KEY
-                                        elif 'cloudid' in req_param.lower() or req_param == 'cloudId':
-                                            # Use cloudId that was already retrieved (if available)
-                                            if cloud_id:
-                                                mcp_args[req_param] = cloud_id
-                                            else:
-                                                # cloudId is required but not available
-                                                logger.warning("cloudId required but not available. Tool call will fail, will fallback to direct API.")
-                                                # Don't add empty cloudId - let it fail and fallback gracefully
-                                                # This will cause the tool call to fail validation, triggering fallback
-                                        elif 'contentformat' in req_param.lower() or req_param == 'contentFormat':
-                                            # contentFormat is required for Rovo MCP Server
-                                            # Default to "markdown" (Rovo MCP Server expects markdown, not storage)
-                                            mcp_args[req_param] = "markdown"
-                                            logger.debug("Added contentFormat: markdown")
-                            else:
-                                # Fallback: try common parameter name variations
-                                mcp_args = {
-                                    'title': page_title,
-                                    'content': confluence_content,
-                                    'space_key': Config.CONFLUENCE_SPACE_KEY,
-                                    'spaceKey': Config.CONFLUENCE_SPACE_KEY,  # camelCase variant
-                                    'space': Config.CONFLUENCE_SPACE_KEY,
-                                    'spaceId': Config.CONFLUENCE_SPACE_KEY,  # Rovo uses spaceId (will be converted to numeric ID if needed)
-                                    'body': confluence_content,  # Some servers use 'body' instead of 'content'
-                                    'html': confluence_content,  # Some servers expect HTML
-                                    'text': confluence_content,  # Some servers expect plain text
-                                    'summary': page_title,  # Some tools use 'summary' instead of 'title'
-                                    'description': confluence_content,  # Some tools use 'description' instead of 'content'
-                                    'contentFormat': 'markdown'  # Rovo MCP Server requires contentFormat (markdown, not storage)
-                                }
-                                # Add cloudId if available
-                                if cloud_id:
-                                    mcp_args['cloudId'] = cloud_id
-                            
-                            # Log the tool being used and arguments
-                            logger.debug(f"Tool Name: {mcp_confluence_tool.name}")
-                            if tool_schema:
-                                logger.debug(f"Tool Schema: {list(mcp_args.keys())}")
-                            logger.debug(f"Arguments: {', '.join([f'{k}=' + (str(v)[:30] + '...' if len(str(v)) > 30 else str(v)) for k, v in list(mcp_args.items())[:3]])}")
-                            
-                            # Try calling MCP tool with timeout
-                            # StructuredTool.invoke expects input as keyword argument
-                            # Using input= explicitly to match BaseTool/StructuredTool signature
-                            logger.debug(f"Calling tool with arguments: {list(mcp_args.keys())}")
-                            logger.debug(f"Tool object type: {type(mcp_confluence_tool)}")
-                            logger.debug(f"Tool has invoke method: {hasattr(mcp_confluence_tool, 'invoke')}")
-                            
-                            with concurrent.futures.ThreadPoolExecutor() as executor:
-                                try:
-                                    logger.debug("Submitting tool.invoke(...) to executor...")
-                                    # LangChain tools use invoke(args) directly, not invoke(input=args)
-                                    future = executor.submit(mcp_confluence_tool.invoke, mcp_args)
-                                    logger.debug("Waiting for tool result (timeout: 30s)...")
-                                    mcp_result = future.result(timeout=30.0)  # 30 second timeout
-                                    logger.debug(f"Tool call completed, result type: {type(mcp_result)}")
+                                                # Use string space key (spaceKey, space_key, etc.)
+                                                mcp_args[param_name] = Config.CONFLUENCE_SPACE_KEY
                                     
-                                    # Log raw result for debugging
-                                    logger.debug(f"MCP tool raw result type: {type(mcp_result)}")
-                                    if isinstance(mcp_result, str):
-                                        logger.debug(f"MCP tool raw result (full length: {len(mcp_result)} chars)")
-                                        logger.debug(f"First 1000 chars: {mcp_result[:1000]}")
-                                        if len(mcp_result) > 1000:
-                                            logger.debug(f"... (truncated, total {len(mcp_result)} chars)")
-                                    elif isinstance(mcp_result, dict):
-                                        logger.debug(f"MCP tool raw result keys: {list(mcp_result.keys())}")
-                                        logger.debug(f"MCP tool raw result: {mcp_result}")
-                                    else:
-                                        logger.debug(f"MCP tool raw result: {repr(mcp_result)[:500]}")
-                                    
-                                    # Parse MCP result
-                                    mcp_data = None
-                                    if isinstance(mcp_result, str):
-                                        # Try to parse as JSON
-                                        import json
-                                        import re
+                                    # Ensure all required parameters are provided
+                                    for req_param in required:
+                                        if req_param not in mcp_args:
+                                            # Try to provide a default or raise an error
+                                            if 'title' in req_param.lower() or 'name' in req_param.lower():
+                                                mcp_args[req_param] = page_title
+                                            elif 'content' in req_param.lower() or 'body' in req_param.lower() or 'description' in req_param.lower():
+                                                # If contentFormat is markdown, convert HTML to markdown
+                                                content_format_value = mcp_args.get(content_format_param if content_format_param else 'contentFormat', '')
+                                                if content_format_value == 'markdown':
+                                                    body_content = self._html_to_markdown(confluence_content)
+                                                    mcp_args[req_param] = body_content
+                                                    logger.debug(f"Converted HTML content to markdown for required param {req_param}")
+                                                else:
+                                                    mcp_args[req_param] = confluence_content
+                                            elif 'space' in req_param.lower():
+                                                # Check if it's spaceId (string representation of numeric ID) or spaceKey (string)
+                                                if 'spaceid' in req_param.lower() or req_param == 'spaceId':
+                                                    # Rovo MCP Server expects spaceId as a string (even though it represents a numeric ID)
+                                                    space_key = Config.CONFLUENCE_SPACE_KEY
+                                                    space_id = self._get_space_id(space_key, cloud_id)
+                                                    if space_id:
+                                                        # Convert to string as Pydantic validation expects string type
+                                                        mcp_args[req_param] = str(space_id)
+                                                        logger.debug(f"Converted space key '{space_key}' to space ID (as string) for required param {req_param}: {mcp_args[req_param]}")
+                                                    else:
+                                                        # Fallback: try to use space key as-is (might fail, but we'll try)
+                                                        logger.warning(f"Could not get space ID for '{space_key}', using space key as-is for {req_param} (may fail)")
+                                                        mcp_args[req_param] = space_key
+                                                else:
+                                                    # Use string space key
+                                                    mcp_args[req_param] = Config.CONFLUENCE_SPACE_KEY
+                                            elif 'cloudid' in req_param.lower() or req_param == 'cloudId':
+                                                # Use cloudId that was already retrieved (if available)
+                                                if cloud_id:
+                                                    mcp_args[req_param] = cloud_id
+                                                else:
+                                                    # cloudId is required but not available
+                                                    logger.warning("cloudId required but not available. Tool call will fail, will fallback to direct API.")
+                                                    # Don't add empty cloudId - let it fail and fallback gracefully
+                                                    # This will cause the tool call to fail validation, triggering fallback
+                                            elif 'contentformat' in req_param.lower() or req_param == 'contentFormat':
+                                                # contentFormat is required for Rovo MCP Server
+                                                # Default to "markdown" (Rovo MCP Server expects markdown, not storage)
+                                                mcp_args[req_param] = "markdown"
+                                                logger.debug("Added contentFormat: markdown")
+                                else:
+                                    # Fallback: try common parameter name variations
+                                    mcp_args = {
+                                        'title': page_title,
+                                        'content': confluence_content,
+                                        'space_key': Config.CONFLUENCE_SPACE_KEY,
+                                        'spaceKey': Config.CONFLUENCE_SPACE_KEY,  # camelCase variant
+                                        'space': Config.CONFLUENCE_SPACE_KEY,
+                                        'spaceId': Config.CONFLUENCE_SPACE_KEY,  # Rovo uses spaceId (will be converted to numeric ID if needed)
+                                        'body': confluence_content,  # Some servers use 'body' instead of 'content'
+                                        'html': confluence_content,  # Some servers expect HTML
+                                        'text': confluence_content,  # Some servers expect plain text
+                                        'summary': page_title,  # Some tools use 'summary' instead of 'title'
+                                        'description': confluence_content,  # Some tools use 'description' instead of 'content'
+                                        'contentFormat': 'markdown'  # Rovo MCP Server requires contentFormat (markdown, not storage)
+                                    }
+                                    # Add cloudId if available
+                                    if cloud_id:
+                                        mcp_args['cloudId'] = cloud_id
+                                
+                                # Log the tool being used and arguments
+                                logger.debug(f"Tool Name: {mcp_confluence_tool.name}")
+                                if tool_schema:
+                                    logger.debug(f"Tool Schema: {list(mcp_args.keys())}")
+                                logger.debug(f"Arguments: {', '.join([f'{k}=' + (str(v)[:30] + '...' if len(str(v)) > 30 else str(v)) for k, v in list(mcp_args.items())[:3]])}")
+                                
+                                # Try calling MCP tool with timeout
+                                # StructuredTool.invoke expects input as keyword argument
+                                # Using input= explicitly to match BaseTool/StructuredTool signature
+                                logger.debug(f"Calling tool with arguments: {list(mcp_args.keys())}")
+                                logger.debug(f"Tool object type: {type(mcp_confluence_tool)}")
+                                logger.debug(f"Tool has invoke method: {hasattr(mcp_confluence_tool, 'invoke')}")
+                                
+                                with concurrent.futures.ThreadPoolExecutor() as executor:
+                                    try:
+                                        logger.debug("Submitting tool.invoke(...) to executor...")
+                                        # LangChain tools use invoke(args) directly, not invoke(input=args)
+                                        future = executor.submit(mcp_confluence_tool.invoke, mcp_args)
+                                        logger.debug("Waiting for tool result (timeout: 30s)...")
+                                        mcp_result = future.result(timeout=30.0)  # 30 second timeout
+                                        logger.debug(f"Tool call completed, result type: {type(mcp_result)}")
                                         
-                                        # Clean the string - remove markdown code blocks, extra whitespace
-                                        cleaned_result = mcp_result.strip()
-                                        if cleaned_result.startswith('```'):
-                                            # Extract JSON from code block
-                                            lines = cleaned_result.split('\n')
-                                            json_lines = [line for line in lines 
-                                                         if not line.strip().startswith('```')]
-                                            cleaned_result = '\n'.join(json_lines).strip()
+                                        # Log raw result for debugging
+                                        logger.debug(f"MCP tool raw result type: {type(mcp_result)}")
+                                        if isinstance(mcp_result, str):
+                                            logger.debug(f"MCP tool raw result (full length: {len(mcp_result)} chars)")
+                                            logger.debug(f"First 1000 chars: {mcp_result[:1000]}")
+                                            if len(mcp_result) > 1000:
+                                                logger.debug(f"... (truncated, total {len(mcp_result)} chars)")
+                                        elif isinstance(mcp_result, dict):
+                                            logger.debug(f"MCP tool raw result keys: {list(mcp_result.keys())}")
+                                            logger.debug(f"MCP tool raw result: {mcp_result}")
+                                        else:
+                                            logger.debug(f"MCP tool raw result: {repr(mcp_result)[:500]}")
                                         
-                                        # Try parsing the full cleaned result directly first
-                                        # The regex extraction can incorrectly match nested objects
-                                        try:
-                                            mcp_data = json.loads(cleaned_result)
-                                            logger.debug("Successfully parsed JSON from MCP result")
+                                        # Parse MCP result
+                                        mcp_data = None
+                                        if isinstance(mcp_result, str):
+                                            # Try to parse as JSON
+                                            import json
+                                            import re
                                             
-                                            # Log the full parsed data structure for debugging
-                                            if isinstance(mcp_data, dict):
-                                                logger.debug(f"Parsed JSON top-level keys: {list(mcp_data.keys())[:10]}")
-                                                # Check if we have the expected page structure
-                                                if 'id' in mcp_data:
-                                                    logger.debug(f"Found page ID in root: {mcp_data.get('id')}")
-                                                elif 'version' in mcp_data:
-                                                    logger.debug("WARNING: Only found 'version' key - might indicate parsing issue")
-                                        except json.JSONDecodeError as first_parse_err:
-                                            # If direct parse fails, try regex extraction as fallback
-                                            logger.debug(f"Direct JSON parse failed: {first_parse_err}")
-                                            logger.debug("Attempting regex extraction as fallback...")
+                                            # Clean the string - remove markdown code blocks, extra whitespace
+                                            cleaned_result = mcp_result.strip()
+                                            if cleaned_result.startswith('```'):
+                                                # Extract JSON from code block
+                                                lines = cleaned_result.split('\n')
+                                                json_lines = [line for line in lines 
+                                                             if not line.strip().startswith('```')]
+                                                cleaned_result = '\n'.join(json_lines).strip()
                                             
-                                            # Try to extract JSON object from the string (in case it's embedded in text)
-                                            # Use a more robust pattern that matches balanced braces
-                                            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', cleaned_result, re.DOTALL)
-                                            if json_match:
-                                                try:
-                                                    cleaned_result = json_match.group(0)
-                                                    mcp_data = json.loads(cleaned_result)
-                                                    logger.debug("Successfully parsed JSON using regex extraction")
-                                                except json.JSONDecodeError:
-                                                    # Regex extraction also failed
-                                                    pass
-                                        except json.JSONDecodeError as json_err:
-                                            # If not JSON, check if it contains success indicators or page info
-                                            logger.debug(f"JSON decode error: {json_err}")
-                                            logger.debug("Attempting to parse as plain text response")
-                                            
-                                            # Check for explicit error indicators first
-                                            # MCPToolWrapper returns "Error: ..." for errors
-                                            if cleaned_result.strip().startswith('Error:'):
-                                                error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                raise Exception(f"MCP tool returned error: {error_msg}")
-                                            
-                                            # Check for other error indicators
-                                            error_keywords = ['failed', 'invalid', 'unauthorized', 'forbidden', 'not found', '404', '500']
-                                            has_error = any(keyword in cleaned_result.lower() for keyword in error_keywords)
-                                            
-                                            if has_error and 'success' not in cleaned_result.lower() and 'created' not in cleaned_result.lower():
-                                                error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                raise Exception(f"MCP tool returned error message: {error_msg}")
-                                            
-                                            # If not an error, try to extract success information
-                                            # Try to extract page ID from the text
-                                            page_id_match = re.search(r'(?:page[_\s]?id|pageId|id)[\s:=]+(\d+)', cleaned_result, re.IGNORECASE)
-                                            page_id = page_id_match.group(1) if page_id_match else None
-                                            
-                                            # Try to extract URL (common in Confluence responses)
-                                            url_match = re.search(r'https?://[^\s\)]+', cleaned_result)
-                                            page_url = url_match.group(0) if url_match else None
-                                            
-                                            # If we have success indicators, page ID, or URL, treat as success
-                                            # Also, if the tool completed without error (no "Error:" prefix), 
-                                            # and it's not an obvious error, assume success
-                                            has_success_indicators = (
-                                                'created' in cleaned_result.lower() or 
-                                                'success' in cleaned_result.lower() or
-                                                page_id or
-                                                page_url or
-                                                'confluence' in cleaned_result.lower()
-                                            )
-                                            
-                                            if has_success_indicators or (not has_error and len(cleaned_result.strip()) > 0):
-                                                # Success - create result dict
-                                                confluence_result = {
-                                                    'success': True,
-                                                    'id': page_id,
-                                                    'title': page_title,
-                                                    'link': page_url or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
-                                                    'tool_used': 'MCP Protocol'
-                                                }
-                                                logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
-                                                if page_id:
-                                                    logger.debug(f"Extracted page ID: {page_id}")
-                                                if page_url:
-                                                    logger.debug(f"Extracted page URL: {page_url}")
-                                                mcp_data = None  # Skip dict processing, we already have result
-                                                tool_used = "MCP Protocol"  # Ensure tool_used is set
-                                            else:
-                                                # Check if it's an error message
-                                                error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                raise Exception(f"MCP tool returned non-JSON format (possibly an error): {error_msg}")
-                                    elif isinstance(mcp_result, dict):
-                                        mcp_data = mcp_result
-                                        # Additional check: if dict has success=False but error is boolean
-                                        if not mcp_data.get('success') and isinstance(mcp_data.get('error'), bool):
-                                            logger.debug(f"WARNING: mcp_data['error'] is boolean {mcp_data.get('error')}, converting to string")
-                                            mcp_data['error'] = f"Error flag was set to {mcp_data.get('error')}"
-                                    elif mcp_result is True or mcp_result is False:
-                                        # Handle boolean result (unexpected)
-                                        logger.error(f"MCP tool returned boolean {mcp_result} instead of result dict/string")
-                                        raise Exception(f"MCP tool returned boolean {mcp_result} instead of result dict/string. This indicates a bug in the MCP tool wrapper or server.")
-                                    else:
-                                        logger.debug(f"Unexpected result type: {type(mcp_result)}, value: {repr(mcp_result)[:200]}")
-                                        mcp_data = {'success': False, 'error': f'Unexpected result type: {type(mcp_result).__name__}', 'error_detail': str(mcp_result)[:200], 'error_type': type(mcp_result).__name__}
-                                    
-                                    # Process mcp_data if we have it (skip if we already created confluence_result from text)
-                                    if mcp_data is not None and isinstance(mcp_data, dict):
-                                        # Rovo MCP Server returns page object directly (no 'success' flag)
-                                        # Check for presence of 'id' field (which indicates successful creation)
-                                        # Also check for explicit success flag (for custom MCP servers)
-                                        has_success_flag = mcp_data.get('success', False)
+                                            # Try parsing the full cleaned result directly first
+                                            # The regex extraction can incorrectly match nested objects
+                                            try:
+                                                mcp_data = json.loads(cleaned_result)
+                                                logger.debug("Successfully parsed JSON from MCP result")
+                                                
+                                                # Log the full parsed data structure for debugging
+                                                if isinstance(mcp_data, dict):
+                                                    logger.debug(f"Parsed JSON top-level keys: {list(mcp_data.keys())[:10]}")
+                                                    # Check if we have the expected page structure
+                                                    if 'id' in mcp_data:
+                                                        logger.debug(f"Found page ID in root: {mcp_data.get('id')}")
+                                                    elif 'version' in mcp_data:
+                                                        logger.debug("WARNING: Only found 'version' key - might indicate parsing issue")
+                                            except json.JSONDecodeError as first_parse_err:
+                                                # If direct parse fails, try regex extraction as fallback
+                                                logger.debug(f"Direct JSON parse failed: {first_parse_err}")
+                                                logger.debug("Attempting regex extraction as fallback...")
+                                                
+                                                # Try to extract JSON object from the string (in case it's embedded in text)
+                                                # Use a more robust pattern that matches balanced braces
+                                                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', cleaned_result, re.DOTALL)
+                                                if json_match:
+                                                    try:
+                                                        cleaned_result = json_match.group(0)
+                                                        mcp_data = json.loads(cleaned_result)
+                                                        logger.debug("Successfully parsed JSON using regex extraction")
+                                                    except json.JSONDecodeError:
+                                                        # Regex extraction also failed
+                                                        pass
+                                            except json.JSONDecodeError as json_err:
+                                                # If not JSON, check if it contains success indicators or page info
+                                                logger.debug(f"JSON decode error: {json_err}")
+                                                logger.debug("Attempting to parse as plain text response")
+                                                
+                                                # Check for explicit error indicators first
+                                                # MCPToolWrapper returns "Error: ..." for errors
+                                                if cleaned_result.strip().startswith('Error:'):
+                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
+                                                    raise Exception(f"MCP tool returned error: {error_msg}")
+                                                
+                                                # Check for other error indicators
+                                                error_keywords = ['failed', 'invalid', 'unauthorized', 'forbidden', 'not found', '404', '500']
+                                                has_error = any(keyword in cleaned_result.lower() for keyword in error_keywords)
+                                                
+                                                if has_error and 'success' not in cleaned_result.lower() and 'created' not in cleaned_result.lower():
+                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
+                                                    raise Exception(f"MCP tool returned error message: {error_msg}")
+                                                
+                                                # If not an error, try to extract success information
+                                                # Try to extract page ID from the text
+                                                page_id_match = re.search(r'(?:page[_\s]?id|pageId|id)[\s:=]+(\d+)', cleaned_result, re.IGNORECASE)
+                                                page_id = page_id_match.group(1) if page_id_match else None
+                                                
+                                                # Try to extract URL (common in Confluence responses)
+                                                url_match = re.search(r'https?://[^\s\)]+', cleaned_result)
+                                                page_url = url_match.group(0) if url_match else None
+                                                
+                                                # If we have success indicators, page ID, or URL, treat as success
+                                                # Also, if the tool completed without error (no "Error:" prefix), 
+                                                # and it's not an obvious error, assume success
+                                                has_success_indicators = (
+                                                    'created' in cleaned_result.lower() or 
+                                                    'success' in cleaned_result.lower() or
+                                                    page_id or
+                                                    page_url or
+                                                    'confluence' in cleaned_result.lower()
+                                                )
+                                                
+                                                if has_success_indicators or (not has_error and len(cleaned_result.strip()) > 0):
+                                                    # Success - create result dict
+                                                    confluence_result = {
+                                                        'success': True,
+                                                        'id': page_id,
+                                                        'title': page_title,
+                                                        'link': page_url or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
+                                                        'tool_used': 'MCP Protocol'
+                                                    }
+                                                    logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
+                                                    if page_id:
+                                                        logger.debug(f"Extracted page ID: {page_id}")
+                                                    if page_url:
+                                                        logger.debug(f"Extracted page URL: {page_url}")
+                                                    mcp_data = None  # Skip dict processing, we already have result
+                                                    tool_used = "MCP Protocol"  # Ensure tool_used is set
+                                                else:
+                                                    # Check if it's an error message
+                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
+                                                    raise Exception(f"MCP tool returned non-JSON format (possibly an error): {error_msg}")
+                                        elif isinstance(mcp_result, dict):
+                                            mcp_data = mcp_result
+                                            # Additional check: if dict has success=False but error is boolean
+                                            if not mcp_data.get('success') and isinstance(mcp_data.get('error'), bool):
+                                                logger.debug(f"WARNING: mcp_data['error'] is boolean {mcp_data.get('error')}, converting to string")
+                                                mcp_data['error'] = f"Error flag was set to {mcp_data.get('error')}"
+                                        elif mcp_result is True or mcp_result is False:
+                                            # Handle boolean result (unexpected)
+                                            logger.error(f"MCP tool returned boolean {mcp_result} instead of result dict/string")
+                                            raise Exception(f"MCP tool returned boolean {mcp_result} instead of result dict/string. This indicates a bug in the MCP tool wrapper or server.")
+                                        else:
+                                            logger.debug(f"Unexpected result type: {type(mcp_result)}, value: {repr(mcp_result)[:200]}")
+                                            mcp_data = {'success': False, 'error': f'Unexpected result type: {type(mcp_result).__name__}', 'error_detail': str(mcp_result)[:200], 'error_type': type(mcp_result).__name__}
                                         
-                                        # Check for page ID in multiple possible locations
-                                        has_page_id = bool(
-                                            mcp_data.get('id') or 
-                                            mcp_data.get('page_id') or 
-                                            mcp_data.get('pageId') or
-                                            # Also check nested structures (version object might have id)
-                                            (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else False)
-                                        )
-                                        
-                                        # Log what we found for debugging
-                                        if has_page_id:
-                                            page_id_locations = []
-                                            if mcp_data.get('id'):
-                                                page_id_locations.append(f"root.id={mcp_data.get('id')}")
-                                            if mcp_data.get('page_id'):
-                                                page_id_locations.append(f"root.page_id={mcp_data.get('page_id')}")
-                                            if mcp_data.get('pageId'):
-                                                page_id_locations.append(f"root.pageId={mcp_data.get('pageId')}")
-                                            if isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'):
-                                                page_id_locations.append(f"version.id={mcp_data.get('version', {}).get('id')}")
-                                            logger.debug(f"Found page ID indicators: {', '.join(page_id_locations)}")
-                                        
-                                        if has_success_flag or has_page_id:
-                                            # Extract page ID from various possible fields
-                                            # Prioritize root-level 'id' field (Rovo format)
-                                            page_id = (
+                                        # Process mcp_data if we have it (skip if we already created confluence_result from text)
+                                        if mcp_data is not None and isinstance(mcp_data, dict):
+                                            # Rovo MCP Server returns page object directly (no 'success' flag)
+                                            # Check for presence of 'id' field (which indicates successful creation)
+                                            # Also check for explicit success flag (for custom MCP servers)
+                                            has_success_flag = mcp_data.get('success', False)
+                                            
+                                            # Check for page ID in multiple possible locations
+                                            has_page_id = bool(
                                                 mcp_data.get('id') or 
                                                 mcp_data.get('page_id') or 
                                                 mcp_data.get('pageId') or
-                                                # Extract from _links if available
-                                                (mcp_data.get('_links', {}).get('webui', '').split('pageId=')[-1].split('&')[0] 
-                                                 if mcp_data.get('_links', {}).get('webui') else None) or
-                                                # Last resort: check nested version object
-                                                (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else None)
+                                                # Also check nested structures (version object might have id)
+                                                (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else False)
                                             )
                                             
-                                            # Convert to string if it's a number
-                                            if page_id:
-                                                page_id = str(page_id)
-                                                logger.debug(f"Extracted page ID: {page_id} (type: {type(page_id).__name__})")
+                                            # Log what we found for debugging
+                                            if has_page_id:
+                                                page_id_locations = []
+                                                if mcp_data.get('id'):
+                                                    page_id_locations.append(f"root.id={mcp_data.get('id')}")
+                                                if mcp_data.get('page_id'):
+                                                    page_id_locations.append(f"root.page_id={mcp_data.get('page_id')}")
+                                                if mcp_data.get('pageId'):
+                                                    page_id_locations.append(f"root.pageId={mcp_data.get('pageId')}")
+                                                if isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'):
+                                                    page_id_locations.append(f"version.id={mcp_data.get('version', {}).get('id')}")
+                                                logger.debug(f"Found page ID indicators: {', '.join(page_id_locations)}")
                                             
-                                            # Extract link from various possible fields
-                                            page_link = None
-                                            if mcp_data.get('link'):
-                                                page_link = mcp_data.get('link')
-                                            elif mcp_data.get('_links', {}).get('webui'):
-                                                webui_path = mcp_data.get('_links', {}).get('webui')
-                                                if webui_path.startswith('http'):
-                                                    page_link = webui_path
-                                                else:
-                                                    base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                    page_link = f"{base_url}{webui_path}"
-                                            elif page_id:
-                                                page_link = f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id}"
-                                            
-                                            confluence_result = {
-                                                'success': True,
-                                                'id': page_id,
-                                                'title': mcp_data.get('title', page_title),
-                                                'link': page_link or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
-                                                'tool_used': 'MCP Protocol'
-                                            }
-                                            logger.info(f"Confluence page created successfully via MCP Protocol (ID: {page_id})")
-                                        else:
-                                            # Extract detailed error information
-                                            # Handle case where error might be boolean or other types
-                                            error_raw = mcp_data.get('error', 'Unknown MCP error')
-                                            error_msg = str(error_raw) if not isinstance(error_raw, bool) else f"Error flag: {error_raw}"
-                                            error_detail = str(mcp_data.get('error_detail', ''))
-                                            error_type = str(mcp_data.get('error_type', ''))
-                                            
-                                            # Log full mcp_data for debugging
-                                            logger.debug(f"Full mcp_data response: {mcp_data}")
-                                            
-                                            # Build comprehensive error message
-                                            error_parts = []
-                                            if error_type and error_type != '':
-                                                error_parts.append(f"Type: {error_type}")
-                                            if error_detail and error_detail != '':
-                                                error_parts.append(f"Detail: {error_detail}")
-                                            if error_msg and error_msg != 'Unknown MCP error':
-                                                error_parts.append(f"Error: {error_msg}")
-                                            
-                                            # If no clear error message, include the full response
-                                            if not error_parts:
-                                                error_parts.append(f"Full response: {mcp_data}")
-                                            
-                                            full_error = '; '.join(error_parts) if error_parts else f"Unknown error (mcp_data: {mcp_data})"
-                                            raise Exception(f"MCP tool error: {full_error}")
+                                            if has_success_flag or has_page_id:
+                                                # Extract page ID from various possible fields
+                                                # Prioritize root-level 'id' field (Rovo format)
+                                                page_id = (
+                                                    mcp_data.get('id') or 
+                                                    mcp_data.get('page_id') or 
+                                                    mcp_data.get('pageId') or
+                                                    # Extract from _links if available
+                                                    (mcp_data.get('_links', {}).get('webui', '').split('pageId=')[-1].split('&')[0] 
+                                                     if mcp_data.get('_links', {}).get('webui') else None) or
+                                                    # Last resort: check nested version object
+                                                    (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else None)
+                                                )
+                                                
+                                                # Convert to string if it's a number
+                                                if page_id:
+                                                    page_id = str(page_id)
+                                                    logger.debug(f"Extracted page ID: {page_id} (type: {type(page_id).__name__})")
+                                                
+                                                # Extract link from various possible fields
+                                                page_link = None
+                                                if mcp_data.get('link'):
+                                                    page_link = mcp_data.get('link')
+                                                elif mcp_data.get('_links', {}).get('webui'):
+                                                    webui_path = mcp_data.get('_links', {}).get('webui')
+                                                    if webui_path.startswith('http'):
+                                                        page_link = webui_path
+                                                    else:
+                                                        base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
+                                                        page_link = f"{base_url}{webui_path}"
+                                                elif page_id:
+                                                    page_link = f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id}"
+                                                
+                                                confluence_result = {
+                                                    'success': True,
+                                                    'id': page_id,
+                                                    'title': mcp_data.get('title', page_title),
+                                                    'link': page_link or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
+                                                    'tool_used': 'MCP Protocol'
+                                                }
+                                                logger.info(f"Confluence page created successfully via MCP Protocol (ID: {page_id})")
+                                            else:
+                                                # Extract detailed error information
+                                                # Handle case where error might be boolean or other types
+                                                error_raw = mcp_data.get('error', 'Unknown MCP error')
+                                                error_msg = str(error_raw) if not isinstance(error_raw, bool) else f"Error flag: {error_raw}"
+                                                error_detail = str(mcp_data.get('error_detail', ''))
+                                                error_type = str(mcp_data.get('error_type', ''))
+                                                
+                                                # Log full mcp_data for debugging
+                                                logger.debug(f"Full mcp_data response: {mcp_data}")
+                                                
+                                                # Build comprehensive error message
+                                                error_parts = []
+                                                if error_type and error_type != '':
+                                                    error_parts.append(f"Type: {error_type}")
+                                                if error_detail and error_detail != '':
+                                                    error_parts.append(f"Detail: {error_detail}")
+                                                if error_msg and error_msg != 'Unknown MCP error':
+                                                    error_parts.append(f"Error: {error_msg}")
+                                                
+                                                # If no clear error message, include the full response
+                                                if not error_parts:
+                                                    error_parts.append(f"Full response: {mcp_data}")
+                                                
+                                                full_error = '; '.join(error_parts) if error_parts else f"Unknown error (mcp_data: {mcp_data})"
+                                                raise Exception(f"MCP tool error: {full_error}")
                                     
-                                except concurrent.futures.TimeoutError:
-                                    logger.warning("MCP Protocol timeout after 30 seconds, falling back to direct API")
-                                    tool_used = None  # Will trigger fallback
-                                    raise asyncio.TimeoutError("MCP tool call timeout")
+                                    except concurrent.futures.TimeoutError:
+                                        logger.warning("MCP Protocol timeout after 30 seconds, falling back to direct API")
+                                        tool_used = None  # Will trigger fallback
+                                        raise asyncio.TimeoutError("MCP tool call timeout")
                                     
-                        except (asyncio.TimeoutError, Exception) as e:
-                            # Enhanced error logging
-                            error_type = type(e).__name__
-                            error_str = str(e) if str(e) else repr(e)
-                            
-                            logger.warning("MCP Protocol failed")
-                            logger.debug(f"Error Type: {error_type}")
-                            logger.debug(f"Error Message: {error_str}")
-                            
-                            # Log traceback for debugging
-                            logger.debug("Exception details:", exc_info=True)
-                            
-                            logger.info("Falling back to direct Confluence API call")
-                            tool_used = None  # Will trigger fallback
-                            use_mcp = False
+                            except (asyncio.TimeoutError, Exception) as e:
+                                # Enhanced error logging
+                                error_type = type(e).__name__
+                                error_str = str(e) if str(e) else repr(e)
+                                
+                                logger.warning("MCP Protocol failed")
+                                logger.debug(f"Error Type: {error_type}")
+                                logger.debug(f"Error Message: {error_str}")
+                                
+                                # Log traceback for debugging
+                                logger.debug("Exception details:", exc_info=True)
+                                
+                                logger.info("Falling back to direct Confluence API call")
+                                tool_used = None  # Will trigger fallback
+                                use_mcp = False
             
             # Fallback to direct API if MCP failed or not available
             if not confluence_result and self.confluence_tool:
