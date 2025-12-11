@@ -25,6 +25,10 @@ from src.tools.confluence_tool import ConfluenceTool
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.mcp.mcp_integration import MCPIntegration
 from config.config import Config
+from src.utils.logger import get_logger
+
+# Initialize logger for this module
+logger = get_logger('chatbot.agent')
 
 
 class AgentState(TypedDict):
@@ -66,9 +70,9 @@ class ChatbotAgent:
                 resources_tool = self.mcp_integration.get_tool('getAccessibleAtlassianResources')
                 if resources_tool:
                     try:
-                        print(f"   Calling getAccessibleAtlassianResources...")
+                        logger.debug("Calling getAccessibleAtlassianResources...")
                         result = resources_tool.invoke({})
-                        print(f"   Response type: {type(result)}, length: {len(str(result)) if result else 0}")
+                        logger.debug(f"Response type: {type(result)}, length: {len(str(result)) if result else 0}")
                         
                         # Parse result to extract cloudId
                         if isinstance(result, str):
@@ -81,13 +85,13 @@ class ChatbotAgent:
                                     cleaned_result = '\n'.join(json_lines)
                                 
                                 data = json.loads(cleaned_result)
-                                print(f"   Parsed JSON keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
+                                logger.debug(f"Parsed JSON keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
                                 
                                 if isinstance(data, dict):
                                     # Look for cloudId in the response
                                     if 'cloudId' in data:
                                         cloud_id = data['cloudId']
-                                        print(f"✓ Found cloudId in response: {cloud_id}")
+                                        logger.info(f"Found cloudId in response: {cloud_id}")
                                         return cloud_id
                                     
                                     # Or check if it's a list of resources
@@ -95,15 +99,15 @@ class ChatbotAgent:
                                         resources = data['resources']
                                         if isinstance(resources, list) and len(resources) > 0:
                                             first_resource = resources[0]
-                                            print(f"   First resource keys: {list(first_resource.keys()) if isinstance(first_resource, dict) else 'not a dict'}")
+                                            logger.debug(f"First resource keys: {list(first_resource.keys()) if isinstance(first_resource, dict) else 'not a dict'}")
                                             if isinstance(first_resource, dict) and 'cloudId' in first_resource:
                                                 cloud_id = first_resource['cloudId']
-                                                print(f"✓ Found cloudId in first resource: {cloud_id}")
+                                                logger.info(f"Found cloudId in first resource: {cloud_id}")
                                                 return cloud_id
                                             # Also check for 'id' field which might be cloudId
                                             if isinstance(first_resource, dict) and 'id' in first_resource:
                                                 cloud_id = first_resource['id']
-                                                print(f"✓ Found id in first resource (using as cloudId): {cloud_id}")
+                                                logger.info(f"Found id in first resource (using as cloudId): {cloud_id}")
                                                 return cloud_id
                                 
                                 # If it's a list directly
@@ -112,18 +116,17 @@ class ChatbotAgent:
                                     if isinstance(first_item, dict):
                                         if 'cloudId' in first_item:
                                             cloud_id = first_item['cloudId']
-                                            print(f"✓ Found cloudId in list item: {cloud_id}")
+                                            logger.info(f"Found cloudId in list item: {cloud_id}")
                                             return cloud_id
                                             
                             except json.JSONDecodeError as e:
-                                print(f"⚠ Failed to parse JSON from getAccessibleAtlassianResources: {e}")
-                                print(f"   Raw result (first 200 chars): {str(result)[:200]}")
+                                logger.warning(f"Failed to parse JSON from getAccessibleAtlassianResources: {e}")
+                                logger.debug(f"Raw result (first 200 chars): {str(result)[:200]}")
                     except Exception as e:
-                        print(f"⚠ Exception calling getAccessibleAtlassianResources: {e}")
-                        import traceback
-                        traceback.print_exc()
+                        logger.warning(f"Exception calling getAccessibleAtlassianResources: {e}")
+                        logger.debug("Exception details:", exc_info=True)
             except Exception as e:
-                print(f"⚠ Exception getting getAccessibleAtlassianResources tool: {e}")
+                logger.warning(f"Exception getting getAccessibleAtlassianResources tool: {e}")
         
         # Method 2: Try to get it from tenant_info API endpoint
         jira_url = Config.JIRA_URL
@@ -133,7 +136,7 @@ class ChatbotAgent:
                 base_url = jira_url.split('/wiki')[0].split('/browse')[0].rstrip('/')
                 tenant_info_url = f"{base_url}/_edge/tenant_info"
                 
-                print(f"   Attempting to fetch cloudId from tenant_info endpoint: {tenant_info_url}")
+                logger.debug(f"Attempting to fetch cloudId from tenant_info endpoint: {tenant_info_url}")
                 
                 import urllib.request
                 import urllib.error
@@ -153,19 +156,19 @@ class ChatbotAgent:
                         data = json.loads(response.read().decode())
                         if isinstance(data, dict) and 'cloudId' in data:
                             cloud_id = data['cloudId']
-                            print(f"✓ Retrieved cloudId from tenant_info: {cloud_id}")
+                            logger.info(f"Retrieved cloudId from tenant_info: {cloud_id}")
                             return cloud_id
                 except urllib.error.HTTPError as e:
-                    print(f"⚠ HTTP error fetching tenant_info: {e.code} {e.reason}")
+                    logger.warning(f"HTTP error fetching tenant_info: {e.code} {e.reason}")
                 except urllib.error.URLError as e:
-                    print(f"⚠ URL error fetching tenant_info: {e.reason}")
+                    logger.warning(f"URL error fetching tenant_info: {e.reason}")
                 except Exception as e:
-                    print(f"⚠ Exception fetching tenant_info: {e}")
+                    logger.warning(f"Exception fetching tenant_info: {e}")
                     
             except Exception as e:
-                print(f"⚠ Exception constructing tenant_info URL: {e}")
+                logger.warning(f"Exception constructing tenant_info URL: {e}")
         
-        print(f"⚠ Could not retrieve cloudId from any method")
+        logger.warning("Could not retrieve cloudId from any method")
         return None
     
     def _get_space_id(self, space_key: str, cloud_id: Optional[str] = None) -> Optional[int]:
@@ -195,14 +198,14 @@ class ChatbotAgent:
                 spaces_tool = self.mcp_integration.get_tool('getConfluenceSpaces')
                 if spaces_tool:
                     try:
-                        print(f"   Looking up space ID for space key '{space_key}' using getConfluenceSpaces...")
+                        logger.debug(f"Looking up space ID for space key '{space_key}' using getConfluenceSpaces...")
                         # Prepare arguments for getConfluenceSpaces
                         spaces_args = {}
                         if cloud_id:
                             spaces_args['cloudId'] = cloud_id
                         
                         result = spaces_tool.invoke(spaces_args)
-                        print(f"   getConfluenceSpaces response type: {type(result)}")
+                        logger.debug(f"getConfluenceSpaces response type: {type(result)}")
                         
                         # Parse result to find space ID
                         if isinstance(result, str):
@@ -241,15 +244,15 @@ class ChatbotAgent:
                                                             space_id = int(id_match.group())
                                                     else:
                                                         space_id = int(space_id)
-                                                    print(f"✓ Found space ID for '{space_key}': {space_id}")
+                                                    logger.info(f"Found space ID for '{space_key}': {space_id}")
                                                     return space_id
                             except json.JSONDecodeError as e:
-                                print(f"⚠ Failed to parse JSON from getConfluenceSpaces: {e}")
-                                print(f"   Raw result (first 200 chars): {str(result)[:200]}")
+                                logger.warning(f"Failed to parse JSON from getConfluenceSpaces: {e}")
+                                logger.debug(f"Raw result (first 200 chars): {str(result)[:200]}")
                     except Exception as e:
-                        print(f"⚠ Exception calling getConfluenceSpaces: {e}")
+                        logger.warning(f"Exception calling getConfluenceSpaces: {e}")
             except Exception as e:
-                print(f"⚠ Exception getting getConfluenceSpaces tool: {e}")
+                logger.warning(f"Exception getting getConfluenceSpaces tool: {e}")
         
         # Method 2: Try to get it from direct Confluence API
         confluence_url = Config.CONFLUENCE_URL
@@ -263,7 +266,7 @@ class ChatbotAgent:
                 base_url = confluence_url.split('/wiki')[0].rstrip('/')
                 api_url = f"{base_url}/wiki/rest/api/space/{space_key}"
                 
-                print(f"   Attempting to fetch space ID from Confluence API: {api_url}")
+                logger.debug(f"Attempting to fetch space ID from Confluence API: {api_url}")
                 
                 # Prepare authentication
                 email = Config.JIRA_EMAIL  # Confluence uses same credentials as Jira
@@ -291,18 +294,18 @@ class ChatbotAgent:
                                     space_id = int(id_match.group())
                             else:
                                 space_id = int(space_id)
-                            print(f"✓ Retrieved space ID from API: {space_id}")
+                            logger.info(f"Retrieved space ID from API: {space_id}")
                             return space_id
                 except urllib.error.HTTPError as e:
-                    print(f"⚠ HTTP error fetching space info: {e.code} - {e.reason}")
+                    logger.warning(f"HTTP error fetching space info: {e.code} - {e.reason}")
                 except urllib.error.URLError as e:
-                    print(f"⚠ URL error fetching space info: {e.reason}")
+                    logger.warning(f"URL error fetching space info: {e.reason}")
                 except Exception as e:
-                    print(f"⚠ Exception fetching space info: {e}")
+                    logger.warning(f"Exception fetching space info: {e}")
             except Exception as e:
-                print(f"⚠ Exception constructing space API URL: {e}")
+                logger.warning(f"Exception constructing space API URL: {e}")
         
-        print(f"⚠ Could not retrieve space ID for space key '{space_key}'")
+        logger.warning(f"Could not retrieve space ID for space key '{space_key}'")
         return None
     
     def __init__(self, 
@@ -339,10 +342,10 @@ class ChatbotAgent:
             try:
                 self.mcp_integration = MCPIntegration(use_mcp=True)
                 # Initialize MCP asynchronously (will be done on first use)
-                print("✓ MCP integration enabled - will initialize on first use")
+                logger.info("MCP integration enabled - will initialize on first use")
             except Exception as e:
-                print(f"⚠ Failed to initialize MCP integration: {e}")
-                print("   Falling back to custom tools")
+                logger.warning(f"Failed to initialize MCP integration: {e}")
+                logger.info("Falling back to custom tools")
                 self.use_mcp = False
                 self.mcp_integration = None
         
@@ -367,14 +370,14 @@ class ChatbotAgent:
             
             # Validate API key format (should start with 'sk-')
             if not api_key.startswith('sk-'):
-                print(f"⚠ Warning: OpenAI API key format may be invalid (should start with 'sk-')")
+                logger.warning("OpenAI API key format may be invalid (should start with 'sk-')")
             
             # Validate model name (fix common issues)
             if model_name == "gpt-4.1":
-                print(f"⚠ Warning: Model 'gpt-4.1' may be invalid. Using 'gpt-4' instead.")
+                logger.warning("Model 'gpt-4.1' may be invalid. Using 'gpt-4' instead.")
                 model_name = "gpt-4"
             elif "gpt-4" not in model_name.lower() and "gpt-3.5" not in model_name.lower():
-                print(f"⚠ Warning: Model '{model_name}' may not be valid. Common models: gpt-4, gpt-4-turbo, gpt-3.5-turbo")
+                logger.warning(f"Model '{model_name}' may not be valid. Common models: gpt-4, gpt-4-turbo, gpt-3.5-turbo")
             
             try:
                 # Try with timeout and max_retries (LangChain 0.1.0+)
@@ -385,18 +388,18 @@ class ChatbotAgent:
                     timeout=15.0,  # Reduced timeout to 15 seconds
                     max_retries=1  # Reduced retries to 1 to avoid long waits
                 )
-                print(f"✓ LLM initialized: {self.provider_name} ({model_name})")
+                logger.info(f"LLM initialized: {self.provider_name} ({model_name})")
                 return llm
             except TypeError:
                 # Fallback if parameters not supported
-                print(f"⚠ LLM timeout parameter not supported, using default")
+                logger.warning("LLM timeout parameter not supported, using default")
                 return ChatOpenAI(
                     model=model_name,
                     temperature=self.temperature,
                     api_key=api_key
                 )
             except Exception as e:
-                print(f"⚠ LLM initialization error: {e}")
+                logger.error(f"LLM initialization error: {e}")
                 raise
         elif self.provider_name == "gemini":
             api_key = Config.GEMINI_API_KEY
@@ -427,12 +430,12 @@ class ChatbotAgent:
         try:
             self.jira_tool = JiraTool()
         except Exception as e:
-            print(f"⚠ Failed to initialize Jira Tool: {e}")
+            logger.warning(f"Failed to initialize Jira Tool: {e}")
         
         try:
             self.confluence_tool = ConfluenceTool()
         except Exception as e:
-            print(f"⚠ Failed to initialize Confluence Tool: {e}")
+            logger.warning(f"Failed to initialize Confluence Tool: {e}")
         
         # Initialize Jira evaluator if Jira tool is available
         if self.jira_tool:
@@ -451,7 +454,7 @@ class ChatbotAgent:
                     llm_provider=llm_provider
                 )
             except Exception as e:
-                print(f"⚠ Failed to initialize Jira Evaluator: {e}")
+                logger.warning(f"Failed to initialize Jira Evaluator: {e}")
     
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph state graph."""
@@ -502,7 +505,7 @@ class ChatbotAgent:
         """Detect user intent from the input with comprehensive keyword-based detection."""
         user_input = state.get("user_input", "").lower()
         messages = state.get("messages", [])
-        print(f"🔍 LangGraph: Detecting intent for input: '{user_input[:50]}...'")
+        logger.debug(f"Detecting intent for input: '{user_input[:50]}...'")
         
         # Comprehensive keyword-based detection (avoid LLM call when possible)
         # Include variations with articles (a, an, the) and common phrases
@@ -537,7 +540,7 @@ class ChatbotAgent:
         # Check for Confluence tooling background queries first (route to general chat)
         if any(keyword in user_input for keyword in confluence_tooling_keywords):
             state["intent"] = "general_chat"
-            print(f"  → Intent: general_chat (Confluence tooling query)")
+            logger.debug("Intent: general_chat (Confluence tooling query)")
             return state
         
         # Check for Jira creation intent keywords
@@ -556,7 +559,7 @@ class ChatbotAgent:
             has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
             if has_jira_capability:
                 state["intent"] = "jira_creation"
-                print(f"  → Intent: jira_creation (keyword match)")
+                logger.debug("Intent: jira_creation (keyword match)")
                 return state
         
         # Then try regex patterns for more complex phrases
@@ -567,25 +570,25 @@ class ChatbotAgent:
                 has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
                 if has_jira_capability:
                     state["intent"] = "jira_creation"
-                    print(f"  → Intent: jira_creation (pattern match: {pattern})")
+                    logger.debug(f"Intent: jira_creation (pattern match: {pattern})")
                     return state
         
         # Check for RAG intent keywords (knowledge/documentation queries)
         if any(keyword in user_input for keyword in rag_keywords):
             state["intent"] = "rag_query"
-            print(f"  → Intent: rag_query (keyword match)")
+            logger.debug("Intent: rag_query (keyword match)")
             return state
         
         # Check for general chat keywords (simple questions, greetings)
         if any(keyword in user_input for keyword in general_chat_keywords):
             state["intent"] = "general_chat"
-            print(f"  → Intent: general_chat (keyword match)")
+            logger.debug("Intent: general_chat (keyword match)")
             return state
         
         # For ambiguous cases, default to general_chat (skip LLM to avoid timeout)
         # LLM-based detection is unreliable and slow, so we use keyword-based only
         state["intent"] = "general_chat"
-        print(f"  → Intent: general_chat (default)")
+        logger.debug("Intent: general_chat (default)")
         return state
     
     def _route_after_intent(self, state: AgentState) -> str:
@@ -670,23 +673,23 @@ class ChatbotAgent:
                 # VALIDATION: Ensure this is actually a Confluence tool, not a Jira tool
                 tool_name_lower = tool.name.lower()
                 if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
-                    print(f"⚠ Tool '{tool.name}' appears to be a Jira tool, skipping")
+                    logger.debug(f"Tool '{tool.name}' appears to be a Jira tool, skipping")
                     continue
                 if 'confluence' in tool_name_lower or 'page' in tool_name_lower:
                     mcp_tool = tool
-                    print(f"✓ Found MCP Confluence retrieval tool: {tool.name}")
+                    logger.info(f"Found MCP Confluence retrieval tool: {tool.name}")
                     break
         
         if not mcp_tool:
             return {'success': False, 'error': 'MCP Confluence retrieval tool not available'}
         
         try:
-            print(f"🚀 [MCP PROTOCOL] Retrieving Confluence page info...")
-            print(f"   MCP Tool: {mcp_tool.name}")
+            logger.info("Retrieving Confluence page info via MCP Protocol")
+            logger.debug(f"MCP Tool: {mcp_tool.name}")
             if page_id:
-                print(f"   Page ID: {page_id}")
+                logger.debug(f"Page ID: {page_id}")
             if page_title:
-                print(f"   Page Title: {page_title}")
+                logger.debug(f"Page Title: {page_title}")
             
             # Prepare arguments
             mcp_args = {}
@@ -768,7 +771,7 @@ class ChatbotAgent:
         
         # If we found a page reference, try to retrieve it using MCP
         if page_id or page_title:
-            print(f"🔍 Detected Confluence page query, attempting MCP retrieval...")
+            logger.debug("Detected Confluence page query, attempting MCP retrieval...")
             page_info = self._retrieve_confluence_page_info(page_id=page_id, page_title=page_title)
             
             if page_info.get('success'):
@@ -780,9 +783,9 @@ class ChatbotAgent:
                     content_preview = str(page_info.get('content', ''))[:500]
                     page_context += f"Content Preview: {content_preview}...\n"
                 user_input = user_input + page_context
-                print(f"✓ Retrieved Confluence page info via MCP Protocol")
+                logger.info("Retrieved Confluence page info via MCP Protocol")
             else:
-                print(f"⚠ Could not retrieve Confluence page via MCP: {page_info.get('error', 'Unknown error')}")
+                logger.warning(f"Could not retrieve Confluence page via MCP: {page_info.get('error', 'Unknown error')}")
         
         # Add system message if not present
         if not messages or not isinstance(messages[0], SystemMessage):
@@ -806,13 +809,13 @@ class ChatbotAgent:
                 try:
                     response = future.result(timeout=20.0)  # 20 second timeout (reduced from 30s)
                     elapsed = time.time() - start_time
-                    print(f"✓ LLM response received in {elapsed:.2f}s")
+                    logger.debug(f"LLM response received in {elapsed:.2f}s")
                     messages.append(response)
                     state["messages"] = messages
                 except concurrent.futures.TimeoutError:
                     elapsed = time.time() - start_time
-                    print(f"⚠ LLM response timeout ({elapsed:.2f}s) for general chat")
-                    print(f"   Check: API key validity, network connection, model name")
+                    logger.warning(f"LLM response timeout ({elapsed:.2f}s) for general chat")
+                    logger.debug("Check: API key validity, network connection, model name")
                     error_msg = AIMessage(
                         content="I apologize, but the request timed out. Please check your API key and network connection. The API may be slow or unavailable."
                     )
@@ -823,8 +826,8 @@ class ChatbotAgent:
                     elapsed = time.time() - start_time
                     error_type = type(executor_error).__name__
                     error_str = str(executor_error).lower()
-                    print(f"⚠ LLM call error after {elapsed:.2f}s: {executor_error}")
-                    print(f"   Error type: {error_type}")
+                    logger.warning(f"LLM call error after {elapsed:.2f}s: {executor_error}")
+                    logger.debug(f"Error type: {error_type}")
                     
                     # Detect error category by checking both type name and error message
                     is_connection_error = (
@@ -858,20 +861,20 @@ class ChatbotAgent:
                             "- Firewall or proxy settings\n\n"
                             "Please check your network connection and try again."
                         )
-                        # Don't print traceback for connection errors - they're common and expected
-                        print(f"   → Connection error detected, providing user-friendly message")
+                        # Don't log traceback for connection errors - they're common and expected
+                        logger.debug("Connection error detected, providing user-friendly message")
                     elif is_auth_error:
                         user_message = (
                             "I apologize, but there's an authentication issue. "
                             "Please check that your API key is correctly configured and has the necessary permissions."
                         )
-                        print(f"   → Authentication error detected")
+                        logger.debug("Authentication error detected")
                     elif is_rate_limit_error:
                         user_message = (
                             "I apologize, but the API rate limit has been exceeded. "
                             "Please wait a moment and try again."
                         )
-                        print(f"   → Rate limit error detected")
+                        logger.debug("Rate limit error detected")
                     else:
                         # Generic error message for unexpected errors
                         user_message = (
@@ -888,8 +891,8 @@ class ChatbotAgent:
         except Exception as e:
             # Catch any other unexpected errors
             error_type = type(e).__name__
-            print(f"⚠ Unexpected error in general chat: {e}")
-            print(f"   Error type: {error_type}")
+            logger.error(f"Unexpected error in general chat: {e}")
+            logger.debug(f"Error type: {error_type}")
             
             # Provide a generic but helpful error message
             error_msg = AIMessage(
@@ -908,29 +911,27 @@ class ChatbotAgent:
         """Handle Jira issue creation."""
         import datetime
         
-        print("=" * 70)
-        print("🔧 Jira Creation: Checking available tools...")
-        print(f"   Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 70)
+        logger.info("Jira Creation: Checking available tools...")
+        logger.debug(f"Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Try to use MCP if enabled and available, otherwise fall back to custom tools
         use_mcp = self.use_mcp and self.mcp_integration is not None
         
         if self.use_mcp:
-            print(f"✓ MCP is enabled (USE_MCP={self.use_mcp})")
+            logger.debug(f"MCP is enabled (USE_MCP={self.use_mcp})")
         else:
-            print(f"⚠ MCP is disabled (USE_MCP={self.use_mcp})")
+            logger.debug(f"MCP is disabled (USE_MCP={self.use_mcp})")
         
         # Initialize MCP if needed (lazy initialization)
         if use_mcp and not self.mcp_integration._initialized:
-            print("🔄 Initializing MCP integration (lazy initialization)...")
+            logger.info("Initializing MCP integration (lazy initialization)...")
             try:
                 import asyncio
                 asyncio.run(self.mcp_integration.initialize())
-                print("✓ MCP integration initialized successfully")
+                logger.info("MCP integration initialized successfully")
             except Exception as e:
-                print(f"✗ MCP initialization failed: {e}")
-                print("   Falling back to custom tools")
+                logger.warning(f"MCP initialization failed: {e}")
+                logger.info("Falling back to custom tools")
                 use_mcp = False
         
         # Check if we have MCP tools available
@@ -945,11 +946,11 @@ class ChatbotAgent:
                     # Verify it's actually a Jira tool, not a Confluence tool
                     tool_name_lower = tool.name.lower()
                     if 'confluence' in tool_name_lower or 'page' in tool_name_lower:
-                        print(f"⚠ Tool '{tool.name}' appears to be a Confluence tool, skipping")
+                        logger.debug(f"Tool '{tool.name}' appears to be a Confluence tool, skipping")
                         continue
                     if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
                         mcp_jira_tool = tool
-                        print(f"✓ Found Jira MCP tool: {tool.name}")
+                        logger.info(f"Found Jira MCP tool: {tool.name}")
                         break
             
             if not mcp_jira_tool:
@@ -963,11 +964,11 @@ class ChatbotAgent:
                     # Only accept tools that are clearly Jira-related
                     if ('jira' in tool_name_lower or 'issue' in tool_name_lower) and 'create' in tool_name_lower:
                         mcp_jira_tool = tool
-                        print(f"✓ Found Jira MCP tool by pattern: {tool.name}")
+                        logger.info(f"Found Jira MCP tool by pattern: {tool.name}")
                         break
                 
                 if not mcp_jira_tool:
-                    print("⚠ MCP tool 'create_jira_issue' not available, using custom tool")
+                    logger.warning("MCP tool 'create_jira_issue' not available, using custom tool")
                     use_mcp = False
         
         if not use_mcp and not self.jira_tool:
@@ -1051,16 +1052,16 @@ class ChatbotAgent:
                 # Final safety check: verify this is actually a Jira tool
                 tool_name_lower = mcp_jira_tool.name.lower()
                 if 'confluence' in tool_name_lower or ('page' in tool_name_lower and 'jira' not in tool_name_lower):
-                    print(f"⚠ SAFETY CHECK FAILED: Tool '{mcp_jira_tool.name}' appears to be a Confluence tool!")
-                    print("   Falling back to custom Jira tool")
+                    logger.warning(f"SAFETY CHECK FAILED: Tool '{mcp_jira_tool.name}' appears to be a Confluence tool!")
+                    logger.info("Falling back to custom Jira tool")
                     mcp_jira_tool = None
                     use_mcp = False
             
             if use_mcp and mcp_jira_tool:
                 tool_used = "MCP Tool"
-                print("🚀 Creating Jira issue via MCP tool...")
-                print(f"   Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
-                print(f"   Priority: {backlog_data.get('priority', 'Medium')}")
+                logger.info("Creating Jira issue via MCP tool...")
+                logger.debug(f"Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
+                logger.debug(f"Priority: {backlog_data.get('priority', 'Medium')}")
                 
                 try:
                     # Call MCP tool with additional timeout wrapper for safety
@@ -1081,11 +1082,11 @@ class ChatbotAgent:
                         try:
                             mcp_result = future.result(timeout=75.0)  # 75 second timeout (MCP has 60s internal, add buffer)
                             elapsed = time.time() - start_time
-                            print(f"   MCP tool call completed in {elapsed:.2f}s")
+                            logger.debug(f"MCP tool call completed in {elapsed:.2f}s")
                         except concurrent.futures.TimeoutError:
                             elapsed = time.time() - start_time
-                            print(f"⚠ MCP tool call timed out after {elapsed:.2f}s")
-                            print("   Falling back to custom tool")
+                            logger.warning(f"MCP tool call timed out after {elapsed:.2f}s")
+                            logger.info("Falling back to custom tool")
                             tool_used = "Custom Tool (MCP timeout fallback)"
                             result = self.jira_tool.create_issue(
                                 summary=backlog_data.get('summary', 'Untitled Issue'),
@@ -1093,7 +1094,7 @@ class ChatbotAgent:
                                 priority=backlog_data.get('priority', 'Medium')
                             )
                             if result.get('success'):
-                                print(f"✅ Created issue {result.get('key', 'N/A')} via custom tool (MCP timeout)")
+                                logger.info(f"Created issue {result.get('key', 'N/A')} via custom tool (MCP timeout)")
                             else:
                                 result = {'success': False, 'error': 'MCP tool timed out and custom tool also failed'}
                             # Skip JSON parsing, use the result directly
@@ -1108,11 +1109,11 @@ class ChatbotAgent:
                             if isinstance(mcp_result, str):
                                 # Check for timeout or error messages
                                 if 'timed out' in mcp_result.lower() or 'timeout' in mcp_result.lower():
-                                    print(f"⚠ MCP tool returned timeout error: {mcp_result}")
+                                    logger.warning(f"MCP tool returned timeout error: {mcp_result}")
                                     raise Exception(f"MCP tool timeout: {mcp_result}")
                                 if mcp_result.strip().startswith('Error:'):
                                     error_msg = mcp_result.replace('Error:', '').strip()
-                                    print(f"⚠ MCP tool returned error: {error_msg}")
+                                    logger.warning(f"MCP tool returned error: {error_msg}")
                                     raise Exception(f"MCP tool error: {error_msg}")
                                 
                                 # Try to parse as JSON
@@ -1143,10 +1144,10 @@ class ChatbotAgent:
                                     'created_by': mcp_data.get('created_by', 'MCP_SERVER'),
                                     'tool_used': mcp_data.get('tool_used', 'custom-jira-mcp-server')
                                 }
-                                print(f"✅ Created issue {result['key']} via MCP tool")
+                                logger.info(f"Created issue {result['key']} via MCP tool")
                             else:
                                 error_msg = mcp_data.get('error', 'Unknown error') if mcp_data else 'Invalid response'
-                                print(f"❌ MCP Tool failed: {error_msg}")
+                                logger.error(f"MCP Tool failed: {error_msg}")
                                 # Fall back to custom tool
                                 tool_used = "Custom Tool (MCP error fallback)"
                                 result = self.jira_tool.create_issue(
@@ -1157,7 +1158,7 @@ class ChatbotAgent:
                         except json.JSONDecodeError as e:
                             # If not JSON, check if it's an error message
                             if isinstance(mcp_result, str) and ('error' in mcp_result.lower() or 'timeout' in mcp_result.lower()):
-                                print(f"⚠ MCP Tool returned error message: {mcp_result[:200]}")
+                                logger.warning(f"MCP Tool returned error message: {mcp_result[:200]}")
                                 # Fall back to custom tool
                                 tool_used = "Custom Tool (MCP parse error fallback)"
                                 result = self.jira_tool.create_issue(
@@ -1166,18 +1167,17 @@ class ChatbotAgent:
                                     priority=backlog_data.get('priority', 'Medium')
                                 )
                             else:
-                                print(f"❌ MCP Tool failed: Invalid response format")
+                                logger.error("MCP Tool failed: Invalid response format")
                                 result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
                 except Exception as e:
                     error_str = str(e).lower()
                     if 'timeout' in error_str or 'timed out' in error_str:
-                        print(f"⚠ MCP tool call timed out: {e}")
-                        print("   Falling back to custom tool")
+                        logger.warning(f"MCP tool call timed out: {e}")
+                        logger.info("Falling back to custom tool")
                     else:
-                        print(f"❌ MCP tool call failed: {e}")
-                        print("   Falling back to custom tool")
-                        import traceback
-                        traceback.print_exc()
+                        logger.error(f"MCP tool call failed: {e}")
+                        logger.info("Falling back to custom tool")
+                        logger.debug("Exception details:", exc_info=True)
                     
                     # Fall back to custom tool if result is None or failed
                     if result is None or not result.get('success'):
@@ -1189,26 +1189,24 @@ class ChatbotAgent:
                                 priority=backlog_data.get('priority', 'Medium')
                             )
                             if result.get('success'):
-                                print(f"✅ Created issue {result.get('key', 'N/A')} via custom tool (fallback)")
+                                logger.info(f"Created issue {result.get('key', 'N/A')} via custom tool (fallback)")
                         except Exception as fallback_error:
-                            print(f"❌ Custom tool also failed: {fallback_error}")
+                            logger.error(f"Custom tool also failed: {fallback_error}")
                             result = {'success': False, 'error': f'MCP tool failed: {str(e)}. Custom tool also failed: {str(fallback_error)}'}
             else:
                 # Use custom tool
-                print("\n🔧 Using Custom JiraTool to create Jira issue...")
-                print(f"   Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
-                print(f"   Priority: {backlog_data.get('priority', 'Medium')}")
+                logger.info("Using Custom JiraTool to create Jira issue...")
+                logger.debug(f"Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
+                logger.debug(f"Priority: {backlog_data.get('priority', 'Medium')}")
                 result = self.jira_tool.create_issue(
                     summary=backlog_data.get('summary', 'Untitled Issue'),
                     description=backlog_data.get('description', ''),
                     priority=backlog_data.get('priority', 'Medium')
                 )
                 if result.get('success'):
-                    print(f"✅ Custom Tool SUCCESS: Created issue {result.get('key', 'N/A')}")
+                    logger.info(f"Custom Tool SUCCESS: Created issue {result.get('key', 'N/A')}")
                 else:
-                    print(f"❌ Custom Tool FAILED: {result.get('error', 'Unknown error')}")
-            
-            print("=" * 70)
+                    logger.error(f"Custom Tool FAILED: {result.get('error', 'Unknown error')}")
             
             # Ensure result is set
             if result is None:
@@ -1249,7 +1247,17 @@ class ChatbotAgent:
                         f"- Try again in a few moments"
                     )
                 else:
-                    user_message = f"❌ **Failed to create Jira issue**\n\nError: {error_msg}\n\nPlease check your Jira configuration and try again."
+                    # User-friendly error message without raw error details
+                    user_message = (
+                        "⚠ **Failed to create Jira issue:**\n\n"
+                        "The system attempted to create the Jira issue but encountered an issue.\n\n"
+                        "**Please check:**\n"
+                        "- ✅ Your Jira configuration (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)\n"
+                        "- ✅ API token has write permissions\n"
+                        "- ✅ Network connectivity to Jira\n"
+                        "- ✅ Jira project key is correct\n\n"
+                        "Please try again or create the issue manually in Jira."
+                    )
                 
                 state["messages"].append(AIMessage(content=user_message))
         except Exception as e:
@@ -1260,16 +1268,30 @@ class ChatbotAgent:
             error_str = str(e).lower()
             if 'timeout' in error_str or 'timed out' in error_str:
                 user_message = (
-                    f"❌ **Jira Creation Timeout**\n\n"
-                    f"The request timed out while creating the Jira issue. "
-                    f"Please check your network connection and Jira server status, then try again."
+                    "⚠ **Jira issue creation failed:**\n\n"
+                    "The request timed out. This may happen when:\n"
+                    "- The Jira server is slow or overloaded\n"
+                    "- There are network connectivity issues\n\n"
+                    "**What you can do:**\n"
+                    "- ✅ Try again in a few moments\n"
+                    "- ✅ Check your network connection\n"
+                    "- ✅ Create the issue manually in Jira if urgent\n"
                 )
             else:
-                user_message = f"❌ **Error creating Jira issue**\n\n{error_msg}\n\nPlease check your configuration and try again."
+                # Generic error message - don't show raw error to user
+                user_message = (
+                    "⚠ **Jira issue creation failed:**\n\n"
+                    "An unexpected error occurred while creating the Jira issue.\n\n"
+                    "**What you can do:**\n"
+                    "- ✅ Try again in a few moments\n"
+                    "- ✅ Check your Jira configuration (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)\n"
+                    "- ✅ Verify your API token has write permissions\n"
+                    "- ✅ Create the issue manually in Jira if needed\n"
+                )
             
             state["messages"].append(AIMessage(content=user_message))
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error creating Jira issue: {e}")
+            logger.debug("Exception details:", exc_info=True)
         
         return state
     
@@ -1321,7 +1343,7 @@ class ChatbotAgent:
                 state["evaluation_result"] = {"error": evaluation.get('error')}
         except Exception as e:
             state["evaluation_result"] = {"error": str(e)}
-            print(f"Error during evaluation: {e}")
+            logger.error(f"Error during evaluation: {e}")
         
         return state
     
@@ -1354,7 +1376,7 @@ class ChatbotAgent:
         issue_key = jira_result["key"]
         
         try:
-            print(f"Creating Confluence page for {issue_key}...")
+            logger.info(f"Creating Confluence page for {issue_key}...")
             
             # Format Confluence content
             confluence_content = self._format_confluence_content(
@@ -1374,7 +1396,7 @@ class ChatbotAgent:
             if use_mcp:
                 # Initialize MCP if needed (with timeout to prevent blocking)
                 if not self.mcp_integration._initialized:
-                    print("🔄 Initializing MCP integration for Confluence...")
+                    logger.info("Initializing MCP integration for Confluence...")
                     try:
                         import asyncio
                         import concurrent.futures
@@ -1383,12 +1405,12 @@ class ChatbotAgent:
                             future = executor.submit(asyncio.run, self.mcp_integration.initialize())
                             try:
                                 future.result(timeout=15.0)  # 15 second timeout for initialization
-                                print("✓ MCP integration initialized for Confluence")
+                                logger.info("MCP integration initialized for Confluence")
                             except concurrent.futures.TimeoutError:
-                                print(f"⚠ MCP initialization timeout (15s) for Confluence")
+                                logger.warning("MCP initialization timeout (15s) for Confluence")
                                 use_mcp = False
                     except Exception as e:
-                        print(f"⚠ MCP initialization failed: {e}")
+                        logger.warning(f"MCP initialization failed: {e}")
                         use_mcp = False
                 
                 # Try to get MCP Confluence tool
@@ -1396,9 +1418,9 @@ class ChatbotAgent:
                     # Only get tools if MCP is initialized (don't trigger initialization here)
                     if self.mcp_integration._initialized:
                         all_tools = self.mcp_integration.get_tools()
-                        print(f"🔍 [MCP PROTOCOL] Available MCP tools: {[tool.name for tool in all_tools]}")
+                        logger.debug(f"Available MCP tools: {[tool.name for tool in all_tools]}")
                     else:
-                        print(f"🔍 [MCP PROTOCOL] MCP not initialized yet, skipping tool discovery")
+                        logger.debug("MCP not initialized yet, skipping tool discovery")
                         all_tools = []
                     
                     # Look for Confluence tools - check both exact names and patterns
@@ -1428,7 +1450,7 @@ class ChatbotAgent:
                         tool = self.mcp_integration.get_tool(tool_name)
                         if tool:
                             confluence_tool_candidates.append((tool_name, tool))
-                            print(f"  ✓ Found potential Confluence tool: {tool_name}")
+                            logger.debug(f"Found potential Confluence tool: {tool_name}")
                     
                     # If no exact match, search through all tools for Confluence-related ones
                     if not confluence_tool_candidates:
@@ -1468,31 +1490,31 @@ class ChatbotAgent:
                                 # Final validation: ensure it's not a Jira tool
                                 if 'jira' not in tool_name_lower and 'issue' not in tool_name_lower:
                                     confluence_tool_candidates.append((tool.name, tool))
-                                    print(f"  ✓ Found potential Confluence tool by pattern: {tool.name}")
+                                    logger.debug(f"Found potential Confluence tool by pattern: {tool.name}")
                     
                     # Use the first candidate found
                     if confluence_tool_candidates:
                         tool_name, mcp_confluence_tool = confluence_tool_candidates[0]
-                        print(f"✓ Selected MCP Confluence tool: {tool_name}")
+                        logger.info(f"Selected MCP Confluence tool: {tool_name}")
                     else:
-                        print(f"⚠ [MCP PROTOCOL] No Confluence MCP tools found")
-                        print(f"   Available tools: {[tool.name for tool in all_tools]}")
-                        print(f"   This may indicate the Confluence MCP server timed out or isn't configured")
+                        logger.warning("No Confluence MCP tools found")
+                        logger.debug(f"Available tools: {[tool.name for tool in all_tools]}")
+                        logger.debug("This may indicate the Confluence MCP server timed out or isn't configured")
                         mcp_confluence_tool = None
                     
                     if mcp_confluence_tool:
                         # VALIDATION: Final safety check to ensure this is actually a Confluence tool
                         tool_name_lower = mcp_confluence_tool.name.lower()
                         if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
-                            print(f"⚠ SAFETY CHECK FAILED: Tool '{mcp_confluence_tool.name}' appears to be a Jira tool!")
-                            print("   Falling back to direct Confluence API")
+                            logger.warning(f"SAFETY CHECK FAILED: Tool '{mcp_confluence_tool.name}' appears to be a Jira tool!")
+                            logger.info("Falling back to direct Confluence API")
                             mcp_confluence_tool = None
                             use_mcp = False
                         
                         if mcp_confluence_tool:
-                            print(f"🚀 [MCP PROTOCOL] Creating Confluence page via MCP tool...")
-                            print(f"   MCP Tool: {mcp_confluence_tool.name}")
-                            print(f"   Title: {page_title}")
+                            logger.info("Creating Confluence page via MCP tool...")
+                            logger.debug(f"MCP Tool: {mcp_confluence_tool.name}")
+                            logger.debug(f"Title: {page_title}")
                             tool_used = "MCP Protocol"
                         
                         try:
@@ -1523,12 +1545,12 @@ class ChatbotAgent:
                             # Get cloudId early if this is a Rovo tool
                             cloud_id = None
                             if is_rovo_tool:
-                                print(f"   Detected Rovo tool - retrieving cloudId...")
+                                logger.debug("Detected Rovo tool - retrieving cloudId...")
                                 cloud_id = self._get_cloud_id()
                                 if cloud_id:
-                                    print(f"✓ cloudId retrieved: {cloud_id}")
+                                    logger.info(f"cloudId retrieved: {cloud_id}")
                                 else:
-                                    print(f"⚠ cloudId not available - tool call may fail")
+                                    logger.warning("cloudId not available - tool call may fail")
                             
                             # Check what parameters the tool expects
                             if tool_schema and 'inputSchema' in tool_schema:
@@ -1579,11 +1601,11 @@ class ChatbotAgent:
                                         if content_format_enum:
                                             # Use first enum value (usually "markdown" for Rovo)
                                             mcp_args[param_name] = content_format_enum[0]
-                                            print(f"   Using contentFormat from schema enum: {content_format_enum[0]}")
+                                            logger.debug(f"Using contentFormat from schema enum: {content_format_enum[0]}")
                                         else:
                                             # Default to "markdown" for Rovo MCP Server
                                             mcp_args[param_name] = "markdown"
-                                            print(f"   Using default contentFormat: markdown")
+                                            logger.debug("Using default contentFormat: markdown")
                                     # Map title/name parameters
                                     elif any(mapped in param_lower for mapped in ['title', 'name', 'pagetitle']):
                                         mcp_args[param_name] = page_title
@@ -1595,7 +1617,7 @@ class ChatbotAgent:
                                             # Convert HTML to markdown for Rovo MCP Server
                                             body_content = self._html_to_markdown(confluence_content)
                                             mcp_args[param_name] = body_content
-                                            print(f"   Converted HTML content to markdown (length: {len(body_content)} chars)")
+                                            logger.debug(f"Converted HTML content to markdown (length: {len(body_content)} chars)")
                                         else:
                                             mcp_args[param_name] = confluence_content
                                     # Map space parameters
@@ -1614,10 +1636,10 @@ class ChatbotAgent:
                                             if space_id:
                                                 # Convert to string as Pydantic validation expects string type
                                                 mcp_args[param_name] = str(space_id)
-                                                print(f"   Converted space key '{space_key}' to space ID (as string): {mcp_args[param_name]}")
+                                                logger.debug(f"Converted space key '{space_key}' to space ID (as string): {mcp_args[param_name]}")
                                             else:
                                                 # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                print(f"⚠ Could not get space ID for '{space_key}', using space key as-is (may fail)")
+                                                logger.warning(f"Could not get space ID for '{space_key}', using space key as-is (may fail)")
                                                 mcp_args[param_name] = space_key
                                         else:
                                             # Use string space key (spaceKey, space_key, etc.)
@@ -1635,7 +1657,7 @@ class ChatbotAgent:
                                             if content_format_value == 'markdown':
                                                 body_content = self._html_to_markdown(confluence_content)
                                                 mcp_args[req_param] = body_content
-                                                print(f"   Converted HTML content to markdown for required param {req_param}")
+                                                logger.debug(f"Converted HTML content to markdown for required param {req_param}")
                                             else:
                                                 mcp_args[req_param] = confluence_content
                                         elif 'space' in req_param.lower():
@@ -1647,10 +1669,10 @@ class ChatbotAgent:
                                                 if space_id:
                                                     # Convert to string as Pydantic validation expects string type
                                                     mcp_args[req_param] = str(space_id)
-                                                    print(f"   Converted space key '{space_key}' to space ID (as string) for required param {req_param}: {mcp_args[req_param]}")
+                                                    logger.debug(f"Converted space key '{space_key}' to space ID (as string) for required param {req_param}: {mcp_args[req_param]}")
                                                 else:
                                                     # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                    print(f"⚠ Could not get space ID for '{space_key}', using space key as-is for {req_param} (may fail)")
+                                                    logger.warning(f"Could not get space ID for '{space_key}', using space key as-is for {req_param} (may fail)")
                                                     mcp_args[req_param] = space_key
                                             else:
                                                 # Use string space key
@@ -1661,14 +1683,14 @@ class ChatbotAgent:
                                                 mcp_args[req_param] = cloud_id
                                             else:
                                                 # cloudId is required but not available
-                                                print(f"⚠ cloudId required but not available. Tool call will fail, will fallback to direct API.")
+                                                logger.warning("cloudId required but not available. Tool call will fail, will fallback to direct API.")
                                                 # Don't add empty cloudId - let it fail and fallback gracefully
                                                 # This will cause the tool call to fail validation, triggering fallback
                                         elif 'contentformat' in req_param.lower() or req_param == 'contentFormat':
                                             # contentFormat is required for Rovo MCP Server
                                             # Default to "markdown" (Rovo MCP Server expects markdown, not storage)
                                             mcp_args[req_param] = "markdown"
-                                            print(f"   Added contentFormat: markdown")
+                                            logger.debug("Added contentFormat: markdown")
                             else:
                                 # Fallback: try common parameter name variations
                                 mcp_args = {
@@ -1690,38 +1712,39 @@ class ChatbotAgent:
                                     mcp_args['cloudId'] = cloud_id
                             
                             # Log the tool being used and arguments
-                            print(f"   Tool Name: {mcp_confluence_tool.name}")
+                            logger.debug(f"Tool Name: {mcp_confluence_tool.name}")
                             if tool_schema:
-                                print(f"   Tool Schema: {list(mcp_args.keys())}")
-                            print(f"   Arguments: {', '.join([f'{k}=' + (str(v)[:30] + '...' if len(str(v)) > 30 else str(v)) for k, v in list(mcp_args.items())[:3]])}")
+                                logger.debug(f"Tool Schema: {list(mcp_args.keys())}")
+                            logger.debug(f"Arguments: {', '.join([f'{k}=' + (str(v)[:30] + '...' if len(str(v)) > 30 else str(v)) for k, v in list(mcp_args.items())[:3]])}")
                             
                             # Try calling MCP tool with timeout
                             # StructuredTool.invoke expects input as keyword argument
                             # Using input= explicitly to match BaseTool/StructuredTool signature
-                            print(f"   [DEBUG] Calling tool with arguments: {list(mcp_args.keys())}")
-                            print(f"   [DEBUG] Tool object type: {type(mcp_confluence_tool)}")
-                            print(f"   [DEBUG] Tool has invoke method: {hasattr(mcp_confluence_tool, 'invoke')}")
+                            logger.debug(f"Calling tool with arguments: {list(mcp_args.keys())}")
+                            logger.debug(f"Tool object type: {type(mcp_confluence_tool)}")
+                            logger.debug(f"Tool has invoke method: {hasattr(mcp_confluence_tool, 'invoke')}")
                             
                             with concurrent.futures.ThreadPoolExecutor() as executor:
                                 try:
-                                    print(f"   [DEBUG] Submitting tool.invoke(input={{...}}) to executor...")
-                                    future = executor.submit(mcp_confluence_tool.invoke, input=mcp_args)
-                                    print(f"   [DEBUG] Waiting for tool result (timeout: 30s)...")
+                                    logger.debug("Submitting tool.invoke(...) to executor...")
+                                    # LangChain tools use invoke(args) directly, not invoke(input=args)
+                                    future = executor.submit(mcp_confluence_tool.invoke, mcp_args)
+                                    logger.debug("Waiting for tool result (timeout: 30s)...")
                                     mcp_result = future.result(timeout=30.0)  # 30 second timeout
-                                    print(f"   [DEBUG] Tool call completed, result type: {type(mcp_result)}")
+                                    logger.debug(f"Tool call completed, result type: {type(mcp_result)}")
                                     
                                     # Log raw result for debugging
-                                    print(f"   [DEBUG] MCP tool raw result type: {type(mcp_result)}")
+                                    logger.debug(f"MCP tool raw result type: {type(mcp_result)}")
                                     if isinstance(mcp_result, str):
-                                        print(f"   [DEBUG] MCP tool raw result (full length: {len(mcp_result)} chars):")
-                                        print(f"   [DEBUG] First 1000 chars: {mcp_result[:1000]}")
+                                        logger.debug(f"MCP tool raw result (full length: {len(mcp_result)} chars)")
+                                        logger.debug(f"First 1000 chars: {mcp_result[:1000]}")
                                         if len(mcp_result) > 1000:
-                                            print(f"   [DEBUG] ... (truncated, total {len(mcp_result)} chars)")
+                                            logger.debug(f"... (truncated, total {len(mcp_result)} chars)")
                                     elif isinstance(mcp_result, dict):
-                                        print(f"   [DEBUG] MCP tool raw result keys: {list(mcp_result.keys())}")
-                                        print(f"   [DEBUG] MCP tool raw result: {mcp_result}")
+                                        logger.debug(f"MCP tool raw result keys: {list(mcp_result.keys())}")
+                                        logger.debug(f"MCP tool raw result: {mcp_result}")
                                     else:
-                                        print(f"   [DEBUG] MCP tool raw result: {repr(mcp_result)[:500]}")
+                                        logger.debug(f"MCP tool raw result: {repr(mcp_result)[:500]}")
                                     
                                     # Parse MCP result
                                     mcp_data = None
@@ -1743,20 +1766,20 @@ class ChatbotAgent:
                                         # The regex extraction can incorrectly match nested objects
                                         try:
                                             mcp_data = json.loads(cleaned_result)
-                                            print(f"   [DEBUG] Successfully parsed JSON from MCP result")
+                                            logger.debug("Successfully parsed JSON from MCP result")
                                             
                                             # Log the full parsed data structure for debugging
                                             if isinstance(mcp_data, dict):
-                                                print(f"   [DEBUG] Parsed JSON top-level keys: {list(mcp_data.keys())[:10]}")
+                                                logger.debug(f"Parsed JSON top-level keys: {list(mcp_data.keys())[:10]}")
                                                 # Check if we have the expected page structure
                                                 if 'id' in mcp_data:
-                                                    print(f"   [DEBUG] Found page ID in root: {mcp_data.get('id')}")
+                                                    logger.debug(f"Found page ID in root: {mcp_data.get('id')}")
                                                 elif 'version' in mcp_data:
-                                                    print(f"   [DEBUG] WARNING: Only found 'version' key - might indicate parsing issue")
+                                                    logger.debug("WARNING: Only found 'version' key - might indicate parsing issue")
                                         except json.JSONDecodeError as first_parse_err:
                                             # If direct parse fails, try regex extraction as fallback
-                                            print(f"   [DEBUG] Direct JSON parse failed: {first_parse_err}")
-                                            print(f"   [DEBUG] Attempting regex extraction as fallback...")
+                                            logger.debug(f"Direct JSON parse failed: {first_parse_err}")
+                                            logger.debug("Attempting regex extraction as fallback...")
                                             
                                             # Try to extract JSON object from the string (in case it's embedded in text)
                                             # Use a more robust pattern that matches balanced braces
@@ -1765,14 +1788,14 @@ class ChatbotAgent:
                                                 try:
                                                     cleaned_result = json_match.group(0)
                                                     mcp_data = json.loads(cleaned_result)
-                                                    print(f"   [DEBUG] Successfully parsed JSON using regex extraction")
+                                                    logger.debug("Successfully parsed JSON using regex extraction")
                                                 except json.JSONDecodeError:
                                                     # Regex extraction also failed
                                                     pass
                                         except json.JSONDecodeError as json_err:
                                             # If not JSON, check if it contains success indicators or page info
-                                            print(f"   [DEBUG] JSON decode error: {json_err}")
-                                            print(f"   [DEBUG] Attempting to parse as plain text response")
+                                            logger.debug(f"JSON decode error: {json_err}")
+                                            logger.debug("Attempting to parse as plain text response")
                                             
                                             # Check for explicit error indicators first
                                             # MCPToolWrapper returns "Error: ..." for errors
@@ -1817,11 +1840,11 @@ class ChatbotAgent:
                                                     'link': page_url or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
                                                     'tool_used': 'MCP Protocol'
                                                 }
-                                                print(f"✅ [MCP PROTOCOL] Confluence page created successfully (parsed from text)")
+                                                logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
                                                 if page_id:
-                                                    print(f"   [DEBUG] Extracted page ID: {page_id}")
+                                                    logger.debug(f"Extracted page ID: {page_id}")
                                                 if page_url:
-                                                    print(f"   [DEBUG] Extracted page URL: {page_url}")
+                                                    logger.debug(f"Extracted page URL: {page_url}")
                                                 mcp_data = None  # Skip dict processing, we already have result
                                                 tool_used = "MCP Protocol"  # Ensure tool_used is set
                                             else:
@@ -1832,14 +1855,14 @@ class ChatbotAgent:
                                         mcp_data = mcp_result
                                         # Additional check: if dict has success=False but error is boolean
                                         if not mcp_data.get('success') and isinstance(mcp_data.get('error'), bool):
-                                            print(f"   [DEBUG] WARNING: mcp_data['error'] is boolean {mcp_data.get('error')}, converting to string")
+                                            logger.debug(f"WARNING: mcp_data['error'] is boolean {mcp_data.get('error')}, converting to string")
                                             mcp_data['error'] = f"Error flag was set to {mcp_data.get('error')}"
                                     elif mcp_result is True or mcp_result is False:
                                         # Handle boolean result (unexpected)
-                                        print(f"   [DEBUG] ERROR: MCP tool returned boolean {mcp_result} instead of result dict/string")
+                                        logger.error(f"MCP tool returned boolean {mcp_result} instead of result dict/string")
                                         raise Exception(f"MCP tool returned boolean {mcp_result} instead of result dict/string. This indicates a bug in the MCP tool wrapper or server.")
                                     else:
-                                        print(f"   [DEBUG] Unexpected result type: {type(mcp_result)}, value: {repr(mcp_result)[:200]}")
+                                        logger.debug(f"Unexpected result type: {type(mcp_result)}, value: {repr(mcp_result)[:200]}")
                                         mcp_data = {'success': False, 'error': f'Unexpected result type: {type(mcp_result).__name__}', 'error_detail': str(mcp_result)[:200], 'error_type': type(mcp_result).__name__}
                                     
                                     # Process mcp_data if we have it (skip if we already created confluence_result from text)
@@ -1869,7 +1892,7 @@ class ChatbotAgent:
                                                 page_id_locations.append(f"root.pageId={mcp_data.get('pageId')}")
                                             if isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'):
                                                 page_id_locations.append(f"version.id={mcp_data.get('version', {}).get('id')}")
-                                            print(f"   [DEBUG] Found page ID indicators: {', '.join(page_id_locations)}")
+                                            logger.debug(f"Found page ID indicators: {', '.join(page_id_locations)}")
                                         
                                         if has_success_flag or has_page_id:
                                             # Extract page ID from various possible fields
@@ -1888,7 +1911,7 @@ class ChatbotAgent:
                                             # Convert to string if it's a number
                                             if page_id:
                                                 page_id = str(page_id)
-                                                print(f"   [DEBUG] Extracted page ID: {page_id} (type: {type(page_id).__name__})")
+                                                logger.debug(f"Extracted page ID: {page_id} (type: {type(page_id).__name__})")
                                             
                                             # Extract link from various possible fields
                                             page_link = None
@@ -1911,7 +1934,7 @@ class ChatbotAgent:
                                                 'link': page_link or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
                                                 'tool_used': 'MCP Protocol'
                                             }
-                                            print(f"✅ [MCP PROTOCOL] Confluence page created successfully (ID: {page_id})")
+                                            logger.info(f"Confluence page created successfully via MCP Protocol (ID: {page_id})")
                                         else:
                                             # Extract detailed error information
                                             # Handle case where error might be boolean or other types
@@ -1921,7 +1944,7 @@ class ChatbotAgent:
                                             error_type = str(mcp_data.get('error_type', ''))
                                             
                                             # Log full mcp_data for debugging
-                                            print(f"   [DEBUG] Full mcp_data response: {mcp_data}")
+                                            logger.debug(f"Full mcp_data response: {mcp_data}")
                                             
                                             # Build comprehensive error message
                                             error_parts = []
@@ -1940,7 +1963,7 @@ class ChatbotAgent:
                                             raise Exception(f"MCP tool error: {full_error}")
                                     
                                 except concurrent.futures.TimeoutError:
-                                    print(f"⚠ [MCP PROTOCOL] Timeout after 30 seconds, falling back to direct API")
+                                    logger.warning("MCP Protocol timeout after 30 seconds, falling back to direct API")
                                     tool_used = None  # Will trigger fallback
                                     raise asyncio.TimeoutError("MCP tool call timeout")
                                     
@@ -1949,34 +1972,29 @@ class ChatbotAgent:
                             error_type = type(e).__name__
                             error_str = str(e) if str(e) else repr(e)
                             
-                            print(f"⚠ [MCP PROTOCOL] Failed")
-                            print(f"   Error Type: {error_type}")
-                            print(f"   Error Message: {error_str}")
+                            logger.warning("MCP Protocol failed")
+                            logger.debug(f"Error Type: {error_type}")
+                            logger.debug(f"Error Message: {error_str}")
                             
                             # Log traceback for debugging
-                            import traceback
-                            print(f"   Full Traceback:")
-                            tb_lines = traceback.format_exc().split('\n')
-                            for line in tb_lines[:10]:  # First 10 lines of traceback
-                                if line.strip():
-                                    print(f"     {line}")
+                            logger.debug("Exception details:", exc_info=True)
                             
-                            print(f"   Falling back to direct Confluence API call")
+                            logger.info("Falling back to direct Confluence API call")
                             tool_used = None  # Will trigger fallback
                             use_mcp = False
             
             # Fallback to direct API if MCP failed or not available
             if not confluence_result and self.confluence_tool:
                 if use_mcp:
-                    print(f"⚠ [MCP PROTOCOL] MCP tool not found or failed, falling back to direct API")
+                    logger.warning("MCP Protocol tool not found or failed, falling back to direct API")
                     if self.mcp_integration and self.mcp_integration._initialized:
                         available_tools = [tool.name for tool in self.mcp_integration.get_tools()]
-                        print(f"   Available MCP tools: {available_tools}")
+                        logger.debug(f"Available MCP tools: {available_tools}")
                         if not available_tools:
-                            print(f"   ⚠ No MCP tools available - MCP integration may not be properly initialized")
+                            logger.warning("No MCP tools available - MCP integration may not be properly initialized")
                 else:
-                    print(f"⚠ [MCP PROTOCOL] MCP not enabled, using direct API")
-                print(f"🔧 [DIRECT API] Creating Confluence page via direct API call...")
+                    logger.debug("MCP not enabled, using direct API")
+                logger.info("Creating Confluence page via direct API call...")
                 tool_used = "Direct API"
                 try:
                     confluence_result = self.confluence_tool.create_page(
@@ -1989,8 +2007,8 @@ class ChatbotAgent:
                     error_str = str(direct_api_error)
                     # Check if error indicates page already exists (MCP might have succeeded)
                     if 'already exists' in error_str.lower() or 'duplicate' in error_str.lower() or 'same title' in error_str.lower():
-                        print(f"⚠ Direct API error indicates page may already exist (MCP tool may have succeeded)")
-                        print(f"   Error: {error_str[:200]}")
+                        logger.warning("Direct API error indicates page may already exist (MCP tool may have succeeded)")
+                        logger.debug(f"Error: {error_str[:200]}")
                         # Set a failure result but with a helpful message
                         confluence_result = {
                             'success': False,
@@ -2010,36 +2028,42 @@ class ChatbotAgent:
                            f"Title: {confluence_result['title']}\n"
                            f"Link: {confluence_result['link']}"
                 ))
-                print(f"✓ Confluence page created: {confluence_result['link']}")
+                logger.info(f"Confluence page created: {confluence_result['link']}")
             else:
                 error_msg = confluence_result.get('error', 'Unknown error') if confluence_result else 'No tool available'
-                user_friendly_msg = (
-                    f"⚠ **Confluence page creation failed:**\n"
-                    f"The system attempted to create the page but encountered an issue.\n"
-                    f"Error: {error_msg}\n\n"
-                    f"**What happened:**\n"
-                    f"- Tried to use MCP protocol first\n"
-                    f"- Fell back to direct API call\n"
-                    f"- Both methods encountered issues\n\n"
-                    f"**Please check:**\n"
-                    f"- CONFLUENCE_URL and CONFLUENCE_SPACE_KEY in .env file\n"
-                    f"- API token has Confluence write permissions\n"
-                    f"- Network connectivity to Confluence\n"
-                )
+                error_code = confluence_result.get('error_code', 'UNKNOWN') if confluence_result else None
+                
+                # Create user-friendly error message based on error code
+                user_friendly_msg = self._format_confluence_error_message(error_msg, error_code, tool_used)
+                
                 state["messages"].append(AIMessage(content=user_friendly_msg))
-                print(f"✗ Confluence page creation failed: {error_msg}")
+                logger.error(f"Confluence page creation failed: {error_msg} (code: {error_code})")
                 
         except Exception as e:
-            error_detail = (
-                f"⚠ **Confluence page creation failed:**\n"
-                f"Exception: {str(e)}\n\n"
-                f"The system tried both MCP protocol and direct API methods.\n"
-                f"Please check your Confluence configuration and network connectivity."
+            error_str = str(e)
+            error_code = None
+            
+            # Detect error type from exception
+            if 'ConnectionResetError' in error_str or '10054' in error_str or 'connection reset' in error_str.lower():
+                error_code = 'CONNECTION_RESET'
+            elif 'Connection aborted' in error_str or 'connection aborted' in error_str.lower():
+                error_code = 'CONNECTION_ABORTED'
+            elif 'timeout' in error_str.lower():
+                error_code = 'TIMEOUT'
+            elif '401' in error_str or 'unauthorized' in error_str.lower():
+                error_code = 'AUTH_ERROR'
+            elif '403' in error_str or 'forbidden' in error_str.lower():
+                error_code = 'PERMISSION_ERROR'
+            
+            user_friendly_msg = self._format_confluence_error_message(
+                f"An unexpected error occurred: {error_str[:100]}",
+                error_code or 'UNKNOWN_ERROR',
+                tool_used
             )
-            state["messages"].append(AIMessage(content=error_detail))
-            print(f"Error creating Confluence page: {e}")
-            import traceback
-            traceback.print_exc()
+            
+            state["messages"].append(AIMessage(content=user_friendly_msg))
+            logger.error(f"Error creating Confluence page: {e}")
+            logger.debug("Exception details:", exc_info=True)
         
         return state
     
@@ -2060,7 +2084,7 @@ class ChatbotAgent:
                     try:
                         context_str = future.result(timeout=15.0)  # 15 second timeout for RAG retrieval
                     except concurrent.futures.TimeoutError:
-                        print("⚠ RAG retrieval timeout (15s), proceeding without context")
+                        logger.warning("RAG retrieval timeout (15s), proceeding without context")
                         context_str = None
                 
                 if context_str and context_str.strip():
@@ -2083,7 +2107,7 @@ class ChatbotAgent:
                     # No relevant context found, proceed with normal chat
                     messages.append(HumanMessage(content=user_input))
             except Exception as e:
-                print(f"Error in RAG retrieval: {e}")
+                logger.error(f"Error in RAG retrieval: {e}")
                 messages.append(HumanMessage(content=user_input))
         else:
             # No RAG service available, proceed with normal chat
@@ -2101,9 +2125,21 @@ class ChatbotAgent:
             messages.append(response)
             state["messages"] = messages
         except Exception as e:
-            error_msg = AIMessage(content=f"I apologize, but I encountered an error: {str(e)}")
+            error_str = str(e).lower()
+            if 'timeout' in error_str:
+                user_message = "I apologize, but the request timed out. Please try again."
+            elif 'connection' in error_str or 'network' in error_str:
+                user_message = "I apologize, but there was a network connectivity issue. Please check your connection and try again."
+            elif 'auth' in error_str or 'unauthorized' in error_str:
+                user_message = "I apologize, but there was an authentication issue. Please check your API configuration."
+            else:
+                user_message = "I apologize, but I encountered an unexpected error. Please try again or rephrase your question."
+            
+            error_msg = AIMessage(content=user_message)
             messages.append(error_msg)
             state["messages"] = messages
+            logger.error(f"Error in RAG query: {e}")
+            logger.debug("Exception details:", exc_info=True)
         
         return state
     
@@ -2236,6 +2272,122 @@ class ChatbotAgent:
         
         return markdown
     
+    def _format_confluence_error_message(self, error_msg: str, error_code: Optional[str] = None, tool_used: Optional[str] = None) -> str:
+        """
+        Format a user-friendly error message for Confluence page creation failures.
+        
+        Args:
+            error_msg: Raw error message
+            error_code: Error code (e.g., 'CONNECTION_RESET', 'AUTH_ERROR')
+            tool_used: Which tool was used ('MCP Protocol', 'Direct API', etc.)
+            
+        Returns:
+            User-friendly error message
+        """
+        tool_info = f" ({tool_used})" if tool_used else ""
+        
+        # Map error codes to user-friendly messages
+        error_messages = {
+            'CONNECTION_RESET': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "The connection to Confluence was reset by the server. This usually happens when:\n"
+                "- The Confluence server is experiencing high load\n"
+                "- There are network connectivity issues\n"
+                "- The connection timed out\n\n"
+                "**What you can do:**\n"
+                "- ✅ Your Jira issue was created successfully\n"
+                "- ✅ You can manually create the Confluence page later\n"
+                "- ✅ Try again in a few minutes if needed\n"
+            ),
+            'CONNECTION_ABORTED': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "The connection to Confluence was interrupted. This may be due to:\n"
+                "- Network connectivity issues\n"
+                "- Firewall or proxy settings blocking the connection\n"
+                "- Confluence server temporarily unavailable\n\n"
+                "**What you can do:**\n"
+                "- ✅ Your Jira issue was created successfully\n"
+                "- ✅ Check your network connection\n"
+                "- ✅ Try creating the page manually in Confluence\n"
+            ),
+            'TIMEOUT': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "The request to Confluence timed out. The server may be slow or overloaded.\n\n"
+                "**What you can do:**\n"
+                "- ✅ Your Jira issue was created successfully\n"
+                "- ✅ Try again later when the server is less busy\n"
+                "- ✅ Create the Confluence page manually if urgent\n"
+            ),
+            'AUTH_ERROR': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "Authentication failed. Please check:\n"
+                "- ✅ Your Confluence credentials (JIRA_EMAIL and JIRA_API_TOKEN)\n"
+                "- ✅ That your API token is valid and not expired\n"
+                "- ✅ That your account has access to the Confluence space\n\n"
+                "**Note:** Your Jira issue was created successfully."
+            ),
+            'PERMISSION_ERROR': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "Permission denied. Your account doesn't have permission to create pages in this space.\n\n"
+                "**Please check:**\n"
+                "- ✅ Your API token has write permissions for Confluence\n"
+                "- ✅ Your account has access to the space: {space_key}\n"
+                "- ✅ Contact your Confluence administrator if needed\n\n"
+                "**Note:** Your Jira issue was created successfully."
+            ),
+            'SPACE_NOT_FOUND': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "The Confluence space was not found. Please verify:\n"
+                "- ✅ CONFLUENCE_SPACE_KEY is set correctly in your .env file\n"
+                "- ✅ The space key exists in your Confluence instance\n"
+                "- ✅ Your account has access to this space\n\n"
+                "**Note:** Your Jira issue was created successfully."
+            ),
+            'CONNECTION_ERROR': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "Unable to connect to Confluence server. Please check:\n"
+                "- ✅ CONFLUENCE_URL is correct in your .env file\n"
+                "- ✅ Your network connection is working\n"
+                "- ✅ Confluence server is accessible\n\n"
+                "**What you can do:**\n"
+                "- ✅ Your Jira issue was created successfully\n"
+                "- ✅ Try again later or create the page manually\n"
+            ),
+            'NETWORK_ERROR': (
+                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                "A network error occurred while connecting to Confluence.\n\n"
+                "**What you can do:**\n"
+                "- ✅ Your Jira issue was created successfully\n"
+                "- ✅ Check your network connection\n"
+                "- ✅ Try again in a few moments\n"
+            )
+        }
+        
+        # Get space key for error message
+        space_key = getattr(Config, 'CONFLUENCE_SPACE_KEY', 'the configured space')
+        
+        # Use specific error message if available, otherwise use generic
+        if error_code and error_code in error_messages:
+            base_msg = error_messages[error_code]
+            return base_msg.format(tool_info=tool_info, space_key=space_key)
+        else:
+            # Generic error message
+            return (
+                f"⚠ **Confluence page creation failed{tool_info}:**\n\n"
+                f"The system attempted to create the Confluence page but encountered an issue.\n\n"
+                f"**What happened:**\n"
+                f"- Tried to use MCP protocol first\n"
+                f"- Fell back to direct API call\n"
+                f"- Both methods encountered issues\n\n"
+                f"**Please check:**\n"
+                f"- ✅ CONFLUENCE_URL and CONFLUENCE_SPACE_KEY in .env file\n"
+                f"- ✅ API token has Confluence write permissions\n"
+                f"- ✅ Network connectivity to Confluence\n"
+                f"- ✅ Confluence server is accessible\n\n"
+                f"**Good news:** Your Jira issue was created successfully! ✅\n"
+                f"You can create the Confluence page manually if needed."
+            )
+    
     def invoke(self, user_input: str, conversation_history: Optional[List[Dict]] = None) -> str:
         """
         Invoke the agent with user input.
@@ -2271,29 +2423,29 @@ class ChatbotAgent:
                     initial_state["messages"].append(AIMessage(content=content))
         
         # Run the graph (LangGraph execution)
-        print(f"🔄 LangGraph: Processing input through agent graph...")
+        logger.info("Processing input through agent graph...")
         final_state = self.graph.invoke(initial_state)
         
         # Log the intent that was detected
         detected_intent = final_state.get("intent", "unknown")
-        print(f"✓ LangGraph: Intent detected = '{detected_intent}'")
+        logger.info(f"Intent detected = '{detected_intent}'")
         
         # Log which nodes were executed
         if detected_intent == "jira_creation":
-            print(f"  → Executed nodes: intent_detection → jira_creation → evaluation")
+            logger.debug("Executed nodes: intent_detection → jira_creation → evaluation")
             if final_state.get("jira_result", {}).get("success"):
-                print(f"  → Jira issue created: {final_state.get('jira_result', {}).get('key', 'N/A')}")
+                logger.info(f"Jira issue created: {final_state.get('jira_result', {}).get('key', 'N/A')}")
         elif detected_intent == "rag_query":
-            print(f"  → Executed nodes: intent_detection → rag_query")
+            logger.debug("Executed nodes: intent_detection → rag_query")
         elif detected_intent == "general_chat":
-            print(f"  → Executed nodes: intent_detection → general_chat")
+            logger.debug("Executed nodes: intent_detection → general_chat")
         
         # Extract the last assistant message
         messages = final_state.get("messages", [])
         if messages:
             last_msg = messages[-1]
             if isinstance(last_msg, AIMessage):
-                print(f"✓ LangGraph: Response generated successfully")
+                logger.debug("Response generated successfully")
                 return last_msg.content
         
         return "I apologize, but I couldn't generate a response."

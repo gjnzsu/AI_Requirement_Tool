@@ -85,7 +85,8 @@ class ConfluenceTool(BaseTool):
                 self.base_url,
                 json=page_data,
                 auth=self.auth,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
+                timeout=(10, 30)  # (connect timeout, read timeout) in seconds
             )
             
             if response.status_code == 200:
@@ -97,15 +98,77 @@ class ConfluenceTool(BaseTool):
                     'title': page['title'],
                     'link': page_link
                 }
+            elif response.status_code == 401:
+                return {
+                    'success': False,
+                    'error': 'Authentication failed. Please check your Confluence credentials.',
+                    'error_code': 'AUTH_ERROR'
+                }
+            elif response.status_code == 403:
+                return {
+                    'success': False,
+                    'error': 'Permission denied. Please check that your API token has write permissions.',
+                    'error_code': 'PERMISSION_ERROR'
+                }
+            elif response.status_code == 404:
+                return {
+                    'success': False,
+                    'error': f'Space "{self.space_key}" not found. Please verify CONFLUENCE_SPACE_KEY.',
+                    'error_code': 'SPACE_NOT_FOUND'
+                }
+            else:
+                error_text = response.text[:200] if response.text else 'No error details'
+                return {
+                    'success': False,
+                    'error': f'Confluence API returned error {response.status_code}',
+                    'error_detail': error_text,
+                    'error_code': f'HTTP_{response.status_code}'
+                }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': 'Request timed out. Confluence server may be slow or unreachable.',
+                'error_code': 'TIMEOUT'
+            }
+        except requests.exceptions.ConnectionError as e:
+            error_str = str(e).lower()
+            if 'connection reset' in error_str or '10054' in error_str:
+                return {
+                    'success': False,
+                    'error': 'Connection was reset by the server. This may indicate network issues or server overload.',
+                    'error_code': 'CONNECTION_RESET'
+                }
+            elif 'connection aborted' in error_str:
+                return {
+                    'success': False,
+                    'error': 'Connection was aborted. Please check your network connection and try again.',
+                    'error_code': 'CONNECTION_ABORTED'
+                }
             else:
                 return {
                     'success': False,
-                    'error': f"HTTP {response.status_code}: {response.text}"
+                    'error': 'Unable to connect to Confluence server. Please check your network connection and CONFLUENCE_URL.',
+                    'error_code': 'CONNECTION_ERROR'
                 }
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             return {
                 'success': False,
-                'error': str(e)
+                'error': f'Network error occurred: {str(e)[:100]}',
+                'error_code': 'NETWORK_ERROR'
+            }
+        except Exception as e:
+            error_str = str(e)
+            # Provide user-friendly error message
+            if 'ConnectionResetError' in error_str or '10054' in error_str:
+                return {
+                    'success': False,
+                    'error': 'Connection was reset by the server. Please try again later.',
+                    'error_code': 'CONNECTION_RESET'
+                }
+            return {
+                'success': False,
+                'error': f'An unexpected error occurred: {error_str[:100]}',
+                'error_code': 'UNKNOWN_ERROR'
             }
     
     def _html_to_confluence_storage(self, html_content: str) -> str:

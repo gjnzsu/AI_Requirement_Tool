@@ -16,13 +16,16 @@ sys.path.insert(0, str(project_root))
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 from config.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger('chatbot.mcp')
 
 try:
     from .mcp_client import MCPClientManager, create_jira_mcp_client, create_confluence_mcp_client
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-    print("⚠ MCP client not available. Install MCP SDK: pip install mcp")
+    logger.warning("MCP client not available. Install MCP SDK: pip install mcp")
 
 
 class MCPToolWrapper(StructuredTool):
@@ -169,9 +172,7 @@ class MCPToolWrapper(StructuredTool):
                 return f"Error: Tool '{captured_tool_name}' execution timed out after 60 seconds. The MCP server may be slow or unresponsive."
             except Exception as e:
                 error_msg = f"Error executing tool: {str(e)}"
-                print(f"✗ MCP tool error: {e}", file=sys.stderr)
-                import traceback
-                traceback.print_exc(file=sys.stderr)
+                logger.error(f"MCP tool error: {e}", exc_info=True)
                 return error_msg
         
         # Call super().__init__ with the wrapper function
@@ -218,17 +219,16 @@ class MCPIntegration:
             # Add overall timeout for MCP initialization (30 seconds)
             await asyncio.wait_for(self._initialize_mcp_servers(), timeout=30.0)
         except asyncio.TimeoutError:
-            print("⚠ MCP initialization timeout (30s)")
-            print("   Falling back to custom tools")
+            logger.warning("MCP initialization timeout (30s)")
+            logger.info("Falling back to custom tools")
             self.use_mcp = False
             self._initialized = False
         except Exception as e:
-            print(f"⚠ MCP Integration failed: {e}")
-            print("   Falling back to custom tools")
+            logger.warning(f"MCP Integration failed: {e}")
+            logger.info("Falling back to custom tools")
             self.use_mcp = False
             self._initialized = False
-            import traceback
-            traceback.print_exc()
+            logger.debug("MCP initialization error details", exc_info=True)
     
     async def _initialize_mcp_servers(self):
         """Internal method to initialize MCP servers."""
@@ -238,13 +238,13 @@ class MCPIntegration:
         jira_client = create_jira_mcp_client()
         if jira_client:
             self.manager.add_server('jira', jira_client.command, jira_client.env)
-            print("✓ Using custom Jira MCP server (Python-based)")
+            logger.info("Using custom Jira MCP server (Python-based)")
         
         # Add Confluence MCP server (official Atlassian Rovo or community packages)
         confluence_client = create_confluence_mcp_client()
         if confluence_client:
             self.manager.add_server('confluence', confluence_client.command, confluence_client.env)
-            print("✓ Confluence MCP server added")
+            logger.info("Confluence MCP server added")
         
         # Initialize all servers (each with individual timeout handled in manager)
         await self.manager.initialize_all()
@@ -272,16 +272,14 @@ class MCPIntegration:
                         )
                         self.tools.append(tool_wrapper)
                     except Exception as e:
-                        print(f"✗ Failed to create MCPToolWrapper for '{tool_name}': {e}", file=sys.stderr)
-                        import traceback
-                        traceback.print_exc(file=sys.stderr)
+                        logger.error(f"Failed to create MCPToolWrapper for '{tool_name}': {e}", exc_info=True)
         
         if self.tools:
             self._initialized = True
-            print(f"✓ MCP Integration initialized with {len(self.tools)} tools")
+            logger.info(f"MCP Integration initialized with {len(self.tools)} tools")
         else:
-            print("⚠ MCP servers initialized but no tools available")
-            print("   Falling back to custom tools")
+            logger.warning("MCP servers initialized but no tools available")
+            logger.info("Falling back to custom tools")
             self.use_mcp = False
     
     def _check_npx_available(self) -> bool:
@@ -312,7 +310,7 @@ class MCPIntegration:
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-            print(f"⚠ npx check failed: {e}")
+            logger.warning(f"npx check failed: {e}")
             return False
     
     def get_tools(self) -> List[BaseTool]:

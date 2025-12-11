@@ -10,6 +10,9 @@ from typing import List, Dict, Optional
 from jira import JIRA
 import json
 from src.llm import LLMRouter, LLMProvider
+from src.utils.logger import get_logger
+
+logger = get_logger('chatbot.services.jira_evaluator')
 
 
 class JiraMaturityEvaluator:
@@ -86,7 +89,7 @@ class JiraMaturityEvaluator:
             return backlog_items
             
         except Exception as e:
-            print(f"Error fetching backlog items: {str(e)}")
+            logger.error(f"Error fetching backlog items: {str(e)}", exc_info=True)
             raise
     
     def _extract_custom_fields(self, issue) -> Dict:
@@ -224,14 +227,14 @@ Please provide a JSON response with the following structure:
         Returns:
             List of evaluation results
         """
-        print(f"Fetching backlog items from project {self.project_key}...")
+        logger.info(f"Fetching backlog items from project {self.project_key}...")
         backlog_items = self.fetch_backlog_items(max_results=max_items)
         
-        print(f"Found {len(backlog_items)} items. Evaluating maturity scores...")
+        logger.info(f"Found {len(backlog_items)} items. Evaluating maturity scores...")
         
         evaluation_results = []
         for i, item in enumerate(backlog_items, 1):
-            print(f"Evaluating {i}/{len(backlog_items)}: {item['key']}")
+            logger.debug(f"Evaluating {i}/{len(backlog_items)}: {item['key']}")
             result = self.evaluate_maturity(item)
             evaluation_results.append(result)
         
@@ -247,14 +250,14 @@ Please provide a JSON response with the following structure:
             custom_field_id: Optional custom field ID to store the score
         """
         if not custom_field_id:
-            print("No custom field ID provided. Skipping Jira updates.")
+            logger.info("No custom field ID provided. Skipping Jira updates.")
             return
         
         for result in evaluation_results:
             try:
                 issue = self.jira.issue(result['issue_key'])
                 issue.update(fields={custom_field_id: result['overall_maturity_score']})
-                print(f"Updated {result['issue_key']} with maturity score: {result['overall_maturity_score']}")
+                logger.info(f"Updated {result['issue_key']} with maturity score: {result['overall_maturity_score']}")
             except Exception as e:
-                print(f"Error updating {result['issue_key']}: {str(e)}")
+                logger.error(f"Error updating {result['issue_key']}: {str(e)}", exc_info=True)
 

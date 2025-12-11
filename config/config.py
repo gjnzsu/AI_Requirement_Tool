@@ -85,6 +85,11 @@ class Config:
     ENABLE_MCP_TOOLS: bool = os.getenv('ENABLE_MCP_TOOLS', 'true').lower() == 'true'
     LAZY_LOAD_TOOLS: bool = os.getenv('LAZY_LOAD_TOOLS', 'true').lower() == 'true'
     
+    # Logging Configuration
+    LOG_LEVEL: str = os.getenv('LOG_LEVEL', 'INFO').upper()
+    ENABLE_DEBUG_LOGGING: bool = os.getenv('ENABLE_DEBUG_LOGGING', 'false').lower() in ('true', '1', 'yes')
+    LOG_FILE: Optional[str] = os.getenv('LOG_FILE', None)  # Optional log file path
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""

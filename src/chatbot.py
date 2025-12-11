@@ -23,6 +23,9 @@ from src.services.memory_summarizer import MemorySummarizer
 from src.rag import RAGService
 from config.config import Config
 from src.agent import ChatbotAgent
+from src.utils.logger import get_logger
+
+logger = get_logger('chatbot')
 
 
 class Chatbot:
@@ -108,10 +111,10 @@ class Chatbot:
                     db_path=memory_db_path,
                     max_context_messages=self.max_history * 2
                 )
-                print("✓ Initialized Memory Manager")
+                logger.info("Initialized Memory Manager")
             except Exception as e:
-                print(f"⚠ Failed to initialize Memory Manager: {e}")
-                print("   Falling back to in-memory storage")
+                logger.warning(f"Failed to initialize Memory Manager: {e}")
+                logger.info("Falling back to in-memory storage")
                 self.use_persistent_memory = False
         
         # Initialize LLM provider
@@ -129,17 +132,17 @@ class Chatbot:
                     summarizer_llm = self.llm_provider
                 
                 self.memory_summarizer = MemorySummarizer(llm_provider=summarizer_llm)
-                print("✓ Initialized Memory Summarizer")
+                logger.info("Initialized Memory Summarizer")
             except Exception as e:
-                print(f"⚠ Failed to initialize Memory Summarizer: {e}")
+                logger.warning(f"Failed to initialize Memory Summarizer: {e}")
         
         # Initialize RAG service if enabled
         self.rag_service = None
         if self.use_rag:
             try:
-                print("=" * 70)
-                print("📚 Initializing RAG Service")
-                print("=" * 70)
+                logger.info("=" * 70)
+                logger.info("Initializing RAG Service")
+                logger.info("=" * 70)
                 # Check if OpenAI API key is available (required for embeddings)
                 if Config.OPENAI_API_KEY:
                     self.rag_service = RAGService(
@@ -150,23 +153,23 @@ class Chatbot:
                         cache_ttl_hours=getattr(Config, 'RAG_CACHE_TTL_HOURS', 24)
                     )
                     cache_status = "with caching" if getattr(Config, 'RAG_ENABLE_CACHE', True) else "without caching"
-                    print(f"✓ Initialized RAG Service ({cache_status})")
-                    print("=" * 70)
+                    logger.info(f"Initialized RAG Service ({cache_status})")
+                    logger.info("=" * 70)
                 else:
-                    print("⚠ RAG disabled: OPENAI_API_KEY not found (required for embeddings)")
-                    print("=" * 70)
+                    logger.warning("RAG disabled: OPENAI_API_KEY not found (required for embeddings)")
+                    logger.info("=" * 70)
                     self.use_rag = False
             except Exception as e:
-                print(f"⚠ Failed to initialize RAG Service: {e}")
-                print("   RAG will be disabled")
-                print("=" * 70)
+                logger.warning(f"Failed to initialize RAG Service: {e}")
+                logger.info("RAG will be disabled")
+                logger.info("=" * 70)
                 self.use_rag = False
         else:
-            print("=" * 70)
-            print("📚 RAG Service")
-            print("=" * 70)
-            print("   RAG is disabled (use_rag=False)")
-            print("=" * 70)
+            logger.info("=" * 70)
+            logger.info("RAG Service")
+            logger.info("=" * 70)
+            logger.info("RAG is disabled (use_rag=False)")
+            logger.info("=" * 70)
         
         # Initialize Tools (lazy loading - only when needed)
         self.jira_tool = None
@@ -180,14 +183,14 @@ class Chatbot:
         # Initialize LangGraph agent if enabled (after RAG service is ready)
         if self.use_agent:
             try:
-                # Print MCP status
-                print("=" * 70)
-                print("🤖 Initializing LangGraph Agent")
-                print("=" * 70)
-                print(f"   MCP Enabled: {self.use_mcp}")
-                print(f"   RAG Enabled: {self.use_rag}")
-                print(f"   Tools Enabled: {self.enable_mcp_tools}")
-                print("=" * 70)
+                # Log MCP status
+                logger.info("=" * 70)
+                logger.info("Initializing LangGraph Agent")
+                logger.info("=" * 70)
+                logger.info(f"MCP Enabled: {self.use_mcp}")
+                logger.info(f"RAG Enabled: {self.use_rag}")
+                logger.info(f"Tools Enabled: {self.enable_mcp_tools}")
+                logger.info("=" * 70)
                 
                 self.agent = ChatbotAgent(
                     provider_name=self.provider_name,
@@ -197,10 +200,10 @@ class Chatbot:
                     rag_service=self.rag_service if self.use_rag else None,
                     use_mcp=self.use_mcp  # Use the configured MCP setting
                 )
-                print("✓ Initialized LangGraph Agent")
+                logger.info("Initialized LangGraph Agent")
             except Exception as e:
-                print(f"⚠ Failed to initialize LangGraph Agent: {e}")
-                print("   Falling back to keyword-based routing")
+                logger.warning(f"Failed to initialize LangGraph Agent: {e}")
+                logger.info("Falling back to keyword-based routing")
                 self.use_agent = False
     
     def _initialize_provider(self):
@@ -239,11 +242,9 @@ class Chatbot:
                 self.llm_provider = primary_provider
                 self.provider_manager = None
             
-            print(f"✓ Initialized LLM provider: {self.provider_name} ({model})")
-            sys.stdout.flush()
+            logger.info(f"Initialized LLM provider: {self.provider_name} ({model})")
             if fallback_providers:
-                print(f"✓ Fallback providers enabled: {len(fallback_providers)}")
-                sys.stdout.flush()
+                logger.info(f"Fallback providers enabled: {len(fallback_providers)}")
                 
         except Exception as e:
             raise RuntimeError(
@@ -335,9 +336,9 @@ class Chatbot:
                 self.agent.provider_name = provider_name
                 # Reinitialize LLM with new provider
                 self.agent.llm = self.agent._initialize_llm(model)
-                print(f"✓ Updated agent with new provider: {provider_name} ({model})")
+                logger.info(f"Updated agent with new provider: {provider_name} ({model})")
             except Exception as e:
-                print(f"⚠ Failed to update agent LLM directly: {e}")
+                logger.warning(f"Failed to update agent LLM directly: {e}")
                 # Try to reinitialize the entire agent as fallback
                 try:
                     self.agent = ChatbotAgent(
@@ -348,11 +349,11 @@ class Chatbot:
                         rag_service=self.rag_service if self.use_rag else None,
                         use_mcp=self.use_mcp
                     )
-                    print(f"✓ Reinitialized agent with new provider: {provider_name} ({model})")
+                    logger.info(f"Reinitialized agent with new provider: {provider_name} ({model})")
                 except Exception as e2:
-                    print(f"⚠ Failed to reinitialize agent: {e2}")
+                    logger.warning(f"Failed to reinitialize agent: {e2}")
         
-        print(f"✓ Switched LLM provider to: {provider_name} ({model})")
+        logger.info(f"Switched LLM provider to: {provider_name} ({model})")
     
     def _initialize_tools(self):
         """Initialize MCP tools (Jira, Confluence) on demand."""
@@ -361,20 +362,20 @@ class Chatbot:
         
         try:
             self.jira_tool = JiraTool()
-            print("✓ Initialized Jira Tool")
+            logger.info("Initialized Jira Tool")
             
             # Initialize Confluence Tool
             try:
                 self.confluence_tool = ConfluenceTool()
-                print("✓ Initialized Confluence Tool")
+                logger.info("Initialized Confluence Tool")
             except ValueError as e:
                 # Configuration error - provide helpful message
-                print(f"⚠ Confluence Tool not available: {e}")
-                print("   To enable Confluence page creation, set in .env:")
-                print("   CONFLUENCE_URL=https://yourcompany.atlassian.net/wiki")
-                print("   CONFLUENCE_SPACE_KEY=YOUR_SPACE_KEY")
+                logger.warning(f"Confluence Tool not available: {e}")
+                logger.info("To enable Confluence page creation, set in .env:")
+                logger.info("CONFLUENCE_URL=https://yourcompany.atlassian.net/wiki")
+                logger.info("CONFLUENCE_SPACE_KEY=YOUR_SPACE_KEY")
             except Exception as e:
-                print(f"⚠ Failed to initialize Confluence Tool: {e}")
+                logger.warning(f"Failed to initialize Confluence Tool: {e}")
             
             # Initialize Jira Maturity Evaluator if Jira tool is available
             if self.jira_tool:
@@ -392,13 +393,13 @@ class Chatbot:
                         project_key=Config.JIRA_PROJECT_KEY,
                         llm_provider=evaluator_llm
                     )
-                    print("✓ Initialized Jira Maturity Evaluator")
+                    logger.info("Initialized Jira Maturity Evaluator")
                 except Exception as e:
-                    print(f"⚠ Failed to initialize Jira Evaluator: {e}")
+                    logger.warning(f"Failed to initialize Jira Evaluator: {e}")
             
             self._tools_initialized = True
         except Exception as e:
-            print(f"⚠ Failed to initialize Jira Tool: {e}")
+            logger.warning(f"Failed to initialize Jira Tool: {e}")
             # Don't set _tools_initialized = True so we can retry later
     
     def _build_prompt(self, user_input: str) -> str:
@@ -417,7 +418,7 @@ class Chatbot:
             try:
                 rag_context = self.rag_service.get_context(user_input, top_k=self.rag_top_k)
             except Exception as e:
-                print(f"⚠ RAG retrieval error: {e}")
+                logger.warning(f"RAG retrieval error: {e}")
                 rag_context = ""
         
         # Get conversation context (from persistent memory or in-memory)
@@ -513,7 +514,7 @@ class Chatbot:
                 
                 return response
             except Exception as e:
-                print(f"Error in agent: {e}")
+                logger.error(f"Error in agent: {e}", exc_info=True)
                 # Fall back to keyword-based routing
                 pass
         
@@ -612,7 +613,7 @@ class Chatbot:
             
         except Exception as e:
             error_msg = f"I apologize, but I encountered an error: {str(e)}"
-            print(f"\n[Error: {e}]", file=sys.stderr)
+            logger.error(f"Error in get_response: {e}", exc_info=True)
             return error_msg
 
     def _handle_jira_creation(self, user_input: str) -> str:
@@ -621,7 +622,7 @@ class Chatbot:
             return "I apologize, but the Jira tool is not configured correctly. Please check your Jira credentials."
             
         # 1. Analyze context and generate backlog details
-        print("Analyzing conversation to create Jira backlog...")
+        logger.info("Analyzing conversation to create Jira backlog...")
         
         # Gather context
         context_str = ""
@@ -699,7 +700,7 @@ class Chatbot:
                 # 3. Evaluate the newly created issue
                 if self.jira_evaluator:
                     try:
-                        print(f"Evaluating maturity for {issue_key}...")
+                        logger.info(f"Evaluating maturity for {issue_key}...")
                         
                         # Fetch the created issue from Jira
                         issue = self.jira_evaluator.jira.issue(issue_key)
@@ -752,7 +753,7 @@ class Chatbot:
                             # 4. Create Confluence page after evaluation
                             if self.confluence_tool:
                                 try:
-                                    print(f"Creating Confluence page for {issue_key}...")
+                                    logger.info(f"Creating Confluence page for {issue_key}...")
                                     
                                     # Format Confluence page content
                                     confluence_content = self._format_confluence_page(
@@ -791,13 +792,13 @@ class Chatbot:
                                         
                                 except Exception as e:
                                     response_text += f"\n⚠ Confluence page creation failed: {str(e)}\n"
-                                    print(f"Error creating Confluence page: {e}")
+                                    logger.error(f"Error creating Confluence page: {e}", exc_info=True)
                         else:
                             response_text += f"⚠ Could not evaluate maturity: {evaluation.get('error', 'Unknown error')}\n"
                             
                     except Exception as e:
                         response_text += f"⚠ Maturity evaluation failed: {str(e)}\n"
-                        print(f"Error during evaluation: {e}")
+                        logger.error(f"Error during evaluation: {e}", exc_info=True)
                 
                 return response_text
             else:
@@ -899,7 +900,7 @@ class Chatbot:
             # Note: We don't delete the conversation, just clear local history
             # To delete conversation, use delete_conversation()
             pass
-        print("Conversation history cleared.")
+        logger.info("Conversation history cleared.")
     
     def get_history_summary(self) -> str:
         """Get a summary of the conversation history."""
@@ -1011,22 +1012,26 @@ class Chatbot:
                 print("\n\nChatbot: Goodbye! Thanks for chatting!")
                 break
             except Exception as e:
+                logger.error(f"Unexpected error in run loop: {e}", exc_info=True)
                 print(f"\n[Unexpected error: {e}]\n")
 
 
 def main():
     """Main entry point for the chatbot."""
     try:
+        logger.info("Initializing chatbot...")
         print("Initializing chatbot...")
         sys.stdout.flush()
         
         # Validate configuration
         if not Config.validate():
+            logger.warning("Configuration validation failed")
             print("⚠ Warning: Configuration validation failed.")
             print("Some features may not work correctly.")
             print("Please check your environment variables or .env file.\n")
             sys.stdout.flush()
         
+        logger.info("Creating chatbot instance...")
         print("Creating chatbot instance...")
         sys.stdout.flush()
         
@@ -1038,12 +1043,14 @@ def main():
             max_history=10
         )
         
+        logger.info("Starting chatbot...")
         print("Starting chatbot...")
         sys.stdout.flush()
         
         chatbot.run()
         
     except Exception as e:
+        logger.error(f"Failed to start chatbot: {e}", exc_info=True)
         print(f"\n❌ Failed to start chatbot: {e}")
         print("\nPlease ensure:")
         print("  1. Required dependencies are installed: pip install -r requirements.txt")

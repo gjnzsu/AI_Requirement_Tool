@@ -30,9 +30,14 @@ try:
             MCP_AVAILABLE = False
 except ImportError:
     MCP_AVAILABLE = False
-    print("⚠ MCP SDK not installed. Install with: pip install mcp")
 
 from config.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger('chatbot.mcp.client')
+
+if not MCP_AVAILABLE:
+    logger.warning("MCP SDK not installed. Install with: pip install mcp")
 
 
 class MCPClient:
@@ -127,8 +132,8 @@ class MCPClient:
                     shell=is_windows
                 )
                 if result.returncode != 0 and '404' in result.stderr:
-                    print(f"⚠ Package '{package_name}' may not exist in npm registry")
-                    print(f"   Error: {result.stderr.strip()}")
+                    logger.warning(f"Package '{package_name}' may not exist in npm registry")
+                    logger.debug(f"Error: {result.stderr.strip()}")
             except Exception:
                 # Ignore check errors - package might still work
                 pass
@@ -187,16 +192,16 @@ class MCPClient:
                                 self.tools = {name: info for name, info in self._cached_tools.items()}
                                 
                             except asyncio.TimeoutError:
-                                print(f"⚠ Timeout listing tools from {self.server_name}")
+                                logger.warning(f"Timeout listing tools from {self.server_name}")
                                 self.tools = {}
                             except Exception as e:
-                                print(f"⚠ Could not list tools from {self.server_name}: {e}")
+                                logger.warning(f"Could not list tools from {self.server_name}: {e}")
                                 self.tools = {}
                             
                             self._initialized = True
                             tool_names = ', '.join(self.tools.keys()) if self.tools else 'none'
-                            print(f"✓ Connected to MCP server: {self.server_name}")
-                            print(f"  Available tools: {tool_names}")
+                            logger.info(f"Connected to MCP server: {self.server_name}")
+                            logger.debug(f"Available tools: {tool_names}")
                 
                 # Execute with appropriate timeout mechanism
                 if timeout_context:
@@ -224,16 +229,16 @@ class MCPClient:
             # Provide helpful error messages
             if "not found" in error_msg.lower() or "cannot find" in error_msg.lower():
                 package_name = self.command[-1] if len(self.command) > 1 else 'unknown'
-                print(f"✗ MCP server package '{package_name}' not available")
-                print(f"   Try installing: npm install -g {package_name}")
+                logger.error(f"MCP server package '{package_name}' not available")
+                logger.info(f"Try installing: npm install -g {package_name}")
             elif "timeout" in error_msg.lower():
-                print(f"✗ Failed to connect to MCP server {self.server_name}: {error_msg}")
-                print(f"   This may indicate:")
-                print(f"   - The package is not installed")
-                print(f"   - The server requires additional configuration")
-                print(f"   - Network connectivity issues")
+                logger.error(f"Failed to connect to MCP server {self.server_name}: {error_msg}")
+                logger.info("This may indicate:")
+                logger.info("  - The package is not installed")
+                logger.info("  - The server requires additional configuration")
+                logger.info("  - Network connectivity issues")
             else:
-                print(f"✗ Failed to connect to MCP server {self.server_name}: {error_msg}")
+                logger.error(f"Failed to connect to MCP server {self.server_name}: {error_msg}")
             raise
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -394,9 +399,9 @@ class MCPClientManager:
                 # Add individual timeout for each server (15 seconds)
                 await asyncio.wait_for(adapter.initialize(), timeout=15.0)
             except asyncio.TimeoutError:
-                print(f"⚠ MCP server '{name}' initialization timeout (15s), skipping")
+                logger.warning(f"MCP server '{name}' initialization timeout (15s), skipping")
             except Exception as e:
-                print(f"⚠ Failed to initialize MCP server '{name}': {e}")
+                logger.warning(f"Failed to initialize MCP server '{name}': {e}")
     
     def get_all_tools(self) -> List:
         """Get all tools from all MCP servers."""
@@ -451,8 +456,8 @@ def create_rovo_mcp_client() -> Optional[MCPClient]:
         }
         
         client = MCPClient('atlassian-rovo', command, env)
-        print("✓ Created Atlassian Rovo MCP client (Official)")
-        print("  Note: OAuth 2.1 authentication will be required on first use")
+        logger.info("Created Atlassian Rovo MCP client (Official)")
+        logger.info("Note: OAuth 2.1 authentication will be required on first use")
         return client
     except Exception as e:
         # mcp-remote might not be available or Rovo might not be accessible
@@ -493,10 +498,10 @@ def create_custom_jira_mcp_client() -> Optional[MCPClient]:
         }
         
         client = MCPClient('custom-jira', command, env)
-        print("✓ Created custom Jira MCP client (Python-based)")
+        logger.info("Created custom Jira MCP client (Python-based)")
         return client
     except Exception as e:
-        print(f"⚠ Could not create custom Jira MCP client: {e}")
+        logger.warning(f"Could not create custom Jira MCP client: {e}")
         return None
 
 
@@ -538,7 +543,7 @@ def create_confluence_mcp_client() -> Optional[MCPClient]:
     if rovo_client:
         # Rename to 'confluence' for consistency
         rovo_client.server_name = 'confluence'
-        print("✓ Using official Atlassian Rovo MCP Server for Confluence")
+        logger.info("Using official Atlassian Rovo MCP Server for Confluence")
         return rovo_client
     
     # Fallback to community packages if credentials are configured
@@ -546,7 +551,7 @@ def create_confluence_mcp_client() -> Optional[MCPClient]:
             Config.CONFLUENCE_SPACE_KEY and Config.CONFLUENCE_SPACE_KEY != 'SPACE' and
             Config.JIRA_EMAIL and Config.JIRA_EMAIL != 'your-email@example.com' and
             Config.JIRA_API_TOKEN and Config.JIRA_API_TOKEN != 'your-api-token'):
-        print("⚠ Confluence credentials not configured, skipping Confluence MCP server")
+        logger.warning("Confluence credentials not configured, skipping Confluence MCP server")
         return None
     
     # Try community MCP server packages
@@ -579,14 +584,14 @@ def create_confluence_mcp_client() -> Optional[MCPClient]:
         try:
             command = [npx_cmd, '-y', option['package']]
             client = MCPClient('confluence', command, option['env'])
-            print(f"✓ Created Confluence MCP client using {option['name']}")
+            logger.info(f"Created Confluence MCP client using {option['name']}")
             return client
         except Exception as e:
             # Try next option
             continue
     
     # If all options failed, return None (will fall back to custom tools)
-    print("⚠ Could not create Confluence MCP client")
-    print("   Using custom tools as fallback")
+    logger.warning("Could not create Confluence MCP client")
+    logger.info("Using custom tools as fallback")
     return None
 
