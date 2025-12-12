@@ -281,23 +281,30 @@ Tools are automatically selected based on intent:
 
 ## 📖 Documentation
 
-### Main Documentation
-- **README.md** - This file
-- **LANGGRAPH_INTEGRATION.md** - LangGraph agent details
-- **MCP_INTEGRATION_SUMMARY.md** - MCP integration guide
-- **RAG_GUIDE.md** - RAG service documentation
-- **WEB_UI_README.md** - Web UI documentation
+> **📚 [Complete Documentation Index](docs/README.md)** - Browse all documentation organized by category
 
-### Setup Guides
-- **QUICK_START.md** - Quick start guide
-- **SETUP_ENV.md** - Environment setup
-- **MCP_SETUP.md** - MCP configuration
-- **RAG_QUICKSTART.md** - RAG setup
+### Quick Links
 
-### Troubleshooting
-- **MCP_LOGGING_GUIDE.md** - MCP logging and debugging
-- **RESTART_APP.md** - How to restart the application
-- **WHY_ERROR_WASNT_CAUGHT.md** - Debugging guide
+**Getting Started:**
+- **[docs/getting-started/QUICK_START.md](docs/getting-started/QUICK_START.md)** - Quick start guide for new users
+- **[docs/getting-started/SETUP_ENV.md](docs/getting-started/SETUP_ENV.md)** - Environment setup instructions
+
+**Core Features:**
+- **[docs/features/agent/AGENT_FRAMEWORK.md](docs/features/agent/AGENT_FRAMEWORK.md)** - LangGraph agent framework
+- **[docs/features/mcp/MCP_INTEGRATION_SUMMARY.md](docs/features/mcp/MCP_INTEGRATION_SUMMARY.md)** - MCP integration guide
+- **[docs/features/rag/RAG_GUIDE.md](docs/features/rag/RAG_GUIDE.md)** - RAG service documentation
+- **[docs/features/web-ui/WEB_UI_README.md](docs/features/web-ui/WEB_UI_README.md)** - Web UI documentation
+
+**Architecture:**
+- **[docs/architecture/FUTURE_ARCHITECTURE.md](docs/architecture/FUTURE_ARCHITECTURE.md)** - Future architecture plans
+- **[docs/architecture/diagrams/architecture-diagram.drawio](docs/architecture/diagrams/architecture-diagram.drawio)** - Current architecture diagram
+- **[docs/architecture/diagrams/architecture-diagram-future.drawio](docs/architecture/diagrams/architecture-diagram-future.drawio)** - Future architecture diagram
+
+**Troubleshooting:**
+- **[docs/troubleshooting/MCP_LOGGING_GUIDE.md](docs/troubleshooting/MCP_LOGGING_GUIDE.md)** - MCP logging and debugging
+- **[docs/troubleshooting/WHY_ERROR_WASNT_CAUGHT.md](docs/troubleshooting/WHY_ERROR_WASNT_CAUGHT.md)** - Debugging guide
+
+For a complete list of all documentation, see the **[Documentation Index](docs/README.md)**.
 
 ## 🧪 Testing
 
