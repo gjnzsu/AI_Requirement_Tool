@@ -6,6 +6,7 @@ This script tests all available MCP server options and provides detailed diagnos
 
 import sys
 import asyncio
+import pytest
 import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -13,6 +14,9 @@ from typing import Optional, Dict, Any
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+from src.utils.logger import get_logger
+logger = get_logger('test.jira_mcp_server')
 
 from src.mcp.mcp_client import (
     MCPClient, 
@@ -61,6 +65,7 @@ def print_info(text: str):
     logger.info(f"{Colors.BLUE}ℹ {text}{Colors.RESET}")
 
 
+@pytest.mark.asyncio
 async def test_rovo_mcp_server() -> Dict[str, Any]:
     """Test Atlassian Rovo MCP Server (Official)."""
     print_header("Test 1: Atlassian Rovo MCP Server (Official)")
@@ -123,8 +128,14 @@ async def test_rovo_mcp_server() -> Dict[str, Any]:
     return result
 
 
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Community mcp-jira package not used in production - app uses custom Python-based Jira MCP server only")
 async def test_community_jira_servers() -> Dict[str, Any]:
-    """Test community Jira MCP server packages."""
+    """Test community Jira MCP server packages.
+    
+    DISABLED: This test is skipped because the application does not use community mcp-jira package.
+    The app only uses custom Python-based Jira MCP server (jira_mcp_server.py).
+    """
     print_header("Test 2: Community Jira MCP Servers")
     
     results = {
@@ -221,6 +232,7 @@ async def test_community_jira_servers() -> Dict[str, Any]:
     return results
 
 
+@pytest.mark.asyncio
 async def test_mcp_integration() -> Dict[str, Any]:
     """Test the full MCP integration."""
     print_header("Test 3: Full MCP Integration")
@@ -270,6 +282,7 @@ async def test_mcp_integration() -> Dict[str, Any]:
     return result
 
 
+@pytest.mark.asyncio
 async def test_custom_tools() -> Dict[str, Any]:
     """Test custom tools fallback."""
     print_header("Test 4: Custom Tools (Fallback)")
@@ -282,8 +295,6 @@ async def test_custom_tools() -> Dict[str, Any]:
     
     try:
         from src.tools.jira_tool import JiraTool
-from src.utils.logger import get_logger
-
         
         print_info("Testing custom JiraTool...")
         tool = JiraTool()
@@ -368,7 +379,9 @@ async def main():
     all_results['rovo'] = await test_rovo_mcp_server()
     
     # Test 2: Community servers
-    all_results['community'] = await test_community_jira_servers()
+    # DISABLED: Community Jira MCP servers not used in production
+    # all_results['community'] = await test_community_jira_servers()
+    all_results['community'] = {'skipped': True, 'reason': 'Community mcp-jira not used - app uses custom Python-based server'}
     
     # Test 3: Full integration
     all_results['integration'] = await test_mcp_integration()

@@ -5,6 +5,7 @@ This bypasses intent detection to directly test the Jira creation handler.
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -18,6 +19,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.mcp_jira_direct')
 
+@pytest.mark.asyncio
+@pytest.mark.timeout(60)  # 1 minute timeout for MCP initialization
 async def test_mcp_jira_direct():
 
     """Directly test Jira creation with MCP."""

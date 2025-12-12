@@ -1456,9 +1456,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             mock_rovo_tool.name = "createConfluencePage"
             
             # Create args_schema
-            from pydantic import BaseModel,
-from src.utils.logger import get_logger
- Field
+            from pydantic import BaseModel, Field
             class MockArgsSchema(BaseModel):
                 cloudId: str = Field(description="Cloud ID")
                 spaceId: str = Field(description="Space ID")

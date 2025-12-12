@@ -4,6 +4,7 @@ Test script to verify MCP tool is used when creating Jira issues through the age
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -16,6 +17,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.jira_creation_with_mcp')
 
+@pytest.mark.timeout(60)  # 1 minute timeout for MCP initialization
 def test_jira_creation_with_mcp():
 
     """Test creating a Jira issue and verify MCP tool is used."""

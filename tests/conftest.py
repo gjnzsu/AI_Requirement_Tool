@@ -68,5 +68,33 @@ def mock_llm_provider():
     provider.get_provider_name.return_value = "openai"
     provider.model = "gpt-4"
     provider.invoke = AsyncMock(return_value="Mocked LLM response")
+    provider.generate_response = Mock(return_value="Mocked LLM response")
     return provider
+
+
+@pytest.fixture(scope="function")
+def mock_chatbot():
+    """Provide a mock Chatbot for testing without API calls."""
+    from unittest.mock import Mock, PropertyMock
+    
+    chatbot = Mock()
+    chatbot.get_response = Mock(return_value="Mocked chatbot response")
+    chatbot.memory_manager = Mock()
+    chatbot.conversation_history = []
+    chatbot.set_conversation_id = Mock()
+    chatbot.load_conversation = Mock(return_value=True)
+    
+    # Mock memory_manager methods
+    chatbot.memory_manager.get_conversation = Mock(return_value={
+        'id': 'test_conv',
+        'title': 'Test',
+        'messages': [
+            {'role': 'user', 'content': 'Hello'},
+            {'role': 'assistant', 'content': 'Hi'}
+        ]
+    })
+    chatbot.memory_manager.add_message = Mock()
+    chatbot.memory_manager.create_conversation = Mock()
+    
+    return chatbot
 

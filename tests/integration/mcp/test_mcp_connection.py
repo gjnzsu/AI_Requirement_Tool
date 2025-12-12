@@ -8,6 +8,7 @@ This script tests the updated Jira MCP integration with actual working packages:
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -20,6 +21,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.mcp_connection')
 
+@pytest.mark.asyncio
 async def test_mcp_connection():
 
     """Test MCP server connections."""

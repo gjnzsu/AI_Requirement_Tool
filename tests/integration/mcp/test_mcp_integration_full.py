@@ -5,6 +5,7 @@ Tests the full flow from MCP server connection to tool invocation.
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -14,7 +15,9 @@ sys.path.insert(0, str(project_root))
 from config.config import Config
 from src.mcp.mcp_integration import MCPIntegration
 from src.mcp.mcp_client import create_custom_jira_mcp_client
+from src.utils.logger import get_logger
 
+@pytest.mark.asyncio
 async def test_full_mcp_integration():
     logger = get_logger('test.full_mcp_integration')
 
@@ -135,8 +138,6 @@ async def test_full_mcp_integration():
     except Exception as e:
         logger.error(f"   ❌ Tool structure check failed: {e}")
         import traceback
-from src.utils.logger import get_logger
-
         traceback.print_exc()
         return False
     logger.info("")

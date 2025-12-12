@@ -4,6 +4,7 @@ Test script for custom Jira MCP server.
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -12,10 +13,12 @@ sys.path.insert(0, str(project_root))
 
 from src.mcp.mcp_client import create_custom_jira_mcp_client, MCPClient
 from config.config import Config
+from src.utils.logger import get_logger
 
+logger = get_logger('test.custom_jira_mcp')
 
+@pytest.mark.asyncio
 async def test_custom_jira_mcp():
-    logger = get_logger('test.custom_jira_mcp')
 
     """Test the custom Jira MCP server."""
     logger.info("=" * 70)
@@ -111,8 +114,6 @@ async def test_custom_jira_mcp():
     except Exception as e:
         logger.error(f"✗ Failed to create client: {e}")
         import traceback
-from src.utils.logger import get_logger
-
         traceback.print_exc()
     
     logger.info("")

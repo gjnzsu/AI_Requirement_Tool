@@ -9,6 +9,7 @@ This script demonstrates:
 """
 
 import sys
+import pytest
 from pathlib import Path
 from datetime import datetime
 
@@ -24,8 +25,8 @@ from src.utils.logger import get_logger
 logger = get_logger('test.memory_manager')
 
 
+@pytest.mark.timeout(10)
 def test_memory_manager():
-
     """Test the MemoryManager directly."""
     logger.info("=" * 70)
     logger.info("Testing Memory Manager")
@@ -104,6 +105,7 @@ def test_memory_manager():
     return True
 
 
+@pytest.mark.timeout(60)
 def test_chatbot_integration():
     """Test chatbot integration with memory."""
     logger.info("\n" + "=" * 70)
@@ -113,6 +115,7 @@ def test_chatbot_integration():
     if not Config.get_llm_api_key():
         logger.warning("⚠ LLM API key not configured. Skipping chatbot integration test.")
         logger.info("  Set OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY to test.")
+        pytest.skip("LLM API key not configured - skipping chatbot integration test")
         return True
     
     try:

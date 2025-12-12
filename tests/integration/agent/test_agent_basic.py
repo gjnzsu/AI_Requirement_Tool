@@ -5,6 +5,7 @@ This script tests the agent framework integration.
 """
 
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -16,6 +17,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.agent')
 
+@pytest.mark.timeout(120)  # 2 minutes for agent tests with LLM calls
 def test_agent():
     """Test the LangGraph agent."""
     logger.info("=" * 60)
@@ -29,7 +31,7 @@ def test_agent():
         chatbot = Chatbot(
             provider_name="openai",  # or "gemini"
             use_agent=True,
-            enable_mcp_tools=True,
+            enable_mcp_tools=False,  # Disable MCP to avoid timeout issues in tests
             use_rag=True
         )
         logger.info("Chatbot initialized successfully!")

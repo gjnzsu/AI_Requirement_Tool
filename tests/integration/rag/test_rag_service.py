@@ -8,6 +8,7 @@ This script shows how to:
 """
 
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -177,6 +178,7 @@ def test_rag_retrieval(rag_service):
             logger.error(f"  ✗ Error: {e}")
 
 
+@pytest.mark.timeout(120)  # 2 minutes for multiple LLM calls
 def test_rag_chatbot():
     """Test RAG-enabled chatbot."""
     logger.info("\n" + "=" * 70)

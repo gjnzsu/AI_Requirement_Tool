@@ -4,6 +4,7 @@ Quick test to verify MCP is enabled and the custom Jira MCP server is available.
 
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -17,6 +18,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.mcp_enabled')
 
+@pytest.mark.asyncio
 async def test_mcp_enabled():
 
     """Test if MCP is enabled and custom server is available."""
@@ -98,6 +100,7 @@ async def test_mcp_enabled():
         logger.info("=" * 70)
         return True  # Return True - fallback is working correctly
 
+@pytest.mark.asyncio
 async def test_mcp_integration():
     """Test MCP integration initialization."""
     logger.info("")

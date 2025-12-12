@@ -3,6 +3,7 @@ Quick test to verify the MCP Pydantic model creation fix.
 """
 
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -12,7 +13,9 @@ sys.path.insert(0, str(project_root))
 import asyncio
 from src.mcp.mcp_integration import MCPIntegration
 from config.config import Config
+from src.utils.logger import get_logger
 
+@pytest.mark.asyncio
 async def test_mcp_fix():
     logger = get_logger('test.mcp_fix')
 
@@ -48,8 +51,6 @@ async def test_mcp_fix():
     except Exception as e:
         logger.error(f"   ✗ MCP Integration failed: {e}")
         import traceback
-from src.utils.logger import get_logger
-
         traceback.print_exc()
         return False
 

@@ -1,0 +1,159 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\SourceCode\GenAIChatbot\generative-ai-chatbot
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.4.56, asyncio-1.3.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 30.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 27 items
+
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_0_health_check_confluence_mcp_server FAILED [  3%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_10_end_to_end_confluence_integration FAILED [  7%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_11_tool_invoke_contract_validation FAILED [ 11%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_12_contentformat_enum_contract FAILED [ 14%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_13_schema_enum_extraction_contract FAILED [ 18%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_1_mcp_protocol_called_and_logged FAILED [ 22%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_2_retrieve_confluence_page_info_via_mcp FAILED [ 25%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_3_non_jira_flows_dont_trigger_confluence_mcp FAILED [ 29%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_4_timeout_fallback_to_direct_api FAILED [ 33%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_5_confluence_tooling_queries_go_to_general_chat FAILED [ 37%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_6_jira_creation_workflow_langgraph FAILED [ 40%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_7_basic_model_call_works FAILED [ 44%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_8_jira_creation_timeout_handling FAILED [ 48%]
+tests/integration/mcp/test_confluence_mcp_integration.py::TestConfluenceMCPIntegration::test_9_cloudid_handling_for_rovo_tools FAILED [ 51%]
+tests/integration/mcp/test_confluence_mcp_simple.py::test_confluence_mcp_server PASSED [ 55%]
+tests/integration/mcp/test_custom_jira_mcp.py::test_custom_jira_mcp PASSED [ 59%]
+tests/integration/mcp/test_jira_mcp_server.py::test_rovo_mcp_server PASSED [ 62%]
+tests/integration/mcp/test_jira_mcp_server.py::test_community_jira_servers SKIPPEDthon-based Jira MCP server only) [ 66%]
+tests/integration/mcp/test_jira_mcp_server.py::test_mcp_integration PASSED [ 70%]
+tests/integration/mcp/test_jira_mcp_server.py::test_custom_tools PASSED  [ 74%]
+tests/integration/mcp/test_mcp_connection.py::test_mcp_connection +++++++++++++++++++++++++++++++++++ Timeout +++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Captured stdout ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2025-12-12 18:15:12 - test.mcp_connection - INFO - ======================================================================\n2025-12-12 18:15:12 - test.mcp_connection - INFO - Testing MCP Server Connections\n2025-12-12 18:15:12 - test.mcp_connection - INFO - ======================================================================\n2025-12-12 18:15:12 - test.mcp_connection - INFO - \n2025-12-12 18:15:12 - test.mcp_connection - INFO - Test 1: Checking npx availability...\n2025-12-12 18:15:13 - test.mcp_connection - INFO -   npx available: True\n2025-12-12 18:15:13 - test.mcp_connection - INFO - \n2025-12-12 18:15:13 - test.mcp_connection - INFO - Test 2: Creating Jira MCP client...\n2025-12-12 18:15:13 - chatbot.mcp.client - INFO - Created custom Jira MCP client (Python-based)\n2025-12-12 18:15:13 - test.mcp_connection - INFO -   \u2713 Jira MCP client created\n2025-12-12 18:15:13 - test.mcp_connection - INFO -   Command: C:\\Users\\gjnzsu\\AppData\\Local\\Programs\\Python\\Python312\\python.exe C:\\SourceCode\\GenAIChatbot\\generative-ai-chatbot\\src\\mcp\\jira_mcp_server.py\n2025-12-12 18:15:13 - test.mcp_connection - INFO -   Attempting to connect...\n2025-12-12 18:15:17 - chatbot.mcp.client - INFO - Connected to MCP server: custom-jira\n2025-12-12 18:15:17 - test.mcp_connection - INFO -   \u2713 Successfully connected to Jira MCP server!\n2025-12-12 18:15:17 - test.mcp_connection - INFO -   Available tools: ['create_jira_issue']\n2025-12-12 18:15:17 - test.mcp_connection - INFO - \n2025-12-12 18:15:17 - test.mcp_connection - INFO - Test 3: Creating Confluence MCP client...\n2025-12-12 18:15:17 - chatbot.mcp.client - INFO - Created Atlassian Rovo MCP client (Official)\n2025-12-12 18:15:17 - chatbot.mcp.client - INFO - Note: OAuth 2.1 authentication will be required on first use\n2025-12-12 18:15:17 - chatbot.mcp.client - INFO - Using official Atlassian Rovo MCP Server for Confluence\n2025-12-12 18:15:17 - test.mcp_connection - INFO -   \u2713 Confluence MCP client created\n2025-12-12 18:15:17 - test.mcp_connection - INFO -   Command: npx.cmd -y mcp-remote https://mcp.atlassian.com/v1/sse\n2025-12-12 18:15:17 - test.mcp_connection - INFO -   Attempting to connect...\n2025-12-12 18:15:29 - chatbot.mcp.client - INFO - Connected to MCP server: confluence\n2025-12-12 18:15:29 - test.mcp_connection - INFO -   \u2713 Successfully connected to Confluence MCP server!\n2025-12-12 18:15:29 - test.mcp_connection - INFO -   Available tools: ['atlassianUserInfo', 'getAccessibleAtlassianResources', 'getConfluenceSpaces', 'getConfluencePage', 'getPagesInConfluenceSpace', 'getConfluencePageFooterComments', 'getConfluencePageInlineComments', 'getConfluencePageDescendants', 'createConfluencePage', 'updateConfluencePage', 'createConfluenceFooterComment', 'createConfluenceInlineComment', 'searchConfluenceUsingCql', 'getJiraIssue', 'editJiraIssue', 'createJiraIssue', 'getTransitionsForJiraIssue', 'transitionJiraIssue', 'lookupJiraAccountId', 'searchJiraIssuesUsingJql', 'addCommentToJiraIssue', 'getJiraIssueRemoteIssueLinks', 'getVisibleJiraProjects', 'getJiraProjectIssueTypesMetadata', 'getJiraIssueTypeMetaWithFields', 'search', 'fetch']\n2025-12-12 18:15:29 - test.mcp_connection - INFO - \n2025-12-12 18:15:29 - test.mcp_connection - INFO - Test 4: Testing full MCP integration...\n2025-12-12 18:15:29 - chatbot.mcp.client - INFO - Created custom Jira MCP client (Python-based)\n2025-12-12 18:15:29 - chatbot.mcp - INFO - Using custom Jira MCP server (Python-based)\n2025-12-12 18:15:29 - chatbot.mcp.client - INFO - Created Atlassian Rovo MCP client (Official)\n2025-12-12 18:15:29 - chatbot.mcp.client - INFO - Note: OAuth 2.1 authentication will be required on first use\n2025-12-12 18:15:29 - chatbot.mcp.client - INFO - Using official Atlassian Rovo MCP Server for Confluence\n2025-12-12 18:15:29 - chatbot.mcp - INFO - Confluence MCP server added\n2025-12-12 18:15:33 - chatbot.mcp.client - INFO - Connected to MCP server: jira\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Captured stderr ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\u2713 Jira connection initialized
+
+[7748] Using existing client port: 5598
+[7748] [7748] Connecting to remote server: https://mcp.atlassian.com/v1/sse
+[7748] Using transport strategy: http-first
+[7748] Received error: Error POSTing to endpoint (HTTP 404): Missing sessionId parameter
+[7748] Recursively reconnecting for reason: falling-back-to-alternate-transport
+[7748] [7748] Connecting to remote server: https://mcp.atlassian.com/v1/sse
+[7748] Using transport strategy: sse-only
+[7748] Connected to remote server using SSEClientTransport
+[7748] Local STDIO server running
+[7748] Proxy established successfully between local STDIO and remote SSEClientTransport
+[7748] Press Ctrl+C to exit
+[7748] [Local→Remote] initialize
+[7748] {
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "mcp (via mcp-remote 0.1.31)",
+      "version": "0.1.0"
+    }
+  }
+}
+[7748] [Remote→Local] 0
+[7748] [Local→Remote] notifications/initialized
+[7748] [Local→Remote] tools/list
+[7748] [Remote→Local] 1
+[7748] 
+Shutting down...
+\u2713 Jira connection initialized
+
+[34808] Using existing client port: 5598
+[34808] [34808] Connecting to remote server: https://mcp.atlassian.com/v1/sse
+[34808] Using transport strategy: http-first
+[34808] Received error: Error POSTing to endpoint (HTTP 404): Missing sessionId parameter
+[34808] Recursively reconnecting for reason: falling-back-to-alternate-transport
+[34808] [34808] Connecting to remote server: https://mcp.atlassian.com/v1/sse
+[34808] Using transport strategy: sse-only
+~~~~~~~~~~~~~~~~~~~~~~~~~ Stack of MainThread (21236) ~~~~~~~~~~~~~~~~~~~~~~~~~
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\config\__init__.py", line 223, in console_main
+    code = main()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\config\__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 353, in from_call
+    result: TResult | None = func()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytest_asyncio\plugin.py", line 469, in runtest
+    super().runtest()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytest_asyncio\plugin.py", line 716, in inner
+    runner.run(coro, context=context)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 651, in run_until_complete
+    self.run_forever()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 618, in run_forever
+    self._run_once()
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1913, in _run_once
+    event_list = self._selector.select(timeout)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 444, in select
+    self._poll(timeout)
+  File "C:\Users\gjnzsu\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 769, in _poll
+    status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
++++++++++++++++++++++++++++++++++++ Timeout +++++++++++++++++++++++++++++++++++
