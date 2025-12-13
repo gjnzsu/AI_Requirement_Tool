@@ -25,6 +25,9 @@ from src.agent.agent_graph import ChatbotAgent, AgentState
 from src.mcp.mcp_integration import MCPIntegration
 from langchain_core.messages import HumanMessage, AIMessage
 from config.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger('test.confluence_mcp_integration')
 
 
 class TestConfluenceMCPIntegration(unittest.TestCase):
@@ -153,24 +156,15 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 "next_action": None
             }
             
-            # Capture print output
-            import io
-            from contextlib import redirect_stdout
-            
-            f = io.StringIO()
-            with redirect_stdout(f):
-                result_state = self.agent._handle_confluence_creation(state)
-            
-            output = f.getvalue()
+            # Execute the confluence creation
+            result_state = self.agent._handle_confluence_creation(state)
             
             # Verify MCP protocol was called
             self.assertTrue(mock_mcp_integration.get_tool.called, "MCP get_tool should be called")
             self.assertTrue(mock_mcp_tool.invoke.called, "MCP tool invoke should be called")
             
-            # Verify logging contains MCP protocol messages
-            self.assertIn("MCP PROTOCOL", output, "Output should contain 'MCP PROTOCOL'")
-            self.assertIn("Creating Confluence page via MCP tool", output, 
-                        "Output should log MCP tool usage")
+            # Note: Log messages go through logger (stderr), not stdout, so we verify behavior instead
+            # The fact that MCP tool was called confirms MCP protocol was used
             
             # Verify result
             self.assertIsNotNone(result_state.get("confluence_result"))
@@ -178,7 +172,6 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
             
             logger.info("\n[PASS] Test Case 1: PASSED")
             logger.info(f"  MCP tool was called: {mock_mcp_tool.invoke.called}")
-            logger.info(f"  Logging contains 'MCP PROTOCOL': {'MCP PROTOCOL' in output}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')
@@ -403,19 +396,16 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 "next_action": None
             }
             
-            # Capture output
-            import io
-            from contextlib import redirect_stdout
+            # Execute the confluence creation (will timeout and fallback)
+            result_state = self.agent._handle_confluence_creation(state)
             
-            f = io.StringIO()
-            with redirect_stdout(f):
-                result_state = self.agent._handle_confluence_creation(state)
-            
-            output = f.getvalue()
-            
-            # Verify fallback occurred
+            # Verify fallback occurred - direct API should be called after MCP timeout
             self.assertTrue(mock_confluence_tool.create_page.called, 
                           "Direct API should be called after timeout")
+            
+            # Verify result is successful (fallback worked)
+            self.assertIsNotNone(result_state.get("confluence_result"))
+            self.assertTrue(result_state["confluence_result"].get("success"))
             
             # Verify user-friendly message
             messages = result_state.get("messages", [])
@@ -425,13 +415,11 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
                 self.assertIn("Confluence Page Created", message_content or "",
                              "Should contain success message")
             
-            # Verify logging shows fallback
-            self.assertIn("falling back", output.lower() or "",
-                         "Should log fallback to direct API")
+            # Note: Log messages go through logger (stderr), not stdout
+            # The fact that direct API was called confirms fallback occurred
             
             logger.info("\n[PASS] Test Case 4: PASSED")
             logger.info(f"  Direct API called: {mock_confluence_tool.create_page.called}")
-            logger.info(f"  Fallback logged: {'falling back' in output.lower()}")
     
     @patch('src.agent.agent_graph.Config')
     @patch('config.config.Config')

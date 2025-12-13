@@ -71,7 +71,7 @@ class ChatbotAgent:
                 if resources_tool:
                     try:
                         logger.debug("Calling getAccessibleAtlassianResources...")
-                        result = resources_tool.invoke({})
+                        result = resources_tool.invoke(input={})
                         logger.debug(f"Response type: {type(result)}, length: {len(str(result)) if result else 0}")
                         
                         # Parse result to extract cloudId
@@ -204,7 +204,7 @@ class ChatbotAgent:
                         if cloud_id:
                             spaces_args['cloudId'] = cloud_id
                         
-                        result = spaces_tool.invoke(spaces_args)
+                        result = spaces_tool.invoke(input=spaces_args)
                         logger.debug(f"getConfluenceSpaces response type: {type(result)}")
                         
                         # Parse result to find space ID
@@ -790,7 +790,7 @@ class ChatbotAgent:
             # Call MCP tool with timeout
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(mcp_tool.invoke, mcp_args)
+                future = executor.submit(mcp_tool.invoke, input=mcp_args)
                 try:
                     mcp_result = future.result(timeout=30.0)
                     
@@ -1190,7 +1190,7 @@ class ChatbotAgent:
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
                             mcp_jira_tool.invoke,
-                            {
+                            input={
                                 'summary': backlog_data.get('summary', 'Untitled Issue'),
                                 'description': backlog_data.get('description', ''),
                                 'priority': backlog_data.get('priority', 'Medium'),
@@ -1845,8 +1845,8 @@ class ChatbotAgent:
                                 with concurrent.futures.ThreadPoolExecutor() as executor:
                                     try:
                                         logger.debug("Submitting tool.invoke(...) to executor...")
-                                        # LangChain tools use invoke(args) directly, not invoke(input=args)
-                                        future = executor.submit(mcp_confluence_tool.invoke, mcp_args)
+                                        # LangChain StructuredTool requires invoke(input={...}) with 'input' keyword
+                                        future = executor.submit(mcp_confluence_tool.invoke, input=mcp_args)
                                         logger.debug("Waiting for tool result (timeout: 30s)...")
                                         mcp_result = future.result(timeout=30.0)  # 30 second timeout
                                         logger.debug(f"Tool call completed, result type: {type(mcp_result)}")

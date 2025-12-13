@@ -40,23 +40,27 @@ def parse_pytest_output(output: str) -> Tuple[List[TestResult], Dict]:
         "warnings": 0
     }
     
-    # Extract total execution time
-    total_match = re.search(r'(\d+\.\d+)s\s+total', output)
-    if total_match:
-        summary["total_time"] = float(total_match.group(1))
-    
-    # Extract passed/failed counts
-    passed_match = re.search(r'(\d+)\s+passed', output)
-    if passed_match:
-        summary["passed"] = int(passed_match.group(1))
-    
-    failed_match = re.search(r'(\d+)\s+failed', output)
-    if failed_match:
-        summary["failed"] = int(failed_match.group(1))
-    
-    warnings_match = re.search(r'(\d+)\s+warnings?', output)
-    if warnings_match:
-        summary["warnings"] = int(warnings_match.group(1))
+    # Extract summary line: "X passed, Y failed, Z warnings in N.NNs"
+    # Pattern: "======================== 2 passed, 1 warning in 0.06s ========================="
+    summary_match = re.search(r'=\s+(\d+)\s+passed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+warnings?)?\s+in\s+(\d+\.\d+)s\s+=', output)
+    if summary_match:
+        summary["passed"] = int(summary_match.group(1))
+        summary["failed"] = int(summary_match.group(2)) if summary_match.group(2) else 0
+        summary["warnings"] = int(summary_match.group(3)) if summary_match.group(3) else 0
+        summary["total_time"] = float(summary_match.group(4))
+    else:
+        # Fallback: try separate patterns
+        passed_match = re.search(r'(\d+)\s+passed', output)
+        if passed_match:
+            summary["passed"] = int(passed_match.group(1))
+        
+        failed_match = re.search(r'(\d+)\s+failed', output)
+        if failed_match:
+            summary["failed"] = int(failed_match.group(1))
+        
+        warnings_match = re.search(r'(\d+)\s+warnings?', output)
+        if warnings_match:
+            summary["warnings"] = int(warnings_match.group(1))
     
     # Extract individual test durations from "slowest durations" section
     durations_section = False
@@ -73,7 +77,11 @@ def parse_pytest_output(output: str) -> Tuple[List[TestResult], Dict]:
                 test_name = match.group(2).strip()
                 # Extract just the test function name
                 test_func = test_name.split('::')[-1] if '::' in test_name else test_name
-                results.append(TestResult(test_func, duration))
+                # Determine status from test name or output
+                status = "PASSED"
+                if "FAILED" in line or "ERROR" in line:
+                    status = "FAILED"
+                results.append(TestResult(test_func, duration, status))
             elif line.strip() and not line.startswith('='):
                 # End of durations section
                 break
@@ -82,12 +90,16 @@ def parse_pytest_output(output: str) -> Tuple[List[TestResult], Dict]:
     if not results:
         for line in output.split('\n'):
             # Match lines like: "tests/unit/test_input.py::test_input_output PASSED [ 50%]"
-            match = re.match(r'.+::(.+?)\s+(PASSED|FAILED)', line)
+            match = re.match(r'.+::(.+?)\s+(PASSED|FAILED|ERROR|SKIPPED)', line)
             if match:
                 test_func = match.group(1)
                 status = match.group(2)
                 # Try to find duration in next lines or use 0.01 as default
                 results.append(TestResult(test_func, 0.01, status))
+    
+    # If total_time wasn't found in summary, calculate from individual test durations
+    if summary["total_time"] == 0.0 and results:
+        summary["total_time"] = sum(r.duration for r in results)
     
     return results, summary
 
@@ -139,9 +151,12 @@ def generate_report(category_name: str, test_results: List[TestResult], summary:
     sorted_results = sorted(test_results, key=lambda x: x.duration, reverse=True)
     
     # Calculate statistics
-    total_tests = len(test_results)
-    if total_tests > 0:
-        avg_time = sum(r.duration for r in test_results) / total_tests
+    # Use summary counts if available, otherwise use test_results length
+    total_tests_from_summary = summary.get('passed', 0) + summary.get('failed', 0)
+    total_tests = max(len(test_results), total_tests_from_summary) if total_tests_from_summary > 0 else len(test_results)
+    
+    if test_results:
+        avg_time = sum(r.duration for r in test_results) / len(test_results)
         slowest = sorted_results[0] if sorted_results else None
         fastest = sorted_results[-1] if sorted_results else None
     else:
@@ -149,14 +164,15 @@ def generate_report(category_name: str, test_results: List[TestResult], summary:
         slowest = None
         fastest = None
     
-    # Handle timeout/failed tests
-    if summary.get('timeout') or summary.get('exit_code', 0) != 0:
-        total_tests = max(total_tests, summary.get('passed', 0) + summary.get('failed', 0))
+    # Use total_time from summary if available, otherwise calculate from results
+    total_time = summary.get('total_time', 0.0)
+    if total_time == 0.0 and test_results:
+        total_time = sum(r.duration for r in test_results)
     
     report = f"""# {category_name.upper()} Tests - Execution Time Summary
 
 **Test Run Date:** {timestamp}  
-**Total Execution Time:** {summary.get('total_time', 0):.2f} seconds  
+**Total Execution Time:** {total_time:.2f} seconds  
 **Total Tests:** {total_tests}  
 **Passed:** {summary.get('passed', 0)} [PASS]  
 **Failed:** {summary.get('failed', 0)}  
@@ -176,7 +192,7 @@ def generate_report(category_name: str, test_results: List[TestResult], summary:
 ## Performance Statistics
 
 ### Execution Times
-- **Total Time:** {summary.get('total_time', 0):.2f} seconds
+- **Total Time:** {total_time:.2f} seconds
 - **Average Time:** {avg_time:.2f} seconds
 """
     
@@ -196,7 +212,7 @@ def generate_report(category_name: str, test_results: List[TestResult], summary:
 """
     
     if slowest:
-        percentage = (slowest.duration / summary.get('total_time', 1)) * 100 if summary.get('total_time', 0) > 0 else 0
+        percentage = (slowest.duration / total_time * 100) if total_time > 0 else 0
         report += f"""### Slowest Test
 - **{slowest.name}** ({slowest.duration:.2f}s) - {percentage:.1f}% of total execution time
   - May include network latency, API calls, or complex operations
@@ -313,9 +329,34 @@ def generate_master_summary(all_results: Dict):
     """Generate master summary report aggregating all categories."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    total_time = sum(r["summary"].get("total_time", 0) for r in all_results.values())
-    total_passed = sum(r["summary"].get("passed", 0) for r in all_results.values())
-    total_failed = sum(r["summary"].get("failed", 0) for r in all_results.values())
+    # Calculate totals from summaries, with fallback to results
+    total_time = 0.0
+    total_passed = 0
+    total_failed = 0
+    
+    for r in all_results.values():
+        summary = r["summary"]
+        results = r["results"]
+        
+        # Get execution time from summary, fallback to sum of result durations
+        exec_time = summary.get("total_time", 0)
+        if exec_time == 0.0 and results:
+            exec_time = sum(result.duration for result in results)
+        total_time += exec_time
+        
+        # Get counts from summary
+        passed = summary.get("passed", 0)
+        failed = summary.get("failed", 0)
+        
+        # If summary doesn't have counts, try to infer from results
+        if passed == 0 and failed == 0 and results:
+            # Count passed/failed from result status
+            passed = sum(1 for result in results if result.status == "PASSED")
+            failed = sum(1 for result in results if result.status == "FAILED")
+        
+        total_passed += passed
+        total_failed += failed
+    
     total_tests = total_passed + total_failed
     if total_tests == 0:
         total_tests = sum(len(r["results"]) for r in all_results.values())
@@ -350,11 +391,19 @@ def generate_master_summary(all_results: Dict):
     for category_name, data in sorted(all_results.items()):
         summary = data["summary"]
         results = data["results"]
-        num_tests = len(results)
+        # Use summary counts (passed + failed) as authoritative, fallback to results length
+        passed_count = summary.get('passed', 0)
+        failed_count = summary.get('failed', 0)
+        num_tests = passed_count + failed_count
+        if num_tests == 0:
+            num_tests = len(results)  # Fallback to results count if summary doesn't have counts
         exec_time = summary.get("total_time", 0)
+        # If exec_time is 0 but we have results, calculate from results
+        if exec_time == 0.0 and results:
+            exec_time = sum(r.duration for r in results)
         avg_time = exec_time / num_tests if num_tests > 0 else 0
         
-        report += f"| **{category_name.upper()}** | {num_tests} | {summary.get('passed', 0)} | {summary.get('failed', 0)} | {exec_time:.2f}s | {avg_time:.2f}s |\n"
+        report += f"| **{category_name.upper()}** | {num_tests} | {passed_count} | {failed_count} | {exec_time:.2f}s | {avg_time:.2f}s |\n"
     
     report += f"""
 ## Slowest Tests Across All Categories
@@ -398,12 +447,18 @@ For detailed reports, see:
     
     for category_name, data in sorted(all_results.items()):
         report_path = data["report_path"]
-        report += f"- **[{category_name.upper()}]({report_path})**\n"
+        # Convert to relative path from docs/test-reports/ to tests/{category}/
+        # From docs/test-reports/ to tests/unit/ = ../../tests/unit/
+        relative_path = f"../../{report_path}"
+        report += f"- **[{category_name.upper()}]({relative_path})**\n"
     
-    # Write master summary
-    master_path = project_root / "tests/TEST_EXECUTION_MASTER_SUMMARY.md"
+    # Write master summary to docs/test-reports/ (consistent with other test documentation)
+    master_path = project_root / "docs/test-reports/TEST_EXECUTION_MASTER_SUMMARY.md"
+    master_path.parent.mkdir(parents=True, exist_ok=True)
     master_path.write_text(report, encoding='utf-8')
     print(f"\n[OK] Master summary generated: {master_path}")
+    print(f"     Total Execution Time: {total_time:.2f} seconds")
+    print(f"     Total Tests: {total_tests} (Passed: {total_passed}, Failed: {total_failed})")
 
 
 if __name__ == "__main__":

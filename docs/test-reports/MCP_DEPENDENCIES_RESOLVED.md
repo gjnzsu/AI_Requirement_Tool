@@ -98,4 +98,3 @@ If tests still fail:
 - Credentials: Configured
 
 MCP tests should now work correctly. The system will automatically handle package downloads and use configured credentials.
-

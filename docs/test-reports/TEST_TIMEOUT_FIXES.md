@@ -70,4 +70,3 @@ python scripts/run_tests_with_timing.py --category <category>
 ```
 
 All tests will now fail fast if they exceed their timeout limits.
-

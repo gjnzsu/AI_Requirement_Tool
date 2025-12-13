@@ -47,7 +47,8 @@ def test_input_output():
         logger.info("=" * 70)
         logger.info("Test PASSED (non-interactive mode)")
         logger.info("=" * 70)
-        return True
+        # Test passed - no return needed (pytest expects None)
+        assert True
     
     logger.info("This script tests if input() works in your terminal.")
     logger.info("Type something and press Enter. Type 'quit' to exit.")
@@ -79,12 +80,20 @@ def test_input_output():
         logger.info("=" * 70)
         logger.info("Test PASSED")
         logger.info("=" * 70)
-        return True
+        # Test passed - no return needed (pytest expects None)
+        assert True
     except Exception as e:
         logger.error(f"Test failed: {e}")
-        return False
+        raise  # Re-raise exception so pytest can catch it
 
 if __name__ == "__main__":
-    success = test_input_output()
-    sys.exit(0 if success else 1)
+    # When run directly (not via pytest), we need to handle return value
+    try:
+        test_input_output()
+        sys.exit(0)
+    except AssertionError:
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Test failed: {e}")
+        sys.exit(1)
 

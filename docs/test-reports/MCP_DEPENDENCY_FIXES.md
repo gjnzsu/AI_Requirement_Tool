@@ -112,4 +112,3 @@ Some tests timeout during MCP initialization:
 ⚠️ **Note:** Some tests still fail due to missing external dependencies (MCP servers), which is expected behavior
 
 The main dependency issue (async test support) has been resolved. Remaining failures are due to optional external dependencies (MCP servers) that may not be configured in all environments.
-
