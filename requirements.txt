@@ -24,6 +24,9 @@ langchain-core>=1.0.0
 # MCP (Model Context Protocol) SDK
 mcp>=0.9.0  # Official MCP Python SDK from modelcontextprotocol/python-sdk
 
+# Mem0 - Advanced Memory Management for AI Agents
+mem0ai>=1.0.0  # Open-source memory layer for AI agents
+
 # PyTorch - Install separately if needed for the chatbot
 # Note: PyTorch installation varies by platform. Install using one of these methods:
 # Windows CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu

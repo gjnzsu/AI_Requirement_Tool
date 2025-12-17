@@ -1,0 +1,152 @@
+```mermaid
+graph TB
+    %% User Interface Layer
+    subgraph UI["🌐 User Interface Layer"]
+        WebUI["Web UI<br/>(Flask Templates)"]
+        API["REST API<br/>(Flask Routes)"]
+    end
+
+    %% Application Layer
+    subgraph App["📱 Application Layer"]
+        FlaskApp["Flask Application<br/>(app.py)"]
+        Chatbot["Chatbot Class<br/>(chatbot.py)"]
+    end
+
+    %% Agent Layer
+    subgraph Agent["🤖 Agent Layer"]
+        LangGraph["LangGraph Agent<br/>(agent_graph.py)"]
+        IntentDetect["Intent Detection<br/>(general_chat, jira_creation,<br/>rag_query, confluence_creation)"]
+        Router["Agent Router<br/>(Routes to appropriate handler)"]
+    end
+
+    %% Service Layer
+    subgraph Services["⚙️ Service Layer"]
+        RAGService["RAG Service<br/>(rag_service.py)"]
+        MemoryMgr["Memory Manager<br/>(memory_manager.py)"]
+        MemorySum["Memory Summarizer<br/>(memory_summarizer.py)"]
+        MCPIntegration["MCP Integration<br/>(mcp_integration.py)"]
+        MCPClient["MCP Client Manager<br/>(mcp_client.py)"]
+        JiraEval["Jira Maturity Evaluator<br/>(jira_maturity_evaluator.py)"]
+    end
+
+    %% Tool Layer
+    subgraph Tools["🔧 Tool Layer"]
+        JiraTool["Jira Tool<br/>(jira_tool.py)"]
+        ConfluenceTool["Confluence Tool<br/>(confluence_tool.py)"]
+        MCPTools["MCP Tool Wrappers<br/>(LangChain Compatible)"]
+    end
+
+    %% LLM Layer
+    subgraph LLM["🧠 LLM Layer"]
+        LLMRouter["LLM Router<br/>(router.py)"]
+        OpenAIProvider["OpenAI Provider<br/>(openai_provider.py)"]
+        GeminiProvider["Gemini Provider<br/>(gemini_provider.py)"]
+        DeepSeekProvider["DeepSeek Provider<br/>(deepseek_provider.py)"]
+    end
+
+    %% RAG Components
+    subgraph RAG["📚 RAG Components"]
+        DocLoader["Document Loader<br/>(document_loader.py)"]
+        TextChunker["Text Chunker<br/>(text_chunker.py)"]
+        EmbedGen["Embedding Generator<br/>(embedding_generator.py)"]
+        VectorStore["Vector Store<br/>(vector_store.py - ChromaDB)"]
+        RAGCache["RAG Cache<br/>(rag_cache.py)"]
+    end
+
+    %% External Services
+    subgraph External["🌍 External Services"]
+        OpenAIAPI["OpenAI API"]
+        GeminiAPI["Google Gemini API"]
+        DeepSeekAPI["DeepSeek API"]
+        JiraAPI["Jira API<br/>(Atlassian)"]
+        ConfluenceAPI["Confluence API<br/>(Atlassian)"]
+        MCPServer["MCP Server<br/>(Jira/Confluence)"]
+    end
+
+    %% Data Storage
+    subgraph Storage["💾 Data Storage"]
+        MemoryDB["Memory Database<br/>(SQLite - chatbot_memory.db)"]
+        VectorDB["Vector Database<br/>(ChromaDB)"]
+        Config["Configuration<br/>(config.py + .env)"]
+        DocStorage["Document Storage<br/>(data/ folder)"]
+    end
+
+    %% User Flow
+    WebUI -->|HTTP Request| API
+    API -->|Initialize| FlaskApp
+    FlaskApp -->|Create Instance| Chatbot
+    Chatbot -->|Use Agent| LangGraph
+    
+    %% Agent Flow
+    LangGraph -->|Detect Intent| IntentDetect
+    IntentDetect -->|Route| Router
+    Router -->|General Chat| LLMRouter
+    Router -->|Jira Creation| JiraTool
+    Router -->|Confluence Creation| ConfluenceTool
+    Router -->|RAG Query| RAGService
+    
+    %% Service Connections
+    LangGraph -->|Memory Operations| MemoryMgr
+    LangGraph -->|Summarize| MemorySum
+    LangGraph -->|Tool Integration| MCPIntegration
+    MCPIntegration -->|Manage Clients| MCPClient
+    MCPIntegration -->|Wrap Tools| MCPTools
+    
+    %% Tool Connections
+    JiraTool -->|Fallback| JiraAPI
+    ConfluenceTool -->|Fallback| ConfluenceAPI
+    MCPTools -->|Primary| MCPServer
+    MCPServer -->|Proxy| JiraAPI
+    MCPServer -->|Proxy| ConfluenceAPI
+    
+    %% RAG Flow
+    RAGService -->|Load Documents| DocLoader
+    DocLoader -->|Read Files| DocStorage
+    DocLoader -->|Chunk Text| TextChunker
+    TextChunker -->|Generate Embeddings| EmbedGen
+    EmbedGen -->|Query LLM| OpenAIProvider
+    EmbedGen -->|Store Embeddings| VectorStore
+    VectorStore -->|Persist| VectorDB
+    RAGService -->|Cache Results| RAGCache
+    
+    %% LLM Flow
+    LLMRouter -->|Route Request| OpenAIProvider
+    LLMRouter -->|Route Request| GeminiProvider
+    LLMRouter -->|Route Request| DeepSeekProvider
+    OpenAIProvider -->|API Call| OpenAIAPI
+    GeminiProvider -->|API Call| GeminiAPI
+    DeepSeekProvider -->|API Call| DeepSeekAPI
+    
+    %% Evaluation Flow
+    LangGraph -->|Evaluate| JiraEval
+    JiraEval -->|Use LLM| LLMRouter
+    JiraEval -->|Query Jira| JiraAPI
+    
+    %% Storage Connections
+    MemoryMgr -->|Read/Write| MemoryDB
+    Chatbot -->|Load Config| Config
+    MCPClient -->|Load Config| Config
+    LLMRouter -->|Load Config| Config
+    
+    %% Styling
+    classDef uiLayer fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef appLayer fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef agentLayer fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef serviceLayer fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef toolLayer fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef llmLayer fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef ragLayer fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef externalLayer fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    classDef storageLayer fill:#eceff1,stroke:#263238,stroke-width:2px
+    
+    class WebUI,API uiLayer
+    class FlaskApp,Chatbot appLayer
+    class LangGraph,IntentDetect,Router agentLayer
+    class RAGService,MemoryMgr,MemorySum,MCPIntegration,MCPClient,JiraEval serviceLayer
+    class JiraTool,ConfluenceTool,MCPTools toolLayer
+    class LLMRouter,OpenAIProvider,GeminiProvider,DeepSeekProvider llmLayer
+    class DocLoader,TextChunker,EmbedGen,VectorStore,RAGCache ragLayer
+    class OpenAIAPI,GeminiAPI,DeepSeekAPI,JiraAPI,ConfluenceAPI,MCPServer externalLayer
+    class MemoryDB,VectorDB,Config,DocStorage storageLayer
+```
+

@@ -1,0 +1,52 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant WebUI
+    participant FlaskApp
+    participant Chatbot
+    participant Agent
+    participant IntentDetect
+    participant LLMRouter
+    participant RAGService
+    participant Tools
+    participant MemoryMgr
+    participant ExternalAPIs
+
+    User->>WebUI: Send Message
+    WebUI->>FlaskApp: POST /api/chat
+    FlaskApp->>Chatbot: get_response(message)
+    Chatbot->>Agent: Process with LangGraph
+    Agent->>IntentDetect: Detect Intent
+    
+    alt Intent: General Chat
+        IntentDetect->>LLMRouter: Route to LLM
+        LLMRouter->>ExternalAPIs: Call LLM Provider
+        ExternalAPIs-->>LLMRouter: Response
+        LLMRouter-->>Agent: Generated Response
+    else Intent: RAG Query
+        IntentDetect->>RAGService: Retrieve Context
+        RAGService->>RAGService: Search Vector Store
+        RAGService-->>Agent: Relevant Context
+        Agent->>LLMRouter: Generate with Context
+        LLMRouter->>ExternalAPIs: Call LLM Provider
+        ExternalAPIs-->>LLMRouter: Response
+        LLMRouter-->>Agent: Contextual Response
+    else Intent: Jira/Confluence Creation
+        IntentDetect->>Tools: Execute Tool
+        Tools->>ExternalAPIs: MCP or Direct API
+        ExternalAPIs-->>Tools: Result
+        Tools-->>Agent: Tool Result
+        Agent->>LLMRouter: Format Response
+        LLMRouter->>ExternalAPIs: Call LLM Provider
+        ExternalAPIs-->>LLMRouter: Formatted Response
+        LLMRouter-->>Agent: Final Response
+    end
+    
+    Agent->>MemoryMgr: Save Conversation
+    MemoryMgr-->>Agent: Saved
+    Agent-->>Chatbot: Response
+    Chatbot-->>FlaskApp: Response
+    FlaskApp-->>WebUI: JSON Response
+    WebUI-->>User: Display Response
+```
+

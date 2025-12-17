@@ -70,7 +70,7 @@ class ChatbotAgent:
                 resources_tool = self.mcp_integration.get_tool('getAccessibleAtlassianResources')
                 if resources_tool:
                     try:
-                        logger.debug("Calling getAccessibleAtlassianResources...")
+                        logger.info("Attempting to retrieve cloudId from getAccessibleAtlassianResources MCP tool...")
                         result = resources_tool.invoke(input={})
                         logger.debug(f"Response type: {type(result)}, length: {len(str(result)) if result else 0}")
                         
@@ -91,7 +91,7 @@ class ChatbotAgent:
                                     # Look for cloudId in the response
                                     if 'cloudId' in data:
                                         cloud_id = data['cloudId']
-                                        logger.info(f"Found cloudId in response: {cloud_id}")
+                                        logger.info(f"✓ Found cloudId in response: {cloud_id}")
                                         return cloud_id
                                     
                                     # Or check if it's a list of resources
@@ -102,12 +102,12 @@ class ChatbotAgent:
                                             logger.debug(f"First resource keys: {list(first_resource.keys()) if isinstance(first_resource, dict) else 'not a dict'}")
                                             if isinstance(first_resource, dict) and 'cloudId' in first_resource:
                                                 cloud_id = first_resource['cloudId']
-                                                logger.info(f"Found cloudId in first resource: {cloud_id}")
+                                                logger.info(f"✓ Found cloudId in first resource: {cloud_id}")
                                                 return cloud_id
                                             # Also check for 'id' field which might be cloudId
                                             if isinstance(first_resource, dict) and 'id' in first_resource:
                                                 cloud_id = first_resource['id']
-                                                logger.info(f"Found id in first resource (using as cloudId): {cloud_id}")
+                                                logger.info(f"✓ Found id in first resource (using as cloudId): {cloud_id}")
                                                 return cloud_id
                                 
                                 # If it's a list directly
@@ -116,7 +116,7 @@ class ChatbotAgent:
                                     if isinstance(first_item, dict):
                                         if 'cloudId' in first_item:
                                             cloud_id = first_item['cloudId']
-                                            logger.info(f"Found cloudId in list item: {cloud_id}")
+                                            logger.info(f"✓ Found cloudId in list item: {cloud_id}")
                                             return cloud_id
                                             
                             except json.JSONDecodeError as e:
@@ -136,7 +136,7 @@ class ChatbotAgent:
                 base_url = jira_url.split('/wiki')[0].split('/browse')[0].rstrip('/')
                 tenant_info_url = f"{base_url}/_edge/tenant_info"
                 
-                logger.debug(f"Attempting to fetch cloudId from tenant_info endpoint: {tenant_info_url}")
+                logger.info(f"Attempting to fetch cloudId from tenant_info endpoint: {tenant_info_url}")
                 
                 import urllib.request
                 import urllib.error
@@ -156,7 +156,7 @@ class ChatbotAgent:
                         data = json.loads(response.read().decode())
                         if isinstance(data, dict) and 'cloudId' in data:
                             cloud_id = data['cloudId']
-                            logger.info(f"Retrieved cloudId from tenant_info: {cloud_id}")
+                            logger.info(f"✓ Retrieved cloudId from tenant_info endpoint: {cloud_id}")
                             return cloud_id
                 except urllib.error.HTTPError as e:
                     logger.warning(f"HTTP error fetching tenant_info: {e.code} {e.reason}")
@@ -168,7 +168,7 @@ class ChatbotAgent:
             except Exception as e:
                 logger.warning(f"Exception constructing tenant_info URL: {e}")
         
-        logger.warning("Could not retrieve cloudId from any method")
+        logger.warning("✗ Could not retrieve cloudId from any method (MCP tool and tenant_info endpoint both failed)")
         return None
     
     def _get_space_id(self, space_key: str, cloud_id: Optional[str] = None) -> Optional[int]:
@@ -1663,12 +1663,12 @@ class ChatbotAgent:
                                 # Get cloudId early if this is a Rovo tool
                                 cloud_id = None
                                 if is_rovo_tool:
-                                    logger.debug("Detected Rovo tool - retrieving cloudId...")
+                                    logger.info("Detected Rovo tool - retrieving cloudId...")
                                     cloud_id = self._get_cloud_id()
                                     if cloud_id:
-                                        logger.info(f"cloudId retrieved: {cloud_id}")
+                                        logger.info(f"✓ cloudId successfully retrieved: {cloud_id}")
                                     else:
-                                        logger.warning("cloudId not available - tool call may fail")
+                                        logger.warning("✗ cloudId not available - tool call may fail")
                                 
                                 # Check what parameters the tool expects
                                 if tool_schema and 'inputSchema' in tool_schema:
@@ -1711,6 +1711,7 @@ class ChatbotAgent:
                                         if 'cloudid' in param_lower or param_name == 'cloudId':
                                             if cloud_id:
                                                 mcp_args[param_name] = cloud_id
+                                                logger.info(f"✓ Mapped cloudId to parameter '{param_name}': {cloud_id}")
                                             # If cloudId is required but not available, we'll handle it in the required params check
                                         # Map contentFormat parameter BEFORE content (to avoid matching 'content' in 'contentFormat')
                                         elif 'contentformat' in param_lower or param_name == 'contentFormat':
@@ -1799,9 +1800,10 @@ class ChatbotAgent:
                                                 # Use cloudId that was already retrieved (if available)
                                                 if cloud_id:
                                                     mcp_args[req_param] = cloud_id
+                                                    logger.info(f"✓ Using cloudId in tool parameter '{req_param}': {cloud_id}")
                                                 else:
                                                     # cloudId is required but not available
-                                                    logger.warning("cloudId required but not available. Tool call will fail, will fallback to direct API.")
+                                                    logger.warning("✗ cloudId required but not available. Tool call will fail, will fallback to direct API.")
                                                     # Don't add empty cloudId - let it fail and fallback gracefully
                                                     # This will cause the tool call to fail validation, triggering fallback
                                             elif 'contentformat' in req_param.lower() or req_param == 'contentFormat':
@@ -1828,6 +1830,7 @@ class ChatbotAgent:
                                     # Add cloudId if available
                                     if cloud_id:
                                         mcp_args['cloudId'] = cloud_id
+                                        logger.info(f"✓ Added cloudId to tool arguments: {cloud_id}")
                                 
                                 # Log the tool being used and arguments
                                 logger.debug(f"Tool Name: {mcp_confluence_tool.name}")

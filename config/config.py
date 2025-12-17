@@ -71,6 +71,15 @@ class Config:
     MAX_CONTEXT_MESSAGES: int = int(os.getenv('MAX_CONTEXT_MESSAGES', '50'))
     MEMORY_SUMMARY_THRESHOLD: int = int(os.getenv('MEMORY_SUMMARY_THRESHOLD', '30'))
     
+    # Mem0 Advanced Memory Configuration
+    MEM0_ENABLED: bool = os.getenv('MEM0_ENABLED', 'false').lower() == 'true'
+    MEM0_USER_ID: Optional[str] = os.getenv('MEM0_USER_ID', None)
+    MEM0_AGENT_ID: Optional[str] = os.getenv('MEM0_AGENT_ID', 'chatbot_agent')
+    MEM0_VECTOR_STORE_PATH: Optional[str] = os.getenv('MEM0_VECTOR_STORE_PATH', None)
+    MEM0_VECTOR_STORE_PROVIDER: str = os.getenv('MEM0_VECTOR_STORE_PROVIDER', 'chroma')
+    MEM0_LLM_MODEL: str = os.getenv('MEM0_LLM_MODEL', 'gpt-3.5-turbo')
+    MEM0_LLM_PROVIDER: str = os.getenv('MEM0_LLM_PROVIDER', 'openai')
+    
     # RAG (Retrieval-Augmented Generation) Configuration
     USE_RAG: bool = os.getenv('USE_RAG', 'true').lower() == 'true'
     RAG_CHUNK_SIZE: int = int(os.getenv('RAG_CHUNK_SIZE', '1000'))

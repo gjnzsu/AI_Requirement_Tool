@@ -1,0 +1,78 @@
+```mermaid
+graph LR
+    subgraph "User Layer"
+        User[👤 User]
+        Browser[🌐 Web Browser]
+    end
+
+    subgraph "Application Layer"
+        WebApp[Flask Web App]
+        Chatbot[Chatbot Core]
+    end
+
+    subgraph "Intelligence Layer"
+        Agent[LangGraph Agent]
+        Intent[Intent Detection]
+    end
+
+    subgraph "Capabilities"
+        LLM[Multi-Provider LLM]
+        RAG[RAG Service]
+        Tools[Tools<br/>Jira/Confluence]
+        Memory[Memory Manager]
+    end
+
+    subgraph "External Services"
+        LLMProviders[LLM APIs<br/>OpenAI/Gemini/DeepSeek]
+        Atlassian[Atlassian<br/>Jira/Confluence]
+        MCP[MCP Server]
+    end
+
+    subgraph "Data Layer"
+        DB[(Memory DB)]
+        Vector[(Vector Store)]
+        Config[Configuration]
+    end
+
+    User -->|HTTP| Browser
+    Browser -->|REST API| WebApp
+    WebApp --> Chatbot
+    Chatbot --> Agent
+    Agent --> Intent
+    
+    Intent -->|General Chat| LLM
+    Intent -->|RAG Query| RAG
+    Intent -->|Jira/Confluence| Tools
+    
+    LLM --> LLMProviders
+    RAG --> Vector
+    RAG --> LLMProviders
+    Tools --> MCP
+    Tools --> Atlassian
+    MCP --> Atlassian
+    
+    Agent --> Memory
+    Memory --> DB
+    
+    Chatbot --> Config
+    LLM --> Config
+    Tools --> Config
+    
+    style User fill:#e3f2fd
+    style Browser fill:#e3f2fd
+    style WebApp fill:#f3e5f5
+    style Chatbot fill:#f3e5f5
+    style Agent fill:#fff3e0
+    style Intent fill:#fff3e0
+    style LLM fill:#e8f5e9
+    style RAG fill:#e8f5e9
+    style Tools fill:#e8f5e9
+    style Memory fill:#e8f5e9
+    style LLMProviders fill:#f1f8e9
+    style Atlassian fill:#f1f8e9
+    style MCP fill:#f1f8e9
+    style DB fill:#eceff1
+    style Vector fill:#eceff1
+    style Config fill:#eceff1
+```
+
