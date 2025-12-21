@@ -16,22 +16,118 @@ from typing import Dict, List
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.chatbot import Chatbot
-from src.services.memory_manager import MemoryManager
+# Import with error handling to prevent startup failures
+try:
+    from src.chatbot import Chatbot
+except ImportError as e:
+    print(f"⚠ Warning: Could not import Chatbot: {e}")
+    Chatbot = None
+
+try:
+    from src.services.memory_manager import MemoryManager
+except ImportError as e:
+    print(f"⚠ Warning: Could not import MemoryManager: {e}")
+    MemoryManager = None
+
+try:
+    from src.auth import AuthService, UserService, token_required, get_current_user
+except ImportError as e:
+    print(f"⚠ Warning: Could not import auth modules: {e}")
+    print("  Authentication features will be disabled.")
+    AuthService = None
+    UserService = None
+    token_required = lambda f: f  # No-op decorator
+    get_current_user = lambda: None
+
 from config.config import Config
+
+# Try to import flasgger for Swagger documentation
+try:
+    from flasgger import Swagger
+    SWAGGER_AVAILABLE = True
+except ImportError:
+    SWAGGER_AVAILABLE = False
+    print("⚠ Flasgger not installed. Swagger documentation will not be available.")
+    print("   Install with: pip install flasgger")
 
 app = Flask(__name__, 
             template_folder='web/templates',
             static_folder='web/static')
 CORS(app)
 
+# Initialize Swagger if available
+if SWAGGER_AVAILABLE:
+    swagger_config = {
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec",
+                "route": "/apispec.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/api/docs"
+    }
+    
+    swagger_template = {
+        "swagger": "2.0",
+        "info": {
+            "title": "Chatbot API",
+            "description": "REST API for Generative AI Chatbot with authentication, conversation management, and multi-provider LLM support (OpenAI, Gemini, DeepSeek).",
+            "version": "1.0.0",
+            "contact": {
+                "name": "API Support"
+            }
+        },
+        "securityDefinitions": {
+            "Bearer": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\""
+            }
+        },
+        "security": [
+            {
+                "Bearer": []
+            }
+        ]
+    }
+    
+    swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 # Global chatbot instance
 chatbot_instance = None
 memory_manager = None
 conversations = {}  # Fallback in-memory storage when persistent memory is disabled
 
+# Initialize authentication services
+auth_service = None
+user_service = None
+
+if AuthService is not None and UserService is not None:
+    try:
+        auth_service = AuthService()
+        user_service = UserService(db_path=Config.AUTH_DB_PATH)
+        print("✓ Initialized Authentication services")
+    except ValueError as e:
+        print(f"⚠ Authentication initialization warning: {e}")
+        print("   Authentication will be disabled. Set JWT_SECRET_KEY in .env to enable.")
+        auth_service = None
+        user_service = None
+    except Exception as e:
+        print(f"⚠ Failed to initialize Authentication services: {e}")
+        print("   Authentication will be disabled.")
+        auth_service = None
+        user_service = None
+else:
+    print("⚠ Authentication modules not available. Authentication will be disabled.")
+
 # Initialize memory manager if enabled
-if Config.USE_PERSISTENT_MEMORY:
+if MemoryManager is not None and Config.USE_PERSISTENT_MEMORY:
     try:
         memory_manager = MemoryManager(
             db_path=Config.MEMORY_DB_PATH,
@@ -44,11 +140,18 @@ if Config.USE_PERSISTENT_MEMORY:
         print("   Falling back to in-memory storage")
 else:
     memory_manager = None
-    print("⚠ Persistent memory disabled (USE_PERSISTENT_MEMORY=false)")
+    if MemoryManager is None:
+        print("⚠ MemoryManager not available. Using in-memory storage.")
+    else:
+        print("⚠ Persistent memory disabled (USE_PERSISTENT_MEMORY=false)")
 
 def get_chatbot():
     """Get or create chatbot instance."""
     global chatbot_instance
+    
+    if Chatbot is None:
+        raise RuntimeError("Chatbot module is not available. Please install required dependencies.")
+    
     if chatbot_instance is None:
         print("=" * 70)
         print("🤖 Creating Chatbot Instance")
@@ -88,9 +191,332 @@ def index():
     """Serve the main chat interface."""
     return render_template('index.html')
 
+@app.route('/login')
+def login_page():
+    """Serve the login page."""
+    return render_template('login.html')
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    # Check if authentication is enabled
+    if not auth_service or not user_service:
+        return jsonify({'error': 'Authentication is not configured. Please set JWT_SECRET_KEY in your .env file.'}), 503
+    """
+    User Login
+    ---
+    tags:
+      - Authentication
+    summary: Authenticate user and receive JWT token
+    description: Login with username and password to receive a JWT authentication token. This token must be included in the Authorization header for protected endpoints.
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: credentials
+        description: User login credentials
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              description: Username
+              example: admin
+            password:
+              type: string
+              format: password
+              description: User password
+              example: password123
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT authentication token (valid for 24 hours by default)
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6ImFkbWluIiwiZXhwIjoxNzA0MTAwMDAwfQ.example
+            user:
+              type: object
+              description: User information
+              properties:
+                id:
+                  type: integer
+                  description: User ID
+                  example: 1
+                username:
+                  type: string
+                  description: Username
+                  example: admin
+                email:
+                  type: string
+                  description: Email address
+                  example: admin@example.com
+      400:
+        description: Missing username or password
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Username and password are required
+      401:
+        description: Invalid credentials
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Invalid username or password
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        # Check if authentication services are available
+        if not auth_service or not user_service:
+            return jsonify({
+                'error': 'Authentication is not configured. Please set JWT_SECRET_KEY in your .env file.'
+            }), 503
+        
+        # Authenticate user
+        user = user_service.authenticate_user(username, password)
+        
+        if not user:
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        # Generate JWT token
+        token = auth_service.generate_token(user['id'], user['username'])
+        
+        return jsonify({
+            'token': token,
+            'user': {
+                'id': user['id'],
+                'username': user['username'],
+                'email': user['email']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+@token_required
+def logout():
+    # Check if authentication is enabled
+    if not auth_service or not user_service:
+        return jsonify({'error': 'Authentication is not configured.'}), 503
+    """
+    User Logout
+    ---
+    tags:
+      - Authentication
+    summary: Logout current user
+    description: Logout endpoint. Note that token removal is handled client-side (localStorage). This endpoint confirms logout on the server side.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: Logout successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Logged out successfully
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+    """
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/api/auth/me', methods=['GET'])
+@token_required
+def get_current_user_info():
+    """
+    Get Current User
+    ---
+    tags:
+      - Authentication
+    summary: Get current authenticated user information
+    description: Returns information about the currently authenticated user based on the JWT token.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: User information retrieved successfully
+        schema:
+          type: object
+          properties:
+            user:
+              type: object
+              description: User details
+              properties:
+                id:
+                  type: integer
+                  description: User ID
+                  example: 1
+                username:
+                  type: string
+                  description: Username
+                  example: admin
+                email:
+                  type: string
+                  description: Email address
+                  example: admin@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: Account creation timestamp
+                  example: "2024-01-01T00:00:00"
+                is_active:
+                  type: boolean
+                  description: Account active status
+                  example: true
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Invalid or expired token. Please login again.
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: User not found
+    """
+    user = get_current_user()
+    if user:
+        return jsonify({'user': user})
+    return jsonify({'error': 'User not found'}), 404
+
 @app.route('/api/chat', methods=['POST'])
+@token_required
 def chat():
-    """Handle chat messages."""
+    """
+    Send Chat Message
+    ---
+    tags:
+      - Chat
+    summary: Send a message to the chatbot
+    description: Send a message to the chatbot and receive an AI-generated response. Supports multiple LLM providers (OpenAI, Gemini, DeepSeek). The conversation context is maintained if a conversation_id is provided.
+    security:
+      - Bearer: []
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: message
+        description: Chat message and conversation context
+        required: true
+        schema:
+          type: object
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: User message to send to the chatbot
+              example: "What is Python?"
+            conversation_id:
+              type: string
+              description: Optional conversation ID to continue an existing conversation. If not provided, a new conversation will be created.
+              example: "conv_20240101_120000"
+            model:
+              type: string
+              description: LLM provider to use for this request
+              enum: [openai, gemini, deepseek]
+              default: openai
+              example: openai
+    responses:
+      200:
+        description: Chat response received successfully
+        schema:
+          type: object
+          properties:
+            response:
+              type: string
+              description: AI-generated response from the chatbot
+              example: "Python is a high-level, interpreted programming language known for its simplicity and readability..."
+            conversation_id:
+              type: string
+              description: Conversation ID (created if not provided in request)
+              example: "conv_20240101_120000"
+            timestamp:
+              type: string
+              format: date-time
+              description: Response timestamp
+              example: "2024-01-01T12:00:00"
+      400:
+        description: Invalid request (missing message or invalid model)
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Message is required
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      429:
+        description: Rate limit exceeded
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Rate limit exceeded. The API has received too many requests. Please wait a few minutes and try again, or switch to a different model.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         data = request.json
         message = data.get('message', '').strip()
@@ -187,8 +613,70 @@ def chat():
         return jsonify({'error': error_message}), status_code
 
 @app.route('/api/conversations', methods=['GET'])
+@token_required
 def get_conversations():
-    """Get list of all conversations."""
+    """
+    List All Conversations
+    ---
+    tags:
+      - Conversations
+    summary: Get list of all conversations
+    description: Retrieve all conversations for the authenticated user, ordered by most recent update. Returns conversation metadata including title, creation date, and message count.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: List of conversations retrieved successfully
+        schema:
+          type: object
+          properties:
+            conversations:
+              type: array
+              description: List of conversations
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique conversation ID
+                    example: "conv_20240101_120000"
+                  title:
+                    type: string
+                    description: Conversation title
+                    example: "Python Questions"
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: Conversation creation timestamp
+                    example: "2024-01-01T12:00:00"
+                  updated_at:
+                    type: string
+                    format: date-time
+                    description: Last update timestamp
+                    example: "2024-01-01T13:30:00"
+                  message_count:
+                    type: integer
+                    description: Number of messages in the conversation
+                    example: 5
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         if memory_manager:
             # Get conversations from persistent storage
@@ -222,8 +710,94 @@ def get_conversations():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/conversations/<conversation_id>', methods=['GET'])
+@token_required
 def get_conversation(conversation_id):
-    """Get a specific conversation."""
+    """
+    Get Conversation
+    ---
+    tags:
+      - Conversations
+    summary: Get a specific conversation by ID
+    description: Retrieve a conversation with all its messages. Returns the full conversation history including user messages and AI responses.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    parameters:
+      - in: path
+        name: conversation_id
+        type: string
+        required: true
+        description: Unique conversation ID
+        example: "conv_20240101_120000"
+    responses:
+      200:
+        description: Conversation retrieved successfully
+        schema:
+          type: object
+          properties:
+            conversation:
+              type: object
+              description: Full conversation details
+              properties:
+                id:
+                  type: string
+                  example: "conv_20240101_120000"
+                title:
+                  type: string
+                  example: "Python Questions"
+                messages:
+                  type: array
+                  description: List of messages in the conversation
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum: [user, assistant]
+                        description: Message sender role
+                        example: "user"
+                      content:
+                        type: string
+                        description: Message content
+                        example: "What is Python?"
+                      timestamp:
+                        type: string
+                        format: date-time
+                        example: "2024-01-01T12:00:00"
+                created_at:
+                  type: string
+                  format: date-time
+                  example: "2024-01-01T12:00:00"
+                updated_at:
+                  type: string
+                  format: date-time
+                  example: "2024-01-01T13:30:00"
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      404:
+        description: Conversation not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Conversation not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         if memory_manager:
             conversation = memory_manager.get_conversation(conversation_id)
@@ -243,8 +817,60 @@ def get_conversation(conversation_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/conversations/<conversation_id>', methods=['DELETE'])
+@token_required
 def delete_conversation(conversation_id):
-    """Delete a conversation."""
+    """
+    Delete Conversation
+    ---
+    tags:
+      - Conversations
+    summary: Delete a conversation
+    description: Permanently delete a conversation by ID. This action cannot be undone.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    parameters:
+      - in: path
+        name: conversation_id
+        type: string
+        required: true
+        description: Unique conversation ID to delete
+        example: "conv_20240101_120000"
+    responses:
+      200:
+        description: Conversation deleted successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      404:
+        description: Conversation not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Conversation not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         if memory_manager:
             conversation = memory_manager.get_conversation(conversation_id)
@@ -264,8 +890,45 @@ def delete_conversation(conversation_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/conversations', methods=['DELETE'])
+@token_required
 def clear_all_conversations():
-    """Clear all conversations."""
+    """
+    Clear All Conversations
+    ---
+    tags:
+      - Conversations
+    summary: Delete all conversations
+    description: Permanently delete all conversations for the authenticated user. This action cannot be undone. Use with caution.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: All conversations cleared successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         if memory_manager:
             memory_manager.delete_all_conversations()
@@ -277,8 +940,87 @@ def clear_all_conversations():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/conversations/<conversation_id>/title', methods=['PUT'])
+@token_required
 def update_conversation_title(conversation_id):
-    """Update conversation title."""
+    """
+    Update Conversation Title
+    ---
+    tags:
+      - Conversations
+    summary: Update conversation title
+    description: Change the title of a conversation. Useful for organizing and identifying conversations.
+    security:
+      - Bearer: []
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: path
+        name: conversation_id
+        type: string
+        required: true
+        description: Unique conversation ID
+        example: "conv_20240101_120000"
+      - in: body
+        name: title
+        description: New title for the conversation
+        required: true
+        schema:
+          type: object
+          required:
+            - title
+          properties:
+            title:
+              type: string
+              description: New conversation title
+              example: "Updated Conversation Title"
+    responses:
+      200:
+        description: Title updated successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            title:
+              type: string
+              description: Updated title
+              example: "Updated Conversation Title"
+      400:
+        description: Title is required or invalid
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Title is required
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      404:
+        description: Conversation not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Conversation not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         data = request.json
         new_title = data.get('title', '').strip()
@@ -304,8 +1046,49 @@ def update_conversation_title(conversation_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/new-chat', methods=['POST'])
+@token_required
 def new_chat():
-    """Create a new chat conversation."""
+    """
+    Create New Chat
+    ---
+    tags:
+      - Conversations
+    summary: Create a new chat conversation
+    description: Initialize a new conversation session. Returns a new conversation ID that can be used in subsequent chat requests.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: New conversation created successfully
+        schema:
+          type: object
+          properties:
+            conversation_id:
+              type: string
+              description: Unique conversation ID for the new conversation
+              example: "conv_20240101_120000"
+            success:
+              type: boolean
+              example: true
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         conversation_id = generate_conversation_id()
         
@@ -327,8 +1110,54 @@ def new_chat():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/current-model', methods=['GET'])
+@token_required
 def get_current_model():
-    """Get the current model being used by the chatbot."""
+    """
+    Get Current Model
+    ---
+    tags:
+      - Models
+    summary: Get current LLM model
+    description: Retrieve the currently active LLM provider and list of available models. The model can be changed per request using the model parameter in the chat endpoint.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    responses:
+      200:
+        description: Current model information retrieved successfully
+        schema:
+          type: object
+          properties:
+            model:
+              type: string
+              description: Currently active LLM provider
+              enum: [openai, gemini, deepseek]
+              example: openai
+            available_models:
+              type: array
+              description: List of available LLM providers
+              items:
+                type: string
+                enum: [openai, gemini, deepseek]
+              example: [openai, gemini, deepseek]
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         chatbot = get_chatbot()
         return jsonify({
@@ -339,8 +1168,92 @@ def get_current_model():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/search', methods=['GET'])
+@token_required
 def search_conversations():
-    """Search conversations."""
+    """
+    Search Conversations
+    ---
+    tags:
+      - Conversations
+    summary: Search conversations
+    description: Search conversations by title or message content. Returns matching conversations ordered by relevance.
+    security:
+      - Bearer: []
+    produces:
+      - application/json
+    parameters:
+      - in: query
+        name: q
+        type: string
+        required: true
+        description: Search query string
+        example: "Python"
+      - in: query
+        name: limit
+        type: integer
+        required: false
+        default: 10
+        description: Maximum number of results to return
+        example: 10
+    responses:
+      200:
+        description: Search completed successfully
+        schema:
+          type: object
+          properties:
+            conversations:
+              type: array
+              description: List of matching conversations
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique conversation ID
+                    example: "conv_20240101_120000"
+                  title:
+                    type: string
+                    description: Conversation title
+                    example: "Python Questions"
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: Conversation creation timestamp
+                    example: "2024-01-01T12:00:00"
+                  updated_at:
+                    type: string
+                    format: date-time
+                    description: Last update timestamp
+                    example: "2024-01-01T13:30:00"
+                  message_count:
+                    type: integer
+                    description: Number of messages in the conversation
+                    example: 5
+      400:
+        description: Search query is required
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Search query is required
+      401:
+        description: Unauthorized - Invalid or missing token
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Authentication required. Please provide a valid token.
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Internal server error
+    """
     try:
         query = request.args.get('q', '').strip()
         if not query:

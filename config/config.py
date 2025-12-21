@@ -99,6 +99,11 @@ class Config:
     ENABLE_DEBUG_LOGGING: bool = os.getenv('ENABLE_DEBUG_LOGGING', 'false').lower() in ('true', '1', 'yes')
     LOG_FILE: Optional[str] = os.getenv('LOG_FILE', None)  # Optional log file path
     
+    # Authentication Configuration
+    JWT_SECRET_KEY: str = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
+    JWT_EXPIRATION_HOURS: int = int(os.getenv('JWT_EXPIRATION_HOURS', '24'))
+    AUTH_DB_PATH: Optional[str] = os.getenv('AUTH_DB_PATH', None)  # Path to auth database, None uses default
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""

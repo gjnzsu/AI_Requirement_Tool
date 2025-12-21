@@ -1,31 +1,57 @@
 # Core dependencies for Jira Maturity Evaluator Service
-jira>=3.5.2
-openai>=1.12.0
-google-generativeai>=0.3.0  # For Gemini support
-python-dotenv>=1.0.0
-requests>=2.26.0
+jira>=3.5.2,<4.0.0
+openai>=1.12.0,<2.0.0
+# Google Generative AI - use compatible versions
+# Note: There's a version conflict:
+# - google-generativeai 0.8.5 requires google-ai-generativelanguage==0.6.15 (exact)
+# - langchain-google-genai may work with 0.6.15 or need >=0.9.0
+# Strategy: Let google-generativeai install its required version, then test langchain-google-genai
+google-generativeai>=0.8.0,<1.0.0  # For Gemini support
+# Don't pin google-ai-generativelanguage - let it be resolved by dependencies
+# If langchain-google-genai fails, it may need to be installed separately
+python-dotenv>=1.0.0,<2.0.0
+requests>=2.26.0,<3.0.0
 
 # Dependencies for original chatbot (optional - only needed if using chatbot.py)
-Flask>=2.0.1
-flask-cors>=3.1.0
-transformers>=4.11.3
-numpy>=1.21.2
+Flask>=2.0.1,<4.0.0
+flask-cors>=3.1.0,<5.0.0
+transformers>=4.11.3,<5.0.0
+numpy>=1.21.2,<2.0.0
+
+# Authentication dependencies
+PyJWT>=2.8.0,<3.0.0
+bcrypt>=4.0.0,<5.0.0
+
+# API Documentation
+flasgger>=0.9.7,<1.0.0
 
 # RAG (Retrieval-Augmented Generation) dependencies
-PyPDF2>=3.0.0  # For PDF document support
+PyPDF2>=3.0.0,<4.0.0  # For PDF document support
 
 # LangGraph for agent framework
-langgraph>=0.2.0
-langchain>=1.0.0
-langchain-openai>=1.0.0  # Updated for compatibility
-langchain-google-genai>=1.0.0  # For Gemini support
-langchain-core>=1.0.0
+# Note: langchain 1.1.2 requires langgraph>=1.0.2,<1.1.0
+langgraph>=1.0.2,<1.1.0  # Updated to match langchain requirements
+langchain>=1.0.0,<2.0.0
+langchain-openai>=1.0.0,<2.0.0  # Updated for compatibility
+# langchain-google-genai - Optional, may have version conflicts
+# Install separately if needed: pip install langchain-google-genai
+# Note: May conflict with google-ai-generativelanguage version
+# langchain-google-genai>=1.0.0,<3.0.0  # Commented out - install separately if needed
+langchain-core>=1.0.0,<2.0.0
 
 # MCP (Model Context Protocol) SDK
-mcp>=0.9.0  # Official MCP Python SDK from modelcontextprotocol/python-sdk
+mcp>=0.9.0,<1.0.0  # Official MCP Python SDK from modelcontextprotocol/python-sdk
 
-# Mem0 - Advanced Memory Management for AI Agents
-mem0ai>=1.0.0  # Open-source memory layer for AI agents
+# Protobuf version constraint (required for Google packages compatibility)
+# Note: mem0ai requires protobuf>=5.29.0, but Google packages require <5.0.0
+# mem0ai is optional, so we prioritize Google packages compatibility
+protobuf>=3.19.5,<5.0.0
+
+# Mem0 - Advanced Memory Management for AI Agents (OPTIONAL)
+# NOTE: mem0ai has protobuf dependency conflicts with Google packages
+# If you need mem0ai, install it separately: pip install mem0ai --no-deps
+# Then manually resolve protobuf conflicts
+# mem0ai>=1.0.0,<2.0.0  # Commented out due to protobuf conflicts
 
 # PyTorch - Install separately if needed for the chatbot
 # Note: PyTorch installation varies by platform. Install using one of these methods:

@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load current model from backend
 async function loadCurrentModel() {
     try {
-        const response = await fetch('/api/current-model');
+        const response = await auth.authenticatedFetch('/api/current-model');
         const data = await response.json();
         
         if (response.ok && data.model) {
@@ -113,16 +113,16 @@ async function sendMessage() {
     const loadingId = addMessageToUI('assistant', '', true);
     
     try {
-        const response = await fetch('/api/chat', {
+        const response = await auth.authenticatedFetch('/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
+            body: {
                 message: message,
                 conversation_id: currentConversationId,
                 model: currentModel
-            })
+            }
         });
         
         const data = await response.json();
@@ -217,7 +217,7 @@ function addMessageToUI(role, content, isLoading = false) {
 // Load conversations list
 async function loadConversations() {
     try {
-        const response = await fetch('/api/conversations');
+        const response = await auth.authenticatedFetch('/api/conversations');
         const data = await response.json();
         
         if (response.ok) {
@@ -268,7 +268,7 @@ function renderConversationsList(filtered = null) {
 // Load a specific conversation
 async function loadConversation(conversationId) {
     try {
-        const response = await fetch(`/api/conversations/${conversationId}`);
+        const response = await auth.authenticatedFetch(`/api/conversations/${conversationId}`);
         const data = await response.json();
         
         if (response.ok) {
@@ -296,7 +296,7 @@ async function loadConversation(conversationId) {
 // Create new chat
 async function createNewChat() {
     try {
-        const response = await fetch('/api/new-chat', {
+        const response = await auth.authenticatedFetch('/api/new-chat', {
             method: 'POST'
         });
         const data = await response.json();
@@ -319,7 +319,7 @@ async function deleteConversation(conversationId) {
     }
     
     try {
-        const response = await fetch(`/api/conversations/${conversationId}`, {
+        const response = await auth.authenticatedFetch(`/api/conversations/${conversationId}`, {
             method: 'DELETE'
         });
         
@@ -342,7 +342,7 @@ async function clearAllConversations() {
     }
     
     try {
-        const response = await fetch('/api/conversations', {
+        const response = await auth.authenticatedFetch('/api/conversations', {
             method: 'DELETE'
         });
         
@@ -366,12 +366,12 @@ async function editConversationTitle(conversationId) {
     if (!newTitle || newTitle.trim() === '') return;
     
     try {
-        const response = await fetch(`/api/conversations/${conversationId}/title`, {
+        const response = await auth.authenticatedFetch(`/api/conversations/${conversationId}/title`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ title: newTitle.trim() })
+            body: { title: newTitle.trim() }
         });
         
         if (response.ok) {
@@ -433,16 +433,16 @@ async function regenerateMessage(messageId) {
         const loadingId = addMessageToUI('assistant', '', true);
         
         try {
-            const response = await fetch('/api/chat', {
+            const response = await auth.authenticatedFetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
+                body: {
                     message: userMessage,
                     conversation_id: currentConversationId,
                     model: currentModel
-                })
+                }
             });
             
             const data = await response.json();

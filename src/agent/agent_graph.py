@@ -10,7 +10,16 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    LANGCHAIN_GOOGLE_GENAI_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_GOOGLE_GENAI_AVAILABLE = False
+    ChatGoogleGenerativeAI = None
+except Exception as e:
+    # Handle other import errors (e.g., version conflicts)
+    LANGCHAIN_GOOGLE_GENAI_AVAILABLE = False
+    ChatGoogleGenerativeAI = None
 import json
 import sys
 import concurrent.futures
@@ -28,6 +37,11 @@ from config.config import Config
 from src.utils.logger import get_logger
 
 # Initialize logger for this module
+logger = get_logger('chatbot.agent')
+
+# Log langchain-google-genai availability
+if not LANGCHAIN_GOOGLE_GENAI_AVAILABLE:
+    logger.warning("langchain_google_genai not available. Gemini will use direct google-generativeai integration.")
 logger = get_logger('chatbot.agent')
 
 
@@ -406,6 +420,15 @@ class ChatbotAgent:
             model_name = model or Config.GEMINI_MODEL
             if not api_key:
                 raise ValueError("GEMINI_API_KEY not found in configuration")
+            
+            if not LANGCHAIN_GOOGLE_GENAI_AVAILABLE:
+                raise ImportError(
+                    "langchain_google_genai is not available. "
+                    "Install with: pip install langchain-google-genai. "
+                    "Note: There may be version conflicts with google-ai-generativelanguage. "
+                    "The chatbot will still work with Gemini using direct google-generativeai integration."
+                )
+            
             try:
                 # Try with timeout and max_retries
                 return ChatGoogleGenerativeAI(

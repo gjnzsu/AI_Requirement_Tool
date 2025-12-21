@@ -52,6 +52,9 @@
                     <div class="avatar">RG</div>
                     <span>Raymond Gao</span>
                 </div>
+                <button class="btn-logout" id="logoutBtn" style="margin-top: 10px; width: 100%; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </aside>
         
@@ -88,7 +91,39 @@
         </aside>
     </div>
     
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Check authentication on page load
+        if (!auth.isAuthenticated()) {
+            window.location.href = '/login';
+        } else {
+            // Update user profile display
+            const currentUser = auth.getCurrentUser();
+            if (currentUser) {
+                const userProfile = document.querySelector('.user-profile span');
+                const userAvatar = document.querySelector('.user-profile .avatar');
+                if (userProfile) {
+                    userProfile.textContent = currentUser.username || 'User';
+                }
+                if (userAvatar && currentUser.username) {
+                    // Set avatar initials
+                    const initials = currentUser.username.substring(0, 2).toUpperCase();
+                    userAvatar.textContent = initials;
+                }
+            }
+            
+            // Setup logout button
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to logout?')) {
+                        auth.logout();
+                    }
+                });
+            }
+        }
+    </script>
 </body>
 </html>
 
