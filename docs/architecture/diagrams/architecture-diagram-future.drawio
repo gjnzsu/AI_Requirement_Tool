@@ -20,91 +20,94 @@
           <mxGeometry height="100" width="200" x="610" y="190" as="geometry" />
         </mxCell>
         <mxCell id="message-queue" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Message Queue&#xa;(Kafka/RabbitMQ)&#xa;&#xa;• Async Processing&#xa;• Event Streaming&#xa;• Task Queue&#xa;• Event Sourcing" vertex="1">
-          <mxGeometry height="120" width="200" x="150" y="160" as="geometry" />
+          <mxGeometry height="120" width="200" x="610" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="Bap80YPr6g50JQv_gCBA-1" edge="1" parent="1" source="chatbot-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="redis-cache">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="chatbot-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;" value="Chatbot Service&#xa;(Microservice)&#xa;&#xa;• Request Handling&#xa;• Conversation Management&#xa;• Provider Switching" vertex="1">
-          <mxGeometry height="100" width="200" x="900" y="340" as="geometry" />
+          <mxGeometry height="100" width="200" x="900" y="390" as="geometry" />
         </mxCell>
         <mxCell id="agent-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="Agent Service&#xa;(LangGraph)&#xa;&#xa;• Intent Detection&#xa;• Tool Orchestration&#xa;• Decision Routing" vertex="1">
-          <mxGeometry height="100" width="200" x="900" y="480" as="geometry" />
+          <mxGeometry height="100" width="200" x="900" y="670" as="geometry" />
         </mxCell>
         <mxCell id="llm-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="LLM Service&#xa;&#xa;• Multi-Provider Router&#xa;• Fallback Management&#xa;• Cost Optimization" vertex="1">
-          <mxGeometry height="100" width="200" x="300" y="480" as="geometry" />
+          <mxGeometry height="100" width="200" x="300" y="670" as="geometry" />
         </mxCell>
         <mxCell id="rag-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;" value="RAG Service&#xa;&#xa;• Multi-Vector Stores&#xa;• Hybrid Search&#xa;• Document Ingestion&#xa;• Embedding Pipeline" vertex="1">
-          <mxGeometry height="120" width="200" x="900" y="690" as="geometry" />
+          <mxGeometry height="120" width="200" x="900" y="880" as="geometry" />
         </mxCell>
         <mxCell id="memory-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Memory Service&#xa;&#xa;• Conversation Storage&#xa;• Summarization&#xa;• Context Management" vertex="1">
-          <mxGeometry height="100" width="200" x="1260" y="340" as="geometry" />
+          <mxGeometry height="100" width="200" x="1260" y="390" as="geometry" />
         </mxCell>
         <mxCell id="tool-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;" value="Tool Service&#xa;&#xa;• MCP Integration&#xa;• Plugin System&#xa;• Tool Registry&#xa;• Dynamic Loading" vertex="1">
-          <mxGeometry height="120" width="200" x="1260" y="470" as="geometry" />
+          <mxGeometry height="120" width="200" x="1260" y="660" as="geometry" />
         </mxCell>
         <mxCell id="analytics-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;" value="Analytics Service&#xa;&#xa;• Usage Metrics&#xa;• Performance Tracking&#xa;• User Behavior&#xa;• A/B Testing" vertex="1">
-          <mxGeometry height="120" width="200" x="1560" y="640" as="geometry" />
+          <mxGeometry height="120" width="200" x="1560" y="660" as="geometry" />
         </mxCell>
         <mxCell id="ml-pipeline" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="ML Pipeline Service&#xa;&#xa;• Model Fine-tuning&#xa;• Continuous Learning&#xa;• Feedback Loop&#xa;• Model Versioning" vertex="1">
-          <mxGeometry height="120" width="200" x="380" y="190" as="geometry" />
+          <mxGeometry height="120" width="200" x="300" y="380" as="geometry" />
         </mxCell>
         <mxCell id="redis-cache" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Redis Cache&#xa;&#xa;• Response Caching&#xa;• Session Storage&#xa;• Rate Limiting&#xa;• Hot Data" vertex="1">
-          <mxGeometry height="120" width="200" x="610" y="330" as="geometry" />
+          <mxGeometry height="120" width="200" x="1260" y="510" as="geometry" />
         </mxCell>
         <mxCell id="postgres-primary" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;align=left;" value="PostgreSQL&#xa;(Primary)&#xa;&#xa;• User Data&#xa;• Conversations&#xa;• Metadata" vertex="1">
-          <mxGeometry height="100" width="180" x="1570" y="480" as="geometry" />
+          <mxGeometry height="100" width="180" x="1570" y="530" as="geometry" />
         </mxCell>
         <mxCell id="postgres-replica" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;align=left;" value="PostgreSQL&#xa;(Replica)&#xa;&#xa;• Read Replicas&#xa;• High Availability" vertex="1">
-          <mxGeometry height="100" width="180" x="1800" y="480" as="geometry" />
+          <mxGeometry height="100" width="180" x="1800" y="530" as="geometry" />
         </mxCell>
         <mxCell id="chroma-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;" value="ChromaDB&#xa;(Vector Store)" vertex="1">
-          <mxGeometry height="60" width="140" x="710" y="930" as="geometry" />
+          <mxGeometry height="60" width="140" x="710" y="1120" as="geometry" />
         </mxCell>
         <mxCell id="pinecone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;" value="Pinecone&#xa;(Cloud Vector DB)" vertex="1">
-          <mxGeometry height="60" width="140" x="930" y="930" as="geometry" />
+          <mxGeometry height="60" width="140" x="930" y="1120" as="geometry" />
         </mxCell>
         <mxCell id="weaviate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;" value="Weaviate&#xa;(Vector DB)" vertex="1">
-          <mxGeometry height="60" width="140" x="1160" y="930" as="geometry" />
+          <mxGeometry height="60" width="140" x="1160" y="1120" as="geometry" />
         </mxCell>
         <mxCell id="openai-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="OpenAI API" vertex="1">
-          <mxGeometry height="40" width="120" x="200" y="820" as="geometry" />
+          <mxGeometry height="40" width="120" x="200" y="1010" as="geometry" />
         </mxCell>
         <mxCell id="gemini-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Gemini API" vertex="1">
-          <mxGeometry height="40" width="120" x="340" y="820" as="geometry" />
+          <mxGeometry height="40" width="120" x="340" y="1010" as="geometry" />
         </mxCell>
         <mxCell id="deepseek-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="DeepSeek API" vertex="1">
-          <mxGeometry height="40" width="120" x="480" y="820" as="geometry" />
+          <mxGeometry height="40" width="120" x="480" y="1010" as="geometry" />
         </mxCell>
         <mxCell id="jira-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=2;fontSize=12;" value="Jira API" vertex="1">
-          <mxGeometry height="40" width="120" x="1150" y="800" as="geometry" />
+          <mxGeometry height="40" width="120" x="1150" y="990" as="geometry" />
         </mxCell>
         <mxCell id="confluence-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=2;fontSize=12;" value="Confluence API" vertex="1">
-          <mxGeometry height="40" width="120" x="1300" y="800" as="geometry" />
+          <mxGeometry height="40" width="120" x="1300" y="990" as="geometry" />
         </mxCell>
         <mxCell id="slack-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=2;fontSize=12;" value="Slack API" vertex="1">
-          <mxGeometry height="40" width="120" x="1460" y="800" as="geometry" />
+          <mxGeometry height="40" width="120" x="1460" y="990" as="geometry" />
         </mxCell>
         <mxCell id="prometheus" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=2;fontSize=11;" value="Prometheus&#xa;(Metrics)" vertex="1">
-          <mxGeometry height="60" width="140" x="200" y="1310" as="geometry" />
+          <mxGeometry height="60" width="140" x="200" y="1240" as="geometry" />
         </mxCell>
         <mxCell id="grafana" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=2;fontSize=11;" value="Grafana&#xa;(Dashboards)" vertex="1">
-          <mxGeometry height="60" width="140" x="360" y="1310" as="geometry" />
+          <mxGeometry height="60" width="140" x="360" y="1240" as="geometry" />
         </mxCell>
         <mxCell id="elk-stack" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=2;fontSize=11;" value="ELK Stack&#xa;(Logging)" vertex="1">
-          <mxGeometry height="60" width="140" x="520" y="1310" as="geometry" />
+          <mxGeometry height="60" width="140" x="520" y="1240" as="geometry" />
         </mxCell>
         <mxCell id="jaeger" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=2;fontSize=11;" value="Jaeger&#xa;(Tracing)" vertex="1">
-          <mxGeometry height="60" width="140" x="680" y="1310" as="geometry" />
+          <mxGeometry height="60" width="140" x="680" y="1240" as="geometry" />
         </mxCell>
         <mxCell id="ci-cd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="CI/CD Pipeline&#xa;&#xa;• GitLab CI / GitHub Actions&#xa;• Automated Testing&#xa;• Container Build&#xa;• K8s Deployment" vertex="1">
-          <mxGeometry height="120" width="200" x="200" y="1430" as="geometry" />
+          <mxGeometry height="120" width="200" x="200" y="1360" as="geometry" />
         </mxCell>
         <mxCell id="container-registry" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Container Registry&#xa;(Docker Hub/ECR)&#xa;&#xa;• Image Storage&#xa;• Version Control" vertex="1">
-          <mxGeometry height="100" width="200" x="420" y="1430" as="geometry" />
+          <mxGeometry height="100" width="200" x="420" y="1360" as="geometry" />
         </mxCell>
         <mxCell id="k8s-cluster" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;" value="Kubernetes Cluster&#xa;&#xa;• Auto-scaling&#xa;• Service Mesh (Istio)&#xa;• Health Checks&#xa;• Rolling Updates" vertex="1">
-          <mxGeometry height="120" width="200" x="640" y="1430" as="geometry" />
+          <mxGeometry height="120" width="200" x="640" y="1360" as="geometry" />
         </mxCell>
         <mxCell id="s3-storage" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=11;align=left;" value="Object Storage&#xa;(S3/MinIO)&#xa;&#xa;• Documents&#xa;• Media Files&#xa;• Backups" vertex="1">
-          <mxGeometry height="100" width="200" x="630" y="700" as="geometry" />
+          <mxGeometry height="100" width="200" x="630" y="890" as="geometry" />
         </mxCell>
         <mxCell id="edge1" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="api-gateway" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -151,17 +154,21 @@
         <mxCell id="edge16" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="weaviate" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1000" y="870" />
-              <mxPoint x="1230" y="870" />
+              <mxPoint x="1000" y="1060" />
+              <mxPoint x="1230" y="1060" />
             </Array>
-            <mxPoint x="1000" y="810" as="sourcePoint" />
+            <mxPoint x="1000" y="1000" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge17" edge="1" parent="1" source="memory-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="postgres-primary" value="">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge17" edge="1" parent="1" source="memory-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1660" y="530" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="edge18" edge="1" parent="1" source="memory-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="postgres-replica" value="">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge18" edge="1" parent="1" source="memory-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1890" y="530" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="edge19" edge="1" parent="1" source="tool-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="jira-api" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -169,11 +176,10 @@
         <mxCell id="edge20" edge="1" parent="1" source="tool-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="confluence-api" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge21" edge="1" parent="1" source="tool-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="slack-api" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge22" edge="1" parent="1" source="chatbot-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="redis-cache" value="">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge21" edge="1" parent="1" source="tool-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1520" y="990" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="edge23" edge="1" parent="1" source="chatbot-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="message-queue" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -209,7 +215,7 @@
           <mxGeometry height="30" width="160" x="-90" y="300" as="geometry" />
         </mxCell>
         <mxCell id="future-features" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;" value="Key Future Enhancements:&#xa;&#xa;✓ Microservices Architecture&#xa;✓ API Gateway &amp; Load Balancing&#xa;✓ Authentication &amp; Multi-tenancy&#xa;✓ WebSocket for Real-time Updates&#xa;✓ Message Queue for Async Processing&#xa;✓ Redis Caching Layer&#xa;✓ Multi-Vector Store Support&#xa;✓ PostgreSQL with Replication&#xa;✓ Analytics &amp; A/B Testing&#xa;✓ ML Pipeline for Continuous Learning&#xa;✓ Plugin System for Extensibility&#xa;✓ Kubernetes Orchestration&#xa;✓ Comprehensive Monitoring Stack&#xa;✓ CI/CD Pipeline&#xa;✓ Object Storage for Documents" vertex="1">
-          <mxGeometry height="400" width="300" x="1020" y="1310" as="geometry" />
+          <mxGeometry height="400" width="300" x="930" y="1240" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
