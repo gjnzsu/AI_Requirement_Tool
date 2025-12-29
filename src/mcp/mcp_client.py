@@ -7,6 +7,8 @@ and exposes their tools for use in the chatbot.
 
 import asyncio
 import json
+import os
+import subprocess
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import sys
@@ -14,6 +16,9 @@ import sys
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+# Store original subprocess.Popen for monkey-patching
+_original_popen = subprocess.Popen
 
 try:
     # Try different import paths for MCP SDK
@@ -81,6 +86,16 @@ class MCPClient:
             # Merge environment variables with system environment
             merged_env = os.environ.copy()
             merged_env.update(self.env)
+            
+            # Suppress verbose logging from mcp-remote and other MCP tools
+            # Set DEBUG to empty or false to reduce verbosity
+            if 'DEBUG' not in merged_env:
+                merged_env['DEBUG'] = ''
+            if 'NODE_ENV' not in merged_env:
+                merged_env['NODE_ENV'] = 'production'
+            # Suppress mcp-remote specific logging
+            merged_env['MCP_REMOTE_QUIET'] = '1'
+            merged_env['MCP_QUIET'] = '1'
             
             self._server_params = StdioServerParameters(
                 command=command_exec,
@@ -153,55 +168,69 @@ class MCPClient:
                 
                 # Common connection logic
                 async def _connect_and_discover():
-                    async with stdio_client(server_params) as (read, write):
-                        async with ClientSession(read, write) as session:
-                            # Initialize the session with longer timeout
-                            try:
-                                await asyncio.wait_for(session.initialize(), timeout=15.0)
-                            except asyncio.TimeoutError:
-                                raise Exception(
-                                    f"Server initialization timeout. "
-                                    f"The MCP server '{self.server_name}' may not be responding. "
-                                    f"Check if the package is installed: npm install -g {self.command[-1] if len(self.command) > 1 else 'package-name'}"
-                                )
-                            
-                            # List available tools
-                            try:
-                                tools_result = await asyncio.wait_for(session.list_tools(), timeout=10.0)
+                    # Suppress stderr from subprocess (mcp-remote debug logs)
+                    # Monkey-patch subprocess.Popen to redirect stderr to devnull
+                    def _quiet_popen(*args, **kwargs):
+                        """Wrapper to redirect stderr to devnull for MCP subprocesses."""
+                        if 'stderr' not in kwargs:
+                            kwargs['stderr'] = subprocess.DEVNULL
+                        return _original_popen(*args, **kwargs)
+                    
+                    # Temporarily replace subprocess.Popen
+                    subprocess.Popen = _quiet_popen
+                    try:
+                        async with stdio_client(server_params) as (read, write):
+                            async with ClientSession(read, write) as session:
+                                # Initialize the session with longer timeout
+                                try:
+                                    await asyncio.wait_for(session.initialize(), timeout=15.0)
+                                except asyncio.TimeoutError:
+                                    raise Exception(
+                                        f"Server initialization timeout. "
+                                        f"The MCP server '{self.server_name}' may not be responding. "
+                                        f"Check if the package is installed: npm install -g {self.command[-1] if len(self.command) > 1 else 'package-name'}"
+                                    )
                                 
-                                # Handle different response formats
-                                if hasattr(tools_result, 'tools'):
-                                    tools_list = tools_result.tools
-                                elif isinstance(tools_result, list):
-                                    tools_list = tools_result
-                                elif hasattr(tools_result, '__iter__'):
-                                    tools_list = list(tools_result)
-                                else:
-                                    tools_list = getattr(tools_result, 'tools', [])
+                                # List available tools
+                                try:
+                                    tools_result = await asyncio.wait_for(session.list_tools(), timeout=10.0)
+                                    
+                                    # Handle different response formats
+                                    if hasattr(tools_result, 'tools'):
+                                        tools_list = tools_result.tools
+                                    elif isinstance(tools_result, list):
+                                        tools_list = tools_result
+                                    elif hasattr(tools_result, '__iter__'):
+                                        tools_list = list(tools_result)
+                                    else:
+                                        tools_list = getattr(tools_result, 'tools', [])
+                                    
+                                    # Cache tool schemas
+                                    self._cached_tools = {}
+                                    for tool in tools_list:
+                                        tool_name = tool.name if hasattr(tool, 'name') else str(tool)
+                                        self._cached_tools[tool_name] = {
+                                            'name': tool_name,
+                                            'description': getattr(tool, 'description', f'MCP tool: {tool_name}'),
+                                            'inputSchema': getattr(tool, 'inputSchema', {})
+                                        }
+                                    
+                                    self.tools = {name: info for name, info in self._cached_tools.items()}
+                                    
+                                except asyncio.TimeoutError:
+                                    logger.warning(f"Timeout listing tools from {self.server_name}")
+                                    self.tools = {}
+                                except Exception as e:
+                                    logger.warning(f"Could not list tools from {self.server_name}: {e}")
+                                    self.tools = {}
                                 
-                                # Cache tool schemas
-                                self._cached_tools = {}
-                                for tool in tools_list:
-                                    tool_name = tool.name if hasattr(tool, 'name') else str(tool)
-                                    self._cached_tools[tool_name] = {
-                                        'name': tool_name,
-                                        'description': getattr(tool, 'description', f'MCP tool: {tool_name}'),
-                                        'inputSchema': getattr(tool, 'inputSchema', {})
-                                    }
-                                
-                                self.tools = {name: info for name, info in self._cached_tools.items()}
-                                
-                            except asyncio.TimeoutError:
-                                logger.warning(f"Timeout listing tools from {self.server_name}")
-                                self.tools = {}
-                            except Exception as e:
-                                logger.warning(f"Could not list tools from {self.server_name}: {e}")
-                                self.tools = {}
-                            
-                            self._initialized = True
-                            tool_names = ', '.join(self.tools.keys()) if self.tools else 'none'
-                            logger.info(f"Connected to MCP server: {self.server_name}")
-                            logger.debug(f"Available tools: {tool_names}")
+                                self._initialized = True
+                                tool_names = ', '.join(self.tools.keys()) if self.tools else 'none'
+                                logger.info(f"Connected to MCP server: {self.server_name}")
+                                logger.debug(f"Available tools: {tool_names}")
+                    finally:
+                        # Restore original subprocess.Popen
+                        subprocess.Popen = _original_popen
                 
                 # Execute with appropriate timeout mechanism
                 if timeout_context:
@@ -266,19 +295,32 @@ class MCPClient:
             
             # Create a new connection for this tool call
             # MCP stdio connections are session-based
-            async with stdio_client(server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    # Increase timeout for Jira operations (they can take longer)
-                    result = await asyncio.wait_for(
-                        session.call_tool(tool_name, arguments),
-                        timeout=60.0  # Increased from 30 to 60 seconds
-                    )
-                    return {
-                        'success': True,
-                        'content': result.content,
-                        'isError': result.isError if hasattr(result, 'isError') else False
-                    }
+            # Suppress stderr from subprocess (mcp-remote debug logs)
+            def _quiet_popen(*args, **kwargs):
+                """Wrapper to redirect stderr to devnull for MCP subprocesses."""
+                if 'stderr' not in kwargs:
+                    kwargs['stderr'] = subprocess.DEVNULL
+                return _original_popen(*args, **kwargs)
+            
+            # Temporarily replace subprocess.Popen
+            subprocess.Popen = _quiet_popen
+            try:
+                async with stdio_client(server_params) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        # Increase timeout for Jira operations (they can take longer)
+                        result = await asyncio.wait_for(
+                            session.call_tool(tool_name, arguments),
+                            timeout=60.0  # Increased from 30 to 60 seconds
+                        )
+                        return {
+                            'success': True,
+                            'content': result.content,
+                            'isError': result.isError if hasattr(result, 'isError') else False
+                        }
+            finally:
+                # Restore original subprocess.Popen
+                subprocess.Popen = _original_popen
         except asyncio.TimeoutError:
             return {
                 'success': False,
