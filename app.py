@@ -11,29 +11,41 @@ from flask_cors import CORS
 import json
 from datetime import datetime
 from typing import Dict, List
+import concurrent.futures
+import threading
 
 # Add project root to path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# Helper function for safe printing on Windows (handles Unicode encoding issues)
+def safe_print(message):
+    """Print message safely, handling Unicode encoding issues on Windows."""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Fallback: replace Unicode characters with ASCII equivalents
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+
 # Import with error handling to prevent startup failures
 try:
     from src.chatbot import Chatbot
 except ImportError as e:
-    print(f"⚠ Warning: Could not import Chatbot: {e}")
+    safe_print(f"[WARNING] Could not import Chatbot: {e}")
     Chatbot = None
 
 try:
     from src.services.memory_manager import MemoryManager
 except ImportError as e:
-    print(f"⚠ Warning: Could not import MemoryManager: {e}")
+    safe_print(f"[WARNING] Could not import MemoryManager: {e}")
     MemoryManager = None
 
 try:
     from src.auth import AuthService, UserService, token_required, get_current_user
 except ImportError as e:
-    print(f"⚠ Warning: Could not import auth modules: {e}")
-    print("  Authentication features will be disabled.")
+    safe_print(f"[WARNING] Could not import auth modules: {e}")
+    safe_print("  Authentication features will be disabled.")
     AuthService = None
     UserService = None
     token_required = lambda f: f  # No-op decorator
@@ -41,14 +53,29 @@ except ImportError as e:
 
 from config.config import Config
 
+# Try to import logger
+try:
+    from src.utils.logger import get_logger
+except ImportError:
+    # Fallback logger if logger module not available
+    def get_logger(name):
+        import logging
+        logger = logging.getLogger(name)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        return logger
+
 # Try to import flasgger for Swagger documentation
 try:
     from flasgger import Swagger
     SWAGGER_AVAILABLE = True
 except ImportError:
     SWAGGER_AVAILABLE = False
-    print("⚠ Flasgger not installed. Swagger documentation will not be available.")
-    print("   Install with: pip install flasgger")
+    safe_print("[WARNING] Flasgger not installed. Swagger documentation will not be available.")
+    safe_print("   Install with: pip install flasgger")
 
 app = Flask(__name__, 
             template_folder='web/templates',
@@ -112,19 +139,19 @@ if AuthService is not None and UserService is not None:
     try:
         auth_service = AuthService()
         user_service = UserService(db_path=Config.AUTH_DB_PATH)
-        print("✓ Initialized Authentication services")
+        safe_print("[OK] Initialized Authentication services")
     except ValueError as e:
-        print(f"⚠ Authentication initialization warning: {e}")
-        print("   Authentication will be disabled. Set JWT_SECRET_KEY in .env to enable.")
+        safe_print(f"[WARNING] Authentication initialization warning: {e}")
+        safe_print("   Authentication will be disabled. Set JWT_SECRET_KEY in .env to enable.")
         auth_service = None
         user_service = None
     except Exception as e:
-        print(f"⚠ Failed to initialize Authentication services: {e}")
-        print("   Authentication will be disabled.")
+        safe_print(f"[WARNING] Failed to initialize Authentication services: {e}")
+        safe_print("   Authentication will be disabled.")
         auth_service = None
         user_service = None
 else:
-    print("⚠ Authentication modules not available. Authentication will be disabled.")
+    safe_print("[WARNING] Authentication modules not available. Authentication will be disabled.")
 
 # Initialize memory manager if enabled
 if MemoryManager is not None and Config.USE_PERSISTENT_MEMORY:
@@ -133,20 +160,20 @@ if MemoryManager is not None and Config.USE_PERSISTENT_MEMORY:
             db_path=Config.MEMORY_DB_PATH,
             max_context_messages=Config.MAX_CONTEXT_MESSAGES
         )
-        print("✓ Initialized Memory Manager for web app")
+        safe_print("[OK] Initialized Memory Manager for web app")
     except Exception as e:
-        print(f"⚠ Failed to initialize Memory Manager: {e}")
+        safe_print(f"[WARNING] Failed to initialize Memory Manager: {e}")
         memory_manager = None
-        print("   Falling back to in-memory storage")
+        safe_print("   Falling back to in-memory storage")
 else:
     memory_manager = None
     if MemoryManager is None:
-        print("⚠ MemoryManager not available. Using in-memory storage.")
+        safe_print("[WARNING] MemoryManager not available. Using in-memory storage.")
     else:
-        print("⚠ Persistent memory disabled (USE_PERSISTENT_MEMORY=false)")
+        safe_print("[WARNING] Persistent memory disabled (USE_PERSISTENT_MEMORY=false)")
 
 def get_chatbot():
-    """Get or create chatbot instance."""
+    """Get or create chatbot instance with timeout protection."""
     global chatbot_instance
     
     if Chatbot is None:
@@ -163,20 +190,45 @@ def get_chatbot():
         print(f"   Tools Enabled: {getattr(Config, 'ENABLE_MCP_TOOLS', True)}")
         print("=" * 70)
         
-        chatbot_instance = Chatbot(
-            provider_name=None,  # Use default from Config
-            use_fallback=True,
-            temperature=0.7,
-            max_history=Config.MAX_CONTEXT_MESSAGES // 2,  # Convert to turns
-            use_persistent_memory=Config.USE_PERSISTENT_MEMORY,
-            memory_db_path=Config.MEMORY_DB_PATH,
-            use_rag=getattr(Config, 'USE_RAG', True),
-            rag_top_k=getattr(Config, 'RAG_TOP_K', 3),
-            enable_mcp_tools=getattr(Config, 'ENABLE_MCP_TOOLS', True),
-            lazy_load_tools=True,  # Lazy load tools to avoid dead loops
-            use_agent=True,  # Enable LangGraph agent for intelligent routing
-            use_mcp=Config.USE_MCP  # Use MCP protocol if enabled in config
-        )
+        # Use timeout wrapper to prevent hanging during initialization (especially in tests)
+        # 120 seconds should be enough for normal initialization
+        def _create_chatbot():
+            return Chatbot(
+                provider_name=None,  # Use default from Config
+                use_fallback=True,
+                temperature=0.7,
+                max_history=Config.MAX_CONTEXT_MESSAGES // 2,  # Convert to turns
+                use_persistent_memory=Config.USE_PERSISTENT_MEMORY,
+                memory_db_path=Config.MEMORY_DB_PATH,
+                use_rag=getattr(Config, 'USE_RAG', True),
+                rag_top_k=getattr(Config, 'RAG_TOP_K', 3),
+                enable_mcp_tools=getattr(Config, 'ENABLE_MCP_TOOLS', True),
+                lazy_load_tools=True,  # Lazy load tools to avoid dead loops
+                use_agent=True,  # Enable LangGraph agent for intelligent routing
+                use_mcp=Config.USE_MCP  # Use MCP protocol if enabled in config
+            )
+        
+        try:
+            # Check if we're in a test environment (pytest sets this)
+            import os
+            if os.environ.get('PYTEST_CURRENT_TEST') or os.environ.get('TESTING'):
+                # In tests, don't use timeout wrapper - let tests handle mocking
+                chatbot_instance = _create_chatbot()
+            else:
+                # In production, use timeout wrapper to prevent hangs
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(_create_chatbot)
+                    try:
+                        chatbot_instance = future.result(timeout=120.0)  # 120 second timeout
+                    except concurrent.futures.TimeoutError:
+                        raise RuntimeError(
+                            "Chatbot initialization timed out after 120 seconds. "
+                            "This may indicate a configuration issue or network problem."
+                        )
+        except Exception as e:
+            print(f"❌ Chatbot initialization failed: {e}")
+            raise
+        
         print("=" * 70)
         print("✅ Chatbot Instance Created Successfully")
         print("=" * 70)
@@ -518,7 +570,17 @@ def chat():
               example: Internal server error
     """
     try:
-        data = request.json
+        # Safely parse JSON request body
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        try:
+            data = request.get_json(silent=True)
+            if data is None:
+                return jsonify({'error': 'Invalid JSON in request body'}), 400
+        except Exception as e:
+            return jsonify({'error': f'Failed to parse JSON: {str(e)}'}), 400
+        
         message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model = data.get('model', 'openai').lower()  # Get model from request, default to openai
@@ -1259,7 +1321,12 @@ def search_conversations():
         if not query:
             return jsonify({'error': 'Search query is required'}), 400
         
-        limit = int(request.args.get('limit', 10))
+        # Parse limit safely
+        limit_raw = request.args.get('limit', 10)
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            return jsonify({'error': f'Invalid limit: {limit_raw}. Must be an integer.'}), 400
         
         if memory_manager:
             results = memory_manager.search_conversations(query, limit=limit)
@@ -1292,6 +1359,51 @@ def search_conversations():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Error handlers to ensure JSON responses for API endpoints
+@app.errorhandler(400)
+def bad_request(error):
+    """Handle 400 Bad Request errors with JSON response."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Bad Request', 'message': str(error)}), 400
+    return error
+
+@app.errorhandler(401)
+def unauthorized(error):
+    """Handle 401 Unauthorized errors with JSON response."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Unauthorized', 'message': 'Authentication required. Please provide a valid token.'}), 401
+    return error
+
+@app.errorhandler(403)
+def forbidden(error):
+    """Handle 403 Forbidden errors with JSON response."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Forbidden', 'message': 'You do not have permission to access this resource.'}), 403
+    return error
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 Not Found errors with JSON response for API endpoints."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not Found', 'message': 'The requested resource was not found.'}), 404
+    return error
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 Internal Server errors with JSON response for API endpoints."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal Server Error', 'message': 'An internal server error occurred.'}), 500
+    return error
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Handle all unhandled exceptions with JSON response for API endpoints."""
+    if request.path.startswith('/api/'):
+        logger = get_logger('chatbot.app')
+        logger.error(f"Unhandled exception: {error}", exc_info=True)
+        return jsonify({'error': 'Internal Server Error', 'message': str(error)}), 500
+    raise error
+
 if __name__ == '__main__':
     print("=" * 70)
     print("🤖 Chatbot Web UI")
@@ -1312,7 +1424,7 @@ if __name__ == '__main__':
     except OSError as e:
         # Handle Windows socket errors during reload
         if sys.platform == 'win32' and '10038' in str(e):
-            print("⚠ Reloader error detected, restarting without reloader...")
+            safe_print("[WARNING] Reloader error detected, restarting without reloader...")
             app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
         else:
             raise

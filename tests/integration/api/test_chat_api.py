@@ -61,6 +61,8 @@ class TestChatAPI:
     def test_chat_provider_switching_openai(self, test_client, mock_chatbot, temp_db):
         """Test switching to OpenAI provider."""
         memory_manager, db_path = temp_db
+        # Set provider to something different so switch_provider will be called
+        mock_chatbot.provider_name = "gemini"
         
         with patch('app.get_chatbot', return_value=mock_chatbot):
             with patch('app.memory_manager', memory_manager):
@@ -205,6 +207,8 @@ class TestChatAPI:
     def test_chat_provider_switch_failure(self, test_client, mock_chatbot, temp_db):
         """Test handling of provider switch failures."""
         memory_manager, db_path = temp_db
+        # Set provider to something different so switch_provider will be called
+        mock_chatbot.provider_name = "gemini"
         mock_chatbot.switch_provider.side_effect = ValueError("Invalid provider")
         
         with patch('app.get_chatbot', return_value=mock_chatbot):

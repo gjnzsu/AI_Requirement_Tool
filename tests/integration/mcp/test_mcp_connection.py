@@ -22,6 +22,7 @@ from src.utils.logger import get_logger
 logger = get_logger('test.mcp_connection')
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)  # 60 seconds timeout for MCP connection tests
 async def test_mcp_connection():
 
     """Test MCP server connections."""
@@ -57,12 +58,14 @@ async def test_mcp_connection():
             logger.info(f"  ✓ Jira MCP client created")
             logger.info(f"  Command: {' '.join(jira_client.command)}")
             
-            # Try to connect
+            # Try to connect with timeout
             logger.info("  Attempting to connect...")
             try:
-                await jira_client.connect()
+                await asyncio.wait_for(jira_client.connect(), timeout=30.0)
                 logger.info("  ✓ Successfully connected to Jira MCP server!")
                 logger.info(f"  Available tools: {list(jira_client.get_tools().keys())}")
+            except asyncio.TimeoutError:
+                logger.error("  ✗ Connection timeout after 30 seconds")
             except Exception as e:
                 logger.error(f"  ✗ Connection failed: {e}")
                 logger.error(f"  Error type: {type(e).__name__}")
@@ -81,12 +84,14 @@ async def test_mcp_connection():
             logger.info(f"  ✓ Confluence MCP client created")
             logger.info(f"  Command: {' '.join(confluence_client.command)}")
             
-            # Try to connect
+            # Try to connect with timeout
             logger.info("  Attempting to connect...")
             try:
-                await confluence_client.connect()
+                await asyncio.wait_for(confluence_client.connect(), timeout=30.0)
                 logger.info("  ✓ Successfully connected to Confluence MCP server!")
                 logger.info(f"  Available tools: {list(confluence_client.get_tools().keys())}")
+            except asyncio.TimeoutError:
+                logger.error("  ✗ Connection timeout after 30 seconds")
             except Exception as e:
                 logger.error(f"  ✗ Connection failed: {e}")
                 logger.error(f"  Error type: {type(e).__name__}")
@@ -101,7 +106,7 @@ async def test_mcp_connection():
     logger.info("Test 4: Testing full MCP integration...")
     try:
         integration = MCPIntegration(use_mcp=True)
-        await integration.initialize()
+        await asyncio.wait_for(integration.initialize(), timeout=45.0)
         
         if integration._initialized:
             logger.info(f"  ✓ MCP Integration initialized successfully!")
@@ -110,6 +115,8 @@ async def test_mcp_connection():
                 logger.info(f"    - {tool.name}: {tool.description[:50]}...")
         else:
             logger.warning("  ⚠ MCP Integration not initialized (falling back to custom tools)")
+    except asyncio.TimeoutError:
+        logger.error("  ✗ MCP Integration timeout after 45 seconds")
     except Exception as e:
         logger.error(f"  ✗ MCP Integration failed: {e}")
         import traceback

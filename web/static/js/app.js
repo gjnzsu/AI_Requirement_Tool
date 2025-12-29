@@ -25,7 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadCurrentModel() {
     try {
         const response = await auth.authenticatedFetch('/api/current-model');
-        const data = await response.json();
+        
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            throw new Error('Server returned non-JSON response');
+        }
         
         if (response.ok && data.model) {
             // Check if model is supported
@@ -125,7 +134,17 @@ async function sendMessage() {
             }
         });
         
-        const data = await response.json();
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // If not JSON, try to get text and create error
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+        }
         
         if (response.ok) {
             // Update current conversation ID
@@ -143,7 +162,7 @@ async function sendMessage() {
             // Reload conversations list to update titles
             loadConversations();
         } else {
-            throw new Error(data.error || 'Failed to get response');
+            throw new Error(data.error || `Failed to get response: ${response.status} ${response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
@@ -155,7 +174,11 @@ async function sendMessage() {
         }
         
         // Show error message
-        addMessageToUI('assistant', `Sorry, I encountered an error: ${error.message}`);
+        let errorMessage = error.message;
+        if (error.message.includes('Failed to decode JSON')) {
+            errorMessage = 'Server returned an invalid response. Please check your authentication and try again.';
+        }
+        addMessageToUI('assistant', `Sorry, I encountered an error: ${errorMessage}`);
     } finally {
         sendBtn.disabled = false;
         chatInput.focus();
@@ -218,7 +241,17 @@ function addMessageToUI(role, content, isLoading = false) {
 async function loadConversations() {
     try {
         const response = await auth.authenticatedFetch('/api/conversations');
-        const data = await response.json();
+        
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            console.error('Server returned non-JSON response for conversations');
+            return;
+        }
         
         if (response.ok) {
             conversations = data.conversations;
@@ -269,7 +302,17 @@ function renderConversationsList(filtered = null) {
 async function loadConversation(conversationId) {
     try {
         const response = await auth.authenticatedFetch(`/api/conversations/${conversationId}`);
-        const data = await response.json();
+        
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            console.error('Server returned non-JSON response for conversation');
+            return;
+        }
         
         if (response.ok) {
             currentConversationId = conversationId;
@@ -299,7 +342,17 @@ async function createNewChat() {
         const response = await auth.authenticatedFetch('/api/new-chat', {
             method: 'POST'
         });
-        const data = await response.json();
+        
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            console.error('Server returned non-JSON response for new chat');
+            return;
+        }
         
         if (response.ok) {
             currentConversationId = data.conversation_id;
@@ -374,6 +427,15 @@ async function editConversationTitle(conversationId) {
             body: { title: newTitle.trim() }
         });
         
+        // Check if response is JSON before parsing (for error handling)
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (!response.ok && data.error) {
+                console.error('Error updating title:', data.error);
+            }
+        }
+        
         if (response.ok) {
             loadConversations();
         }
@@ -445,7 +507,15 @@ async function regenerateMessage(messageId) {
                 }
             });
             
-            const data = await response.json();
+            // Check if response is JSON before parsing
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                throw new Error('Server returned non-JSON response');
+            }
             
             if (response.ok) {
                 const loadingElement = document.getElementById(loadingId);

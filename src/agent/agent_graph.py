@@ -1873,8 +1873,8 @@ class ChatbotAgent:
                                         logger.debug("Submitting tool.invoke(...) to executor...")
                                         # LangChain StructuredTool requires invoke(input={...}) with 'input' keyword
                                         future = executor.submit(mcp_confluence_tool.invoke, input=mcp_args)
-                                        logger.debug("Waiting for tool result (timeout: 30s)...")
-                                        mcp_result = future.result(timeout=30.0)  # 30 second timeout
+                                        logger.debug("Waiting for tool result (timeout: 60s)...")
+                                        mcp_result = future.result(timeout=60.0)  # 60 second timeout for Confluence operations
                                         logger.debug(f"Tool call completed, result type: {type(mcp_result)}")
                                         
                                         # Log raw result for debugging
@@ -1892,7 +1892,12 @@ class ChatbotAgent:
                                         
                                         # Parse MCP result
                                         mcp_data = None
-                                        if isinstance(mcp_result, str):
+                                        if mcp_result is None:
+                                            # Timeout or no result - skip processing, will fall back to direct API
+                                            logger.debug("MCP result is None, skipping processing")
+                                            tool_used = None
+                                            use_mcp = False
+                                        elif isinstance(mcp_result, str):
                                             # Try to parse as JSON
                                             import json
                                             import re
@@ -2107,9 +2112,11 @@ class ChatbotAgent:
                                                 raise Exception(f"MCP tool error: {full_error}")
                                     
                                     except concurrent.futures.TimeoutError:
-                                        logger.warning("MCP Protocol timeout after 30 seconds, falling back to direct API")
+                                        logger.warning("MCP Protocol timeout after 60 seconds, falling back to direct API")
                                         tool_used = None  # Will trigger fallback
-                                        raise asyncio.TimeoutError("MCP tool call timeout")
+                                        # Don't raise exception - allow fallback to direct API
+                                        mcp_result = None
+                                        use_mcp = False  # Skip MCP processing, go to fallback
                                     
                             except (asyncio.TimeoutError, Exception) as e:
                                 # Enhanced error logging
@@ -2566,9 +2573,28 @@ class ChatbotAgent:
                 elif role == 'assistant':
                     initial_state["messages"].append(AIMessage(content=content))
         
-        # Run the graph (LangGraph execution)
+        # Run the graph (LangGraph execution) with timeout to prevent hanging
         logger.info("Processing input through agent graph...")
-        final_state = self.graph.invoke(initial_state)
+        final_state = None
+        try:
+            # Use timeout wrapper to prevent infinite hangs (90 seconds should be enough for LLM calls)
+            # Also set recursion_limit to prevent infinite loops (10 should be more than enough)
+            graph_config = {"recursion_limit": 10}
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(self.graph.invoke, initial_state, config=graph_config)
+                try:
+                    final_state = future.result(timeout=90.0)  # 90 second timeout
+                except concurrent.futures.TimeoutError:
+                    logger.error("Agent graph execution timed out after 90 seconds")
+                    return "I apologize, but the request timed out. Please try again with a simpler query."
+        except Exception as e:
+            logger.error(f"Error during graph execution: {e}", exc_info=True)
+            return f"I encountered an error while processing your request: {str(e)}"
+        
+        # Check if we got a valid final state
+        if not final_state:
+            logger.error("Graph execution did not return a valid state")
+            return "I apologize, but I couldn't process your request. Please try again."
         
         # Log the intent that was detected
         detected_intent = final_state.get("intent", "unknown")

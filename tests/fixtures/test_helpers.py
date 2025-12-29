@@ -10,7 +10,7 @@ from src.utils.logger import get_logger
 
 def setup_test_path():
     """Add project root to Python path for tests."""
-project_root = Path(__file__).parent.parent.parent
+    project_root = Path(__file__).parent.parent.parent
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
     return project_root

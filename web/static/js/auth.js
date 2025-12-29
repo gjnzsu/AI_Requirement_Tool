@@ -23,7 +23,16 @@ const auth = {
                 body: JSON.stringify({ username, password })
             });
 
-            const data = await response.json();
+            // Check if response is JSON before parsing
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+            }
 
             if (response.ok && data.token) {
                 // Store token and user info
@@ -113,11 +122,18 @@ const auth = {
             'Authorization': `Bearer ${token}`,
         };
 
-        // Handle body - stringify if object and Content-Type not explicitly set
+        // Handle body - stringify if object and Content-Type is application/json
         let body = options.body;
-        if (body && typeof body === 'object' && !(body instanceof FormData) && !options.headers?.['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-            body = JSON.stringify(body);
+        if (body && typeof body === 'object' && !(body instanceof FormData)) {
+            const contentType = options.headers?.['Content-Type'] || options.headers?.['content-type'];
+            if (contentType && contentType.includes('application/json')) {
+                // Content-Type is set to JSON, so stringify the body
+                body = JSON.stringify(body);
+            } else if (!contentType) {
+                // No Content-Type set, default to JSON and stringify
+                headers['Content-Type'] = 'application/json';
+                body = JSON.stringify(body);
+            }
         }
 
         const response = await fetch(url, {
@@ -142,7 +158,17 @@ const auth = {
     async refreshUserInfo() {
         try {
             const response = await this.authenticatedFetch('/api/auth/me');
-            const data = await response.json();
+            
+            // Check if response is JSON before parsing
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                console.error('Server returned non-JSON response for user info');
+                return null;
+            }
             
             if (response.ok && data.user) {
                 localStorage.setItem(this.USER_KEY, JSON.stringify(data.user));

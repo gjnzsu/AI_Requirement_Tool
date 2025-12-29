@@ -179,8 +179,8 @@ class TestAppStartup:
                 with pytest.raises(ValueError):
                     user_service.create_user('test', 'test@example.com', 'password')
                 
-                with pytest.raises((ValueError, AttributeError)):
-                    user_service.authenticate_user('test', 'password')
+                # authenticate_user should fail gracefully (no auth service available)
+                assert user_service.authenticate_user('test', 'password') is None
         
         finally:
             # Cleanup

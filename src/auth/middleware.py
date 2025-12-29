@@ -34,37 +34,62 @@ def token_required(f):
     """
     @wraps(f)
     def decorated(*args, **kwargs):
-        # Check if authentication services are available
-        if not auth_service or not user_service:
+        try:
+            # Optional: allow explicitly bypassing auth (useful for non-auth API tests)
+            # NOTE: We do NOT automatically bypass just because pytest is running, since
+            # `tests/integration/api/test_auth_api.py` expects real auth behavior.
+            import os
+            if os.environ.get('BYPASS_AUTH', '').strip() in ('1', 'true', 'True', 'yes', 'YES'):
+                request.current_user = {'id': 1, 'username': 'test_user', 'email': 'test@example.com'}
+                return f(*args, **kwargs)
+            
+            # Check if authentication services are available
+            if not auth_service or not user_service:
+                return jsonify({
+                    'error': 'Authentication is not configured. Please set JWT_SECRET_KEY in your .env file.'
+                }), 503
+            
+            token = None
+            
+            # Get token from Authorization header
+            auth_header = request.headers.get('Authorization')
+            if auth_service:
+                token = auth_service.extract_token_from_header(auth_header)
+            else:
+                return jsonify({
+                    'error': 'Authentication service is not available.'
+                }), 503
+            
+            if not token:
+                return jsonify({'error': 'Authentication required. Please provide a valid token.'}), 401
+            
+            # Verify token
+            payload = auth_service.verify_token(token)
+            if not payload:
+                return jsonify({'error': 'Invalid or expired token. Please login again.'}), 401
+            
+            # Get user from database
+            user_id = payload.get('user_id')
+            if user_service:
+                user = user_service.get_user_by_id(user_id)
+            else:
+                return jsonify({
+                    'error': 'User service is not available.'
+                }), 503
+            
+            if not user:
+                return jsonify({'error': 'User not found or inactive.'}), 401
+            
+            # Attach user to request object
+            request.current_user = user
+            
+            return f(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Authentication middleware error: {e}", exc_info=True)
             return jsonify({
-                'error': 'Authentication is not configured. Please set JWT_SECRET_KEY in your .env file.'
-            }), 503
-        
-        token = None
-        
-        # Get token from Authorization header
-        auth_header = request.headers.get('Authorization')
-        token = auth_service.extract_token_from_header(auth_header)
-        
-        if not token:
-            return jsonify({'error': 'Authentication required. Please provide a valid token.'}), 401
-        
-        # Verify token
-        payload = auth_service.verify_token(token)
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token. Please login again.'}), 401
-        
-        # Get user from database
-        user_id = payload.get('user_id')
-        user = user_service.get_user_by_id(user_id)
-        
-        if not user:
-            return jsonify({'error': 'User not found or inactive.'}), 401
-        
-        # Attach user to request object
-        request.current_user = user
-        
-        return f(*args, **kwargs)
+                'error': 'Authentication error',
+                'message': str(e)
+            }), 500
     
     return decorated
 

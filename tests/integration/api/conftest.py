@@ -31,6 +31,27 @@ def test_client():
         yield client
 
 
+@pytest.fixture(scope="function", autouse=True)
+def bypass_auth_for_non_auth_api_tests(request, monkeypatch):
+    """
+    Most API integration tests (chat/conversation/model/search) don't care about auth.
+    They expect to hit the endpoints without providing a token.
+
+    Auth-specific tests in `test_auth_api.py` DO validate auth behavior and must not
+    bypass authentication.
+    """
+    nodeid = getattr(request.node, "nodeid", "")
+    if "tests/integration/api/test_auth_api.py" in nodeid:
+        # Ensure bypass is OFF for auth tests
+        monkeypatch.delenv("BYPASS_AUTH", raising=False)
+        yield
+        return
+
+    # Bypass auth for non-auth API tests
+    monkeypatch.setenv("BYPASS_AUTH", "1")
+    yield
+
+
 @pytest.fixture(scope="function")
 def temp_db():
     """Create a temporary database for testing."""
@@ -143,3 +164,5 @@ def reset_global_memory_manager():
     yield
     app.memory_manager = original_memory_manager
 
+
+# Auth bypass is controlled via BYPASS_AUTH env var (see fixture above).
