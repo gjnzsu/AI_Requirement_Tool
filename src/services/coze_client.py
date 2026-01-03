@@ -86,16 +86,21 @@ class CozeClient:
         if not self.bot_id:
             logger.warning("Coze bot ID not configured")
         
-        # Initialize Coze SDK client
-        try:
-            self.coze_client = Coze(
-                auth=TokenAuth(token=self.api_token),
-                base_url=self.base_url
-            )
-            logger.info(f"Coze SDK client initialized with base_url={self.base_url}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Coze SDK client: {e}")
-            raise
+        # Initialize Coze SDK client only if token is provided
+        # SDK's TokenAuth asserts token length > 0, so we skip initialization if empty
+        self.coze_client = None
+        if self.api_token:
+            try:
+                self.coze_client = Coze(
+                    auth=TokenAuth(token=self.api_token),
+                    base_url=self.base_url
+                )
+                logger.info(f"Coze SDK client initialized with base_url={self.base_url}")
+            except Exception as e:
+                logger.error(f"Failed to initialize Coze SDK client: {e}")
+                raise
+        else:
+            logger.debug("Skipping Coze SDK client initialization (no API token provided)")
     
     def is_configured(self) -> bool:
         """Check if Coze client is properly configured."""
@@ -121,6 +126,14 @@ class CozeClient:
         """
         if not self.is_configured():
             raise ValueError("Coze client is not properly configured. Please set COZE_API_TOKEN and COZE_BOT_ID.")
+        
+        if not self.coze_client:
+            return {
+                "success": False,
+                "error": "Coze SDK client not initialized. Please provide a valid COZE_API_TOKEN.",
+                "error_type": "configuration_error",
+                "status_code": 500
+            }
         
         try:
             logger.info(f"Calling Coze API via SDK: bot_id={self.bot_id[:10]}..., user_id={user_id}")
@@ -228,6 +241,8 @@ class CozeClient:
                                     final_conversation_id = chat_obj.conversation_id
                                 if hasattr(chat_obj, 'usage') and hasattr(chat_obj.usage, 'token_count'):
                                     token_usage = chat_obj.usage.token_count
+                            # Break out of loop once chat is completed
+                            break
                         
                         elif event_type == ChatEventType.CONVERSATION_MESSAGE_COMPLETED:
                             # Message completed, extract final content
@@ -351,8 +366,13 @@ class CozeClient:
             status_code = None
             coze_error_code = None
             
+            # Check exception type first (more reliable than string matching)
+            import concurrent.futures
+            if isinstance(e, (TimeoutError, concurrent.futures.TimeoutError)):
+                error_type = "timeout"
+                error_msg = "Request timed out. The Coze API may be slow or unavailable."
             # Check for common error patterns
-            if "401" in error_str or "unauthorized" in error_str.lower() or "authentication" in error_str.lower():
+            elif "401" in error_str or "unauthorized" in error_str.lower() or "authentication" in error_str.lower():
                 error_type = "auth_error"
                 status_code = 401
                 error_msg = "Authentication failed. Please check your COZE_API_TOKEN."
@@ -364,7 +384,7 @@ class CozeClient:
                 error_type = "http_error"
                 status_code = 403
                 error_msg = "Access forbidden. Please check your bot permissions."
-            elif "timeout" in error_str.lower():
+            elif "timeout" in error_str.lower() or "timed out" in error_str.lower():
                 error_type = "timeout"
                 error_msg = "Request timed out. The Coze API may be slow or unavailable."
             
