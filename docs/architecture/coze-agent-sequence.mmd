@@ -1,0 +1,91 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant WebUI
+    participant FlaskApp
+    participant Chatbot
+    participant Agent as LangGraph Agent
+    participant IntentDetect as Intent Detection
+    participant CozeClient as Coze Client
+    participant CozeAPI as Coze Platform API
+    participant MemoryMgr as Memory Manager
+
+    User->>WebUI: Send Message<br/>"AI daily report" or "AI news"
+    WebUI->>FlaskApp: POST /api/chat<br/>{message, model}
+    FlaskApp->>Chatbot: get_response(message)
+    Chatbot->>Agent: Process with LangGraph
+    
+    Agent->>IntentDetect: Detect Intent<br/>(keyword matching)
+    
+    alt Intent: Coze Agent<br/>("AI daily report" or "AI news")
+        IntentDetect->>Agent: Intent = "coze_agent"
+        Agent->>Agent: Route to coze_agent node
+        
+        Note over Agent: Check COZE_ENABLED config
+        
+        alt Coze Not Configured
+            Agent->>User: Error: Coze agent not configured
+        else Coze Configured
+            Agent->>CozeClient: execute_agent(query, user_id, conversation_id)
+            
+            Note over CozeClient: Initialize cozepy SDK<br/>with TokenAuth
+            
+            CozeClient->>CozeAPI: chat.stream()<br/>or chat.create()
+            
+            Note over CozeAPI: Bot processes request<br/>Status: IN_PROGRESS
+            
+            alt Streaming Mode
+                loop Stream Events
+                    CozeAPI-->>CozeClient: CONVERSATION_MESSAGE_DELTA<br/>(content chunks)
+                    CozeClient->>CozeClient: Accumulate content
+                end
+                CozeAPI-->>CozeClient: CONVERSATION_CHAT_COMPLETED<br/>(final status, token usage)
+            else Non-Streaming Mode
+                CozeAPI-->>CozeClient: Chat object<br/>(status, messages)
+                Note over CozeClient: Extract messages<br/>from conversation
+            end
+            
+            alt Success
+                CozeClient->>CozeClient: Extract response content<br/>from messages
+                CozeClient-->>Agent: {success: true, response, conversation_id}
+                Agent->>Agent: Add response to messages
+            else Error
+                alt Authentication Error (401)
+                    CozeAPI-->>CozeClient: Error code=4101<br/>Invalid token
+                    CozeClient-->>Agent: {success: false, error_type: "auth_error"}
+                    Agent->>User: Error: Check COZE_API_TOKEN
+                else Bot Not Found (404)
+                    CozeAPI-->>CozeClient: Error code=4200<br/>Bot does not exist
+                    CozeClient-->>Agent: {success: false, error_type: "not_found_error"}
+                    Agent->>User: Error: Check COZE_BOT_ID and API region
+                else Timeout
+                    CozeClient-->>Agent: {success: false, error_type: "timeout"}
+                    Agent->>User: Error: Request timed out (300s)
+                else Other Error
+                    CozeAPI-->>CozeClient: Error response
+                    CozeClient-->>Agent: {success: false, error, error_type}
+                    Agent->>User: Error message
+                end
+            end
+        end
+        
+    else Intent: General Chat
+        IntentDetect->>Agent: Route to LLM
+        Note over Agent: Standard LLM flow
+    else Intent: RAG Query
+        IntentDetect->>Agent: Route to RAG
+        Note over Agent: RAG flow
+    else Intent: Tool Execution
+        IntentDetect->>Agent: Route to Tools
+        Note over Agent: Tool execution flow
+    end
+    
+    Agent->>MemoryMgr: Save Conversation<br/>(if successful)
+    MemoryMgr-->>Agent: Saved
+    
+    Agent-->>Chatbot: Response
+    Chatbot-->>FlaskApp: Response
+    FlaskApp-->>WebUI: JSON Response<br/>{response, conversation_id}
+    WebUI-->>User: Display Response
+```
+

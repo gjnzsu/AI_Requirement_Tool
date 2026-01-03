@@ -51,7 +51,7 @@ async function loadCurrentModel() {
         console.error('Error loading current model:', error);
         // Fallback to localStorage or default
         const savedModel = localStorage.getItem('selectedModel');
-        if (savedModel && (savedModel === 'openai' || savedModel === 'gemini' || savedModel === 'deepseek')) {
+        if (savedModel && (savedModel === 'openai' || savedModel === 'deepseek')) {
             currentModel = savedModel;
             if (modelSelect) {
                 modelSelect.value = savedModel;

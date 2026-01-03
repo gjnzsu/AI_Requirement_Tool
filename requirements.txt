@@ -42,6 +42,9 @@ langchain-core>=1.0.0,<2.0.0
 # MCP (Model Context Protocol) SDK
 mcp>=0.9.0,<1.0.0  # Official MCP Python SDK from modelcontextprotocol/python-sdk
 
+# Coze Platform SDK
+cozepy>=0.1.0,<1.0.0  # Official Coze Python SDK from coze-dev/coze-py
+
 # Protobuf version constraint (required for Google packages compatibility)
 # Note: mem0ai requires protobuf>=5.29.0, but Google packages require <5.0.0
 # mem0ai is optional, so we prioritize Google packages compatibility

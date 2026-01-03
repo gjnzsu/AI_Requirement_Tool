@@ -32,6 +32,7 @@ sys.path.insert(0, str(project_root))
 from src.tools.jira_tool import JiraTool
 from src.tools.confluence_tool import ConfluenceTool
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
+from src.services.coze_client import CozeClient
 from src.mcp.mcp_integration import MCPIntegration
 from config.config import Config
 from src.utils.logger import get_logger
@@ -49,11 +50,12 @@ class AgentState(TypedDict):
     """State for the agent graph."""
     messages: Annotated[List[BaseMessage], "Conversation messages"]
     user_input: str
-    intent: Optional[str]  # 'jira_creation', 'general_chat', 'rag_query', etc.
+    intent: Optional[str]  # 'jira_creation', 'general_chat', 'rag_query', 'coze_agent', etc.
     jira_result: Optional[Dict[str, Any]]
     evaluation_result: Optional[Dict[str, Any]]
     confluence_result: Optional[Dict[str, Any]]
     rag_context: Optional[List[str]]
+    coze_result: Optional[Dict[str, Any]]
     conversation_history: List[Dict[str, str]]
     next_action: Optional[str]  # Next node to execute
 
@@ -371,6 +373,20 @@ class ChatbotAgent:
         if self.enable_tools:
             self._initialize_tools()
         
+        # Initialize Coze client if enabled
+        self.coze_client = None
+        if Config.COZE_ENABLED:
+            try:
+                self.coze_client = CozeClient()
+                if self.coze_client.is_configured():
+                    logger.info("Coze client initialized successfully")
+                else:
+                    logger.warning("Coze is enabled but not properly configured (missing API token or bot ID)")
+                    self.coze_client = None
+            except Exception as e:
+                logger.warning(f"Failed to initialize Coze client: {e}")
+                self.coze_client = None
+        
         # Build the graph
         self.graph = self._build_graph()
     
@@ -536,6 +552,7 @@ class ChatbotAgent:
         graph.add_node("evaluation", self._handle_evaluation)
         graph.add_node("confluence_creation", self._handle_confluence_creation)
         graph.add_node("rag_query", self._handle_rag_query)
+        graph.add_node("coze_agent", self._handle_coze_agent)
         
         # Set entry point
         graph.set_entry_point("intent_detection")
@@ -548,6 +565,7 @@ class ChatbotAgent:
                 "jira_creation": "jira_creation",
                 "rag_query": "rag_query",
                 "general_chat": "general_chat",
+                "coze_agent": "coze_agent",
                 "end": END
             }
         )
@@ -564,9 +582,10 @@ class ChatbotAgent:
         )
         graph.add_edge("confluence_creation", END)
         
-        # RAG and general chat go directly to END
+        # RAG, general chat, and Coze agent go directly to END
         graph.add_edge("rag_query", END)
         graph.add_edge("general_chat", END)
+        graph.add_edge("coze_agent", END)
         
         return graph.compile()
     
@@ -639,6 +658,18 @@ class ChatbotAgent:
             logger.debug("Intent: general_chat (Confluence tooling query)")
             return state
         
+        # Check for Coze agent intent keywords (AI daily report, AI news)
+        coze_keywords = ['ai daily report', 'ai news']
+        if any(keyword in user_input for keyword in coze_keywords):
+            # Check if Coze is enabled and configured
+            if Config.COZE_ENABLED:
+                state["intent"] = "coze_agent"
+                matched_keywords = [k for k in coze_keywords if k in user_input]
+                logger.info(f"Intent: coze_agent (matched keywords: {matched_keywords})")
+                return state
+            else:
+                logger.debug("Coze keyword detected but Coze is disabled - routing to general_chat")
+        
         # Check for Jira creation intent keywords
         # Use more flexible matching - check if any keyword appears in the input
         # Also check for common patterns like "create a jira ticket", "pls create jira", etc.
@@ -705,8 +736,15 @@ class ChatbotAgent:
         """Route to appropriate node based on detected intent."""
         intent = state.get("intent", "general_chat")
         
-        # For general chat and RAG queries, don't initialize MCP - it's not needed
-        if intent in ["general_chat", "rag_query"]:
+        # For general chat, RAG queries, and Coze agent, don't initialize MCP - it's not needed
+        if intent in ["general_chat", "rag_query", "coze_agent"]:
+            # For Coze agent, check if it's properly configured
+            if intent == "coze_agent":
+                if Config.COZE_ENABLED and self.coze_client and self.coze_client.is_configured():
+                    return "coze_agent"
+                else:
+                    logger.warning("Coze agent intent detected but Coze is not properly configured - falling back to general_chat")
+                    return "general_chat"
             return intent
         
         # Only check for Jira tools if intent is jira_creation
@@ -2294,6 +2332,175 @@ class ChatbotAgent:
         
         return state
     
+    def _handle_coze_agent(self, state: AgentState) -> AgentState:
+        """Handle Coze agent execution - route to Coze platform API."""
+        user_input = state.get("user_input", "")
+        messages = state.get("messages", [])
+        
+        logger.info("Coze Agent: Processing request via Coze platform API")
+        
+        # Check if Coze client is available
+        if not self.coze_client or not self.coze_client.is_configured():
+            error_msg = (
+                "Coze agent is not properly configured. "
+                "Please check your COZE_API_TOKEN and COZE_BOT_ID settings."
+            )
+            state["messages"].append(AIMessage(content=error_msg))
+            logger.error("Coze client not available or not configured")
+            return state
+        
+        try:
+            # Extract user ID from conversation history if available
+            # For now, use a default user ID
+            user_id = "default_user"
+            
+            # Get conversation ID from state if available (for context continuity)
+            conversation_id = None
+            if state.get("coze_result") and isinstance(state["coze_result"], dict):
+                conversation_id = state["coze_result"].get("conversation_id")
+            
+            # Call Coze API with timeout
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    self.coze_client.execute_agent,
+                    query=user_input,
+                    user_id=user_id,
+                    conversation_id=conversation_id
+                )
+                try:
+                    # Use configurable timeout, default to 300 seconds
+                    coze_timeout = float(Config.COZE_API_TIMEOUT) if hasattr(Config, 'COZE_API_TIMEOUT') else 300.0
+                    coze_result = future.result(timeout=coze_timeout)
+                except concurrent.futures.TimeoutError:
+                    coze_timeout = float(Config.COZE_API_TIMEOUT) if hasattr(Config, 'COZE_API_TIMEOUT') else 300.0
+                    timeout_minutes = int(coze_timeout / 60)
+                    logger.warning(f"Coze API call timed out ({coze_timeout}s)")
+                    error_msg = (
+                        f"I apologize, but the Coze agent request timed out after {timeout_minutes} minutes. "
+                        "The service may be slow or unavailable. Please try again later."
+                    )
+                    state["messages"].append(AIMessage(content=error_msg))
+                    state["coze_result"] = {
+                        "success": False,
+                        "error": "Request timeout",
+                        "error_type": "timeout"
+                    }
+                    return state
+            
+            # Store result in state
+            state["coze_result"] = coze_result
+            
+            if coze_result.get("success"):
+                # Extract agent response
+                agent_response = coze_result.get("response", "")
+                
+                if agent_response:
+                    # Add agent response to messages
+                    state["messages"].append(AIMessage(content=agent_response))
+                    logger.info("Coze agent response received successfully")
+                else:
+                    # Empty response - log raw response for debugging
+                    raw_response = coze_result.get("raw_response")
+                    logger.warning("Coze agent returned empty response")
+                    if raw_response:
+                        logger.debug(f"Raw response structure: {raw_response[:500]}...")
+                    else:
+                        logger.debug("No raw_response in result, checking conversation_id and token_usage")
+                        logger.debug(f"Conversation ID: {coze_result.get('conversation_id')}")
+                        logger.debug(f"Token usage: {coze_result.get('token_usage')}")
+                    
+                    error_msg = (
+                        "The Coze agent returned an empty response. "
+                        "This may indicate the response format is not recognized. "
+                        "Please check the logs for details or try again."
+                    )
+                    state["messages"].append(AIMessage(content=error_msg))
+            else:
+                # API call failed
+                error_message = coze_result.get("error", "Unknown error occurred")
+                error_type = coze_result.get("error_type", "unknown")
+                
+                # Create user-friendly error message
+                if error_type == "timeout":
+                    user_msg = (
+                        "I apologize, but the Coze agent request timed out. "
+                        "Please try again later."
+                    )
+                elif error_type == "http_error" or error_type == "auth_error":
+                    status_code = coze_result.get("status_code", 0)
+                    coze_error_code = coze_result.get("coze_error_code")
+                    
+                    # Use the error message from Coze API if available (it's more specific)
+                    if error_message and error_message != "Unknown error occurred":
+                        # Coze API provides user-friendly messages, use them directly
+                        user_msg = (
+                            f"I encountered an error with the Coze platform: {error_message}. "
+                            f"Please check your COZE_API_TOKEN and COZE_BOT_ID configuration."
+                        )
+                    elif status_code == 401 or coze_error_code == 4101:
+                        user_msg = (
+                            "Authentication failed with Coze platform. "
+                            "The token you entered is incorrect. Please check your COZE_API_TOKEN "
+                            "and ensure it's valid. For more information, refer to "
+                            "https://coze.com/docs/developer_guides/authentication"
+                        )
+                    elif status_code == 403:
+                        user_msg = (
+                            "Access forbidden. Please check your bot permissions "
+                            "and COZE_BOT_ID configuration."
+                        )
+                    elif status_code == 404 or coze_error_code == 4102:
+                        user_msg = (
+                            "Bot not found. Please verify your COZE_BOT_ID is correct."
+                        )
+                    else:
+                        user_msg = (
+                            f"I encountered an error communicating with the Coze platform "
+                            f"(Error: {error_message}). Please try again later."
+                        )
+                elif error_type == "network_error":
+                    user_msg = (
+                        "I'm having trouble connecting to the Coze platform. "
+                        "Please check your network connection and try again."
+                    )
+                else:
+                    user_msg = (
+                        f"I encountered an error: {error_message}. "
+                        "Please try again or contact support if the issue persists."
+                    )
+                
+                state["messages"].append(AIMessage(content=user_msg))
+                logger.error(f"Coze API call failed: {error_message} (type: {error_type})")
+                
+        except Exception as e:
+            error_str = str(e)
+            logger.error(f"Unexpected error in Coze agent handler: {e}")
+            logger.debug("Exception details:", exc_info=True)
+            
+            # Provide user-friendly error message
+            if 'timeout' in error_str.lower():
+                user_msg = "The Coze agent request timed out. Please try again later."
+            elif 'connection' in error_str.lower() or 'network' in error_str.lower():
+                user_msg = (
+                    "I'm having trouble connecting to the Coze platform. "
+                    "Please check your network connection."
+                )
+            else:
+                user_msg = (
+                    "I encountered an unexpected error while processing your request. "
+                    "Please try again later."
+                )
+            
+            state["messages"].append(AIMessage(content=user_msg))
+            state["coze_result"] = {
+                "success": False,
+                "error": error_str,
+                "error_type": "exception"
+            }
+        
+        return state
+    
     def _format_messages_for_context(self, messages: List[BaseMessage]) -> str:
         """Format messages for context string."""
         context = ""
@@ -2577,16 +2784,16 @@ class ChatbotAgent:
         logger.info("Processing input through agent graph...")
         final_state = None
         try:
-            # Use timeout wrapper to prevent infinite hangs (90 seconds should be enough for LLM calls)
+            # Use timeout wrapper to prevent infinite hangs (300 seconds for Coze API which may take longer)
             # Also set recursion_limit to prevent infinite loops (10 should be more than enough)
             graph_config = {"recursion_limit": 10}
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(self.graph.invoke, initial_state, config=graph_config)
                 try:
-                    final_state = future.result(timeout=90.0)  # 90 second timeout
+                    final_state = future.result(timeout=300.0)  # 300 second timeout (5 minutes) for Coze API
                 except concurrent.futures.TimeoutError:
-                    logger.error("Agent graph execution timed out after 90 seconds")
-                    return "I apologize, but the request timed out. Please try again with a simpler query."
+                    logger.error("Agent graph execution timed out after 300 seconds")
+                    return "I apologize, but the request timed out after 5 minutes. Please try again with a simpler query."
         except Exception as e:
             logger.error(f"Error during graph execution: {e}", exc_info=True)
             return f"I encountered an error while processing your request: {str(e)}"

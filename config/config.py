@@ -105,6 +105,13 @@ class Config:
     JWT_EXPIRATION_HOURS: int = int(os.getenv('JWT_EXPIRATION_HOURS', '24'))
     AUTH_DB_PATH: Optional[str] = os.getenv('AUTH_DB_PATH', None)  # Path to auth database, None uses default
     
+    # Coze Platform Configuration
+    COZE_ENABLED: bool = os.getenv('COZE_ENABLED', 'false').lower() in ('true', '1', 'yes')
+    COZE_API_TOKEN: str = os.getenv('COZE_API_TOKEN', '')
+    COZE_BOT_ID: str = os.getenv('COZE_BOT_ID', '')
+    COZE_API_BASE_URL: str = os.getenv('COZE_API_BASE_URL', 'https://api.coze.com')
+    COZE_API_TIMEOUT: int = int(os.getenv('COZE_API_TIMEOUT', '300'))  # Timeout in seconds (default: 300s = 5 minutes)
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""
