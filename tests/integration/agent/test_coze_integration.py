@@ -352,6 +352,7 @@ class TestCozeAgentIntentDetection:
             mock_config.OPENAI_MODEL = "gpt-3.5-turbo"
             mock_config.USE_MCP = False
             mock_config.COZE_ENABLED = True
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             with patch('src.agent.agent_graph.ChatOpenAI'):
                 agent = ChatbotAgent(
@@ -378,6 +379,7 @@ class TestCozeAgentIntentDetection:
         
         with patch('src.agent.agent_graph.Config') as mock_config:
             mock_config.COZE_ENABLED = True
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             result_state = agent._detect_intent(state)
             assert result_state["intent"] == "coze_agent"
@@ -399,6 +401,7 @@ class TestCozeAgentIntentDetection:
         
         with patch('src.agent.agent_graph.Config') as mock_config:
             mock_config.COZE_ENABLED = True
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             result_state = agent._detect_intent(state)
             assert result_state["intent"] == "coze_agent"
@@ -420,6 +423,7 @@ class TestCozeAgentIntentDetection:
         
         with patch('src.agent.agent_graph.Config') as mock_config:
             mock_config.COZE_ENABLED = False
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             result_state = agent._detect_intent(state)
             # Should fallback to general_chat when Coze is disabled
@@ -442,6 +446,7 @@ class TestCozeAgentIntentDetection:
         
         with patch('src.agent.agent_graph.Config') as mock_config:
             mock_config.COZE_ENABLED = True
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             result_state = agent._detect_intent(state)
             assert result_state["intent"] == "coze_agent"
@@ -460,6 +465,7 @@ class TestCozeAgentRouting:
             mock_config.OPENAI_MODEL = "gpt-3.5-turbo"
             mock_config.USE_MCP = False
             mock_config.COZE_ENABLED = True
+            mock_config.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
             
             with patch('src.agent.agent_graph.ChatOpenAI'):
                 agent = ChatbotAgent(

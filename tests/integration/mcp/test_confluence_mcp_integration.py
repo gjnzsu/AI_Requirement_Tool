@@ -90,11 +90,13 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_module.USE_MCP = True
         mock_config_module.OPENAI_API_KEY = "test-key"
         mock_config_module.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_module.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
         mock_config_agent.CONFLUENCE_SPACE_KEY = "TEST"
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         
         # Create agent with mocked MCP integration
         with patch('src.agent.agent_graph.MCPIntegration') as mock_mcp_class:
@@ -187,11 +189,13 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_module.USE_MCP = True
         mock_config_module.OPENAI_API_KEY = "test-key"
         mock_config_module.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_module.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
         mock_config_agent.CONFLUENCE_SPACE_KEY = "TEST"
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         
         # Create agent with mocked MCP integration
         with patch('src.agent.agent_graph.MCPIntegration') as mock_mcp_class:
@@ -324,11 +328,13 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_module.USE_MCP = True
         mock_config_module.OPENAI_API_KEY = "test-key"
         mock_config_module.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_module.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
         mock_config_agent.CONFLUENCE_SPACE_KEY = "TEST"
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         
         # Create agent with mocked MCP integration that times out
         with patch('src.agent.agent_graph.MCPIntegration') as mock_mcp_class:
@@ -501,13 +507,16 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_module.JIRA_EMAIL = "test@example.com"
         mock_config_module.JIRA_API_TOKEN = "test-token"
         mock_config_module.JIRA_PROJECT_KEY = "TEST"
+        mock_config_module.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.JIRA_URL = "https://test.atlassian.net"
         mock_config_agent.JIRA_EMAIL = "test@example.com"
         mock_config_agent.JIRA_API_TOKEN = "test-token"
         mock_config_agent.JIRA_PROJECT_KEY = "TEST"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         
         # Create agent with mocked components
         with patch('src.agent.agent_graph.MCPIntegration') as mock_mcp_class, \
@@ -745,6 +754,7 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.JIRA_URL = "https://test.atlassian.net"
         mock_config_agent.JIRA_EMAIL = "test@example.com"
         mock_config_agent.JIRA_API_TOKEN = "test-token"
@@ -855,11 +865,13 @@ class TestConfluenceMCPIntegration(unittest.TestCase):
         mock_config_module.USE_MCP = True
         mock_config_module.OPENAI_API_KEY = "test-key"
         mock_config_module.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_module.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         mock_config_agent.CONFLUENCE_URL = "https://test.atlassian.net/wiki"
         mock_config_agent.CONFLUENCE_SPACE_KEY = "TEST"
         mock_config_agent.USE_MCP = True
         mock_config_agent.OPENAI_API_KEY = "test-key"
         mock_config_agent.OPENAI_MODEL = "gpt-3.5-turbo"
+        mock_config_agent.INTENT_USE_LLM = False  # Disable LLM for keyword-only tests
         
         # Create agent with mocked MCP integration
         with patch('src.agent.agent_graph.MCPIntegration') as mock_mcp_class:

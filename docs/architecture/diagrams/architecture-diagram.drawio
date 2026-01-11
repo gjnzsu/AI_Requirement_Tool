@@ -59,8 +59,17 @@
         <mxCell id="LXauNJof73o6HpIqi6Vh-1" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;flowAnimation=1;" target="rag-service">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&#xa;(src/agent/agent_graph.py)&#xa;&#xa;• Intent Detection&#xa;• Tool Orchestration&#xa;• State Management&#xa;• Decision Routing&#xa;• Coze Agent Integration" vertex="1">
-          <mxGeometry height="160" width="200" x="700" y="720" as="geometry" />
+        <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&#xa;(src/agent/agent_graph.py)&#xa;&#xa;• Hybrid Intent Detection&#xa;  - Keywords → Cache → LLM (IntentDetector)&#xa;  - Timeout + Confidence Threshold + Fallback&#xa;• Tool Orchestration&#xa;• State Management&#xa;• Decision Routing&#xa;• Coze Agent Integration" vertex="1">
+          <mxGeometry height="210" width="200" x="700" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-intent-llm1" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;flowAnimation=1;" target="intent-detector" value="Ambiguous / no-match">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-intent-llm2" edge="1" parent="1" source="intent-detector" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;flowAnimation=1;" target="llm-router" value="LLM intent classification">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="intent-detector" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="IntentDetector Service&#xa;(src/services/intent_detector.py)&#xa;&#xa;• JSON intent output (+ reasoning)&#xa;• Uses conversation context (recent msgs)&#xa;• Parses + validates intent/confidence" vertex="1">
+          <mxGeometry height="130" width="240" x="420" y="900" as="geometry" />
         </mxCell>
         <mxCell id="llm-router" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="LLM Router&#xa;(src/llm/router.py)&#xa;&#xa;• Multi-Provider Support&#xa;• Fallback Management&#xa;• Provider Factory" vertex="1">
           <mxGeometry height="100" width="180" x="290" y="1010" as="geometry" />

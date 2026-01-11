@@ -33,6 +33,7 @@ from src.tools.jira_tool import JiraTool
 from src.tools.confluence_tool import ConfluenceTool
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.services.coze_client import CozeClient
+from src.services.intent_detector import IntentDetector
 from src.mcp.mcp_integration import MCPIntegration
 from config.config import Config
 from src.utils.logger import get_logger
@@ -387,6 +388,13 @@ class ChatbotAgent:
                 logger.warning(f"Failed to initialize Coze client: {e}")
                 self.coze_client = None
         
+        # Initialize intent detector (lazy initialization - will be created on first use)
+        self.intent_detector: Optional[IntentDetector] = None
+        
+        # Initialize intent cache for avoiding redundant LLM calls
+        self._intent_cache: Dict[str, Dict[str, Any]] = {}
+        self._intent_cache_max_size = 100  # Cache last 100 detections
+        
         # Build the graph
         self.graph = self._build_graph()
     
@@ -541,6 +549,122 @@ class ChatbotAgent:
             except Exception as e:
                 logger.warning(f"Failed to initialize Jira Evaluator: {e}")
     
+    def _initialize_intent_detector(self) -> Optional[IntentDetector]:
+        """
+        Lazily initialize the intent detector if LLM-based detection is enabled.
+        
+        Returns:
+            IntentDetector instance or None if initialization fails or is disabled
+        """
+        # Check if LLM-based detection is enabled
+        if not Config.INTENT_USE_LLM:
+            logger.debug("LLM-based intent detection is disabled")
+            return None
+        
+        # Return existing instance if already initialized
+        if self.intent_detector is not None:
+            return self.intent_detector
+        
+        try:
+            from src.llm import LLMRouter
+            
+            # Get API key and model based on provider
+            if self.provider_name == "openai":
+                api_key = Config.OPENAI_API_KEY
+                model = Config.OPENAI_MODEL
+            elif self.provider_name == "gemini":
+                api_key = Config.GEMINI_API_KEY
+                model = Config.GEMINI_MODEL
+            elif self.provider_name == "deepseek":
+                api_key = Config.DEEPSEEK_API_KEY
+                model = Config.DEEPSEEK_MODEL
+            else:
+                # Fallback to OpenAI if provider not recognized
+                api_key = Config.OPENAI_API_KEY
+                model = Config.OPENAI_MODEL
+            
+            if not api_key:
+                logger.warning("No API key available for intent detector - falling back to keyword-only detection")
+                return None
+            
+            # Create LLM provider for intent detection
+            llm_provider = LLMRouter.get_provider(
+                provider_name=self.provider_name,
+                api_key=api_key,
+                model=model
+            )
+            
+            # Create intent detector with configured temperature
+            self.intent_detector = IntentDetector(
+                llm_provider=llm_provider,
+                temperature=Config.INTENT_LLM_TEMPERATURE
+            )
+            
+            logger.info("Intent detector initialized successfully")
+            return self.intent_detector
+            
+        except Exception as e:
+            logger.warning(f"Failed to initialize intent detector: {e}")
+            logger.info("Falling back to keyword-only intent detection")
+            return None
+    
+    def _get_cached_intent(self, user_input: str) -> Optional[Dict[str, Any]]:
+        """
+        Check cache for intent detection result.
+        
+        Args:
+            user_input: User's input message
+            
+        Returns:
+            Cached intent result or None if not found
+        """
+        import hashlib
+        
+        # Ensure cache exists (safety check)
+        if not hasattr(self, '_intent_cache'):
+            self._intent_cache = {}
+        
+        # Normalize input for cache key (lowercase, strip whitespace)
+        normalized_input = user_input.lower().strip()
+        cache_key = hashlib.md5(normalized_input.encode()).hexdigest()
+        
+        if cache_key in self._intent_cache:
+            cached_result = self._intent_cache[cache_key]
+            logger.debug(f"Intent cache hit for input: '{user_input[:50]}...'")
+            return cached_result
+        
+        return None
+    
+    def _cache_intent(self, user_input: str, intent_result: Dict[str, Any]):
+        """
+        Cache intent detection result.
+        
+        Args:
+            user_input: User's input message
+            intent_result: Intent detection result to cache
+        """
+        import hashlib
+        
+        # Ensure cache exists (safety check)
+        if not hasattr(self, '_intent_cache'):
+            self._intent_cache = {}
+        if not hasattr(self, '_intent_cache_max_size'):
+            self._intent_cache_max_size = 100
+        
+        # Normalize input for cache key
+        normalized_input = user_input.lower().strip()
+        cache_key = hashlib.md5(normalized_input.encode()).hexdigest()
+        
+        # Add to cache
+        self._intent_cache[cache_key] = intent_result
+        
+        # Limit cache size (remove oldest entries if over limit)
+        if len(self._intent_cache) > self._intent_cache_max_size:
+            # Remove oldest entry (simple FIFO - remove first key)
+            oldest_key = next(iter(self._intent_cache))
+            del self._intent_cache[oldest_key]
+            logger.debug(f"Intent cache size limit reached, removed oldest entry")
+    
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph state graph."""
         graph = StateGraph(AgentState)
@@ -613,32 +737,12 @@ class ChatbotAgent:
         # Expanded RAG keywords for knowledge/documentation queries
         # These keywords trigger RAG to search through ingested documents
         rag_keywords = [
-            # Question patterns
-            'what is', 'what are', 'what was', 'what were', 'what does', 'what do',
-            'how to', 'how do', 'how does', 'how can', 'how should', 'how would',
-            'why is', 'why are', 'why does', 'why do',
-            'when is', 'when are', 'when does', 'when do',
-            'where is', 'where are', 'where does', 'where do',
-            'who is', 'who are', 'who does', 'who do',
-            # Explanation patterns
-            'explain', 'explains', 'explained', 'explaining',
-            'tell me about', 'tell me more', 'tell me',
-            'describe', 'describes', 'described', 'describing',
-            'define', 'defines', 'defined', 'definition',
-            'meaning of', 'meaning',
-            # Information seeking patterns
-            'information about', 'info about', 'information on', 'info on',
-            'details about', 'details on', 'more about', 'more on',
-            'learn about', 'learn more', 'know about', 'know more',
             # Documentation patterns
-            'document', 'documentation', 'documents',
+            'knowledge base', 'document', 'documentation', 'documents',
             'guide', 'guides', 'tutorial', 'tutorials',
-            'help with', 'help me', 'help understanding',
             'example', 'examples', 'sample', 'samples',
             # Knowledge patterns
-            'understand', 'understanding', 'understand how',
-            'show me', 'show how', 'show',
-            'find', 'find out', 'find information',
+            'understand', 'understanding',
             'search', 'search for', 'look for', 'look up'
         ]
         
@@ -726,10 +830,86 @@ class ChatbotAgent:
             logger.debug("Intent: general_chat (keyword match)")
             return state
         
-        # For ambiguous cases, default to general_chat (skip LLM to avoid timeout)
-        # LLM-based detection is unreliable and slow, so we use keyword-based only
+        # No clear keyword match found - use LLM-based detection for ambiguous cases
+        if Config.INTENT_USE_LLM:
+            try:
+                # Check cache first
+                cached_result = self._get_cached_intent(user_input)
+                if cached_result:
+                    state["intent"] = cached_result.get("intent", "general_chat")
+                    logger.debug(f"Intent: {state['intent']} (from cache)")
+                    return state
+                
+                # Initialize intent detector if not already initialized
+                intent_detector = self._initialize_intent_detector()
+                if intent_detector:
+                    # Prepare conversation context from recent messages
+                    conversation_context = None
+                    if messages and len(messages) > 0:
+                        # Extract last few messages for context (skip system messages)
+                        recent_messages = []
+                        for msg in messages[-5:]:  # Last 5 messages
+                            if isinstance(msg, HumanMessage):
+                                recent_messages.append(f"User: {msg.content}")
+                            elif isinstance(msg, AIMessage):
+                                recent_messages.append(f"Assistant: {msg.content}")
+                        if recent_messages:
+                            conversation_context = recent_messages
+                    
+                    # Call LLM-based intent detection with timeout.
+                    #
+                    # IMPORTANT: do NOT use the ThreadPoolExecutor context manager here.
+                    # If future.result(timeout=...) times out, the context manager's
+                    # shutdown(wait=True) would still block until the worker finishes.
+                    import concurrent.futures
+                    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                    future = executor.submit(
+                        intent_detector.detect_intent,
+                        user_input,
+                        conversation_context
+                    )
+                    try:
+                        llm_result = future.result(timeout=Config.INTENT_LLM_TIMEOUT)
+
+                        # Validate confidence threshold
+                        confidence = llm_result.get("confidence", 0.0)
+                        if confidence >= Config.INTENT_CONFIDENCE_THRESHOLD:
+                            detected_intent = llm_result.get("intent", "general_chat")
+                            state["intent"] = detected_intent
+
+                            # Cache the result
+                            self._cache_intent(user_input, llm_result)
+
+                            logger.info(
+                                f"Intent: {detected_intent} (LLM detection, "
+                                f"confidence: {confidence:.2f}, reasoning: {llm_result.get('reasoning', 'N/A')[:50]})"
+                            )
+                            return state
+                        else:
+                            logger.debug(
+                                f"LLM confidence {confidence:.2f} below threshold "
+                                f"{Config.INTENT_CONFIDENCE_THRESHOLD}, falling back to general_chat"
+                            )
+                    except concurrent.futures.TimeoutError:
+                        # Best-effort cancellation; running threads can't be force-killed in CPython.
+                        future.cancel()
+                        logger.warning(
+                            f"Intent detection timeout after {Config.INTENT_LLM_TIMEOUT}s, "
+                            f"falling back to general_chat"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Error during LLM intent detection: {e}, falling back to general_chat")
+                    finally:
+                        # Never block on worker shutdown (prevents test/runtime hangs).
+                        executor.shutdown(wait=False, cancel_futures=True)
+                else:
+                    logger.debug("Intent detector not available, falling back to general_chat")
+            except Exception as e:
+                logger.warning(f"Unexpected error in LLM intent detection: {e}, falling back to general_chat")
+        
+        # Fallback to general_chat if LLM detection fails or is disabled
         state["intent"] = "general_chat"
-        logger.debug("Intent: general_chat (default)")
+        logger.debug("Intent: general_chat (default fallback)")
         return state
     
     def _route_after_intent(self, state: AgentState) -> str:

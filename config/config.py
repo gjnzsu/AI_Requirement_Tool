@@ -112,6 +112,12 @@ class Config:
     COZE_API_BASE_URL: str = os.getenv('COZE_API_BASE_URL', 'https://api.coze.com')
     COZE_API_TIMEOUT: int = int(os.getenv('COZE_API_TIMEOUT', '300'))  # Timeout in seconds (default: 300s = 5 minutes)
     
+    # Intent Detection Configuration
+    INTENT_USE_LLM: bool = os.getenv('INTENT_USE_LLM', 'true').lower() in ('true', '1', 'yes')
+    INTENT_LLM_TEMPERATURE: float = float(os.getenv('INTENT_LLM_TEMPERATURE', '0.1'))
+    INTENT_CONFIDENCE_THRESHOLD: float = float(os.getenv('INTENT_CONFIDENCE_THRESHOLD', '0.7'))
+    INTENT_LLM_TIMEOUT: float = float(os.getenv('INTENT_LLM_TIMEOUT', '5.0'))
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""
