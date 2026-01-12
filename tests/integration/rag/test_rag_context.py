@@ -9,6 +9,7 @@ This script:
 """
 
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -81,6 +82,9 @@ def create_test_documents():
     return [doc1, doc2]
 
 
+import pytest
+
+@pytest.mark.rag
 def test_rag_retrieval():
     logger = get_logger('test.rag_retrieval')
 
@@ -115,6 +119,7 @@ def test_rag_retrieval():
         logger.info("")
 
 
+@pytest.mark.rag
 def test_chatbot_with_rag():
     """Test chatbot with RAG enabled."""
     logger.info("\n" + "=" * 70)
@@ -217,6 +222,7 @@ def test_chatbot_with_rag():
         traceback.print_exc()
 
 
+@pytest.mark.rag
 def test_chatbot_without_rag():
     """Test chatbot WITHOUT RAG for comparison."""
     logger.info("\n" + "=" * 70)

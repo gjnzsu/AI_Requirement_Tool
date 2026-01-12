@@ -104,6 +104,7 @@ Common Flask Extensions:
     return [python_doc, flask_doc]
 
 
+@pytest.mark.rag
 def test_rag_ingestion():
     logger = get_logger('test.rag_ingestion')
 
@@ -147,6 +148,7 @@ def test_rag_ingestion():
     return rag
 
 
+@pytest.mark.rag
 def test_rag_retrieval(rag_service):
     """Test retrieval functionality."""
     logger.info("\n" + "=" * 70)
@@ -178,6 +180,7 @@ def test_rag_retrieval(rag_service):
             logger.error(f"  ✗ Error: {e}")
 
 
+@pytest.mark.rag
 @pytest.mark.timeout(120)  # 2 minutes for multiple LLM calls
 def test_rag_chatbot():
     """Test RAG-enabled chatbot."""

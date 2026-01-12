@@ -6,6 +6,7 @@ on Jira/Confluence connections).
 """
 
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -77,6 +78,7 @@ def create_test_documents():
     return [doc1, doc2]
 
 
+@pytest.mark.rag
 def test_rag_retrieval():
     logger = get_logger('test.rag_retrieval')
 
