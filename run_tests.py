@@ -52,7 +52,7 @@ def main():
         elif arg == "--e2e":
             return run_pytest(["tests/e2e/", "-v"])
         elif arg == "--mcp":
-            return run_pytest(["tests/integration/mcp/", "-v", "-m", "mcp"])
+            return run_pytest(["tests/integration/mcp/", "-v"])
         elif arg == "--rag":
             return run_pytest(["tests/integration/rag/", "-v", "-m", "rag"])
         elif arg == "--agent":
