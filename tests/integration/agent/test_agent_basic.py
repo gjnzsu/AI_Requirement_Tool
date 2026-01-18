@@ -17,6 +17,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger('test.agent')
 
+@pytest.mark.slow
 @pytest.mark.timeout(120)  # 2 minutes for agent tests with LLM calls
 def test_agent():
     """Test the LangGraph agent."""

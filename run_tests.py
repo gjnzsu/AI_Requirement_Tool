@@ -2,7 +2,8 @@
 Test runner script to execute all tests or specific test categories.
 
 Usage:
-    python run_tests.py                    # Run all tests
+    python run_tests.py                    # Run all tests (fast tests only, parallel execution)
+    python run_tests.py --slow             # Run slow tests (includes E2E tests with real API calls)
     python run_tests.py --unit             # Run only unit tests
     python run_tests.py --integration      # Run only integration tests
     python run_tests.py --e2e              # Run only e2e tests
@@ -11,6 +12,16 @@ Usage:
     python run_tests.py --agent            # Run agent tests
     python run_tests.py --llm              # Run LLM tests
     python run_tests.py --memory           # Run memory tests
+
+Parallel Execution:
+    Tests run in parallel by default using pytest-xdist (if available).
+    Use -n auto to automatically detect CPU cores, or -n N to use N workers.
+    Falls back to sequential execution if pytest-xdist is not installed.
+
+Slow Tests:
+    Slow tests (marked with @pytest.mark.slow) are skipped by default.
+    These include tests with real LLM API calls (RAG, Coze E2E).
+    Use --slow flag to include slow tests in the run.
 """
 
 import sys
@@ -22,9 +33,35 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
-def run_pytest(args):
-    """Run pytest with given arguments."""
-    cmd = [sys.executable, "-m", "pytest"] + args
+def check_pytest_xdist():
+    """Check if pytest-xdist is available."""
+    try:
+        import xdist
+        return True
+    except ImportError:
+        return False
+
+
+def run_pytest(args, use_parallel=True):
+    """Run pytest with given arguments.
+    
+    Args:
+        args: List of pytest arguments
+        use_parallel: If True, enable parallel execution with pytest-xdist if available
+    """
+    cmd = [sys.executable, "-m", "pytest"]
+    
+    # Add parallel execution if pytest-xdist is available and not already specified
+    if use_parallel and check_pytest_xdist():
+        # Check if -n flag is already in args
+        has_n_flag = any(arg.startswith('-n') for arg in args)
+        if not has_n_flag:
+            cmd.extend(["-n", "auto"])
+            print("Note: Running tests in parallel (pytest-xdist)")
+    
+    # Add the rest of the arguments
+    cmd.extend(args)
+    
     print(f"Running: {' '.join(cmd)}")
     print("=" * 70)
     result = subprocess.run(cmd, cwd=project_root)
@@ -45,7 +82,10 @@ def main():
     if len(sys.argv) > 1:
         arg = sys.argv[1].lower()
         
-        if arg == "--unit":
+        if arg == "--slow":
+            # Run all tests including slow ones
+            return run_pytest(["tests/", "-v", "-m", "slow"])
+        elif arg == "--unit":
             return run_pytest(["tests/unit/", "-v"])
         elif arg == "--integration":
             return run_pytest(["tests/integration/", "-v"])
@@ -69,7 +109,7 @@ def main():
             print(__doc__)
             return 1
     else:
-        # Run all tests
+        # Run all tests (fast tests only, slow tests skipped by default via pytest.ini)
         return run_pytest(["tests/", "-v"])
 
 

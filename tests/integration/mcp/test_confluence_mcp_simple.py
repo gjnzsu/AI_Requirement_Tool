@@ -12,9 +12,11 @@ sys.path.insert(0, str(project_root))
 
 from src.mcp.mcp_integration import MCPIntegration
 from src.utils.logger import get_logger
+import pytest
 
 logger = get_logger('test.confluence_mcp')
 
+@pytest.mark.timeout(60)  # 60 second timeout for MCP connection
 def test_confluence_mcp_server():
     """Test Confluence MCP server connectivity and tool availability."""
     logger.info("=" * 70)
@@ -76,7 +78,7 @@ def test_confluence_mcp_server():
             logger.info("     - OAuth authentication required (for Atlassian Rovo MCP Server)")
             logger.info("\n   Note: The system will fallback to Direct API when MCP tools are unavailable")
             logger.info("   This is expected behavior and the Direct API fallback works correctly.")
-            return False
+            pytest.skip("No Confluence MCP tools found - skipping test")
         
         # Test tool invocation (if we have a create tool)
         create_tools = [t for t in confluence_tools if 'create' in t.name.lower()]
@@ -103,7 +105,6 @@ def test_confluence_mcp_server():
         logger.info("\n" + "=" * 70)
         logger.info("✓ Confluence MCP Server Test: PASSED")
         logger.info("=" * 70)
-        return True
         
     except Exception as e:
         logger.error(f"\n❌ Error testing Confluence MCP server: {e}")
@@ -112,7 +113,7 @@ def test_confluence_mcp_server():
         logger.info("\n" + "=" * 70)
         logger.error("✗ Confluence MCP Server Test: FAILED")
         logger.info("=" * 70)
-        return False
+        raise
 
 if __name__ == "__main__":
     success = test_confluence_mcp_server()

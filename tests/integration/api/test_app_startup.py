@@ -42,17 +42,15 @@ class TestAppStartup:
     def test_app_starts_without_jwt_secret(self):
         """Test that app can start even without JWT_SECRET_KEY configured."""
         import app
-        
-        # Temporarily remove JWT_SECRET_KEY
-        original_secret = os.environ.get('JWT_SECRET_KEY')
-        if 'JWT_SECRET_KEY' in os.environ:
-            del os.environ['JWT_SECRET_KEY']
-        
-        # Reload config
         from config.config import Config
-        Config.JWT_SECRET_KEY = 'your-secret-key-change-in-production'
+        
+        # Save original value
+        original_secret = Config.JWT_SECRET_KEY
         
         try:
+            # Set JWT_SECRET_KEY to invalid placeholder (should trigger ValueError)
+            Config.JWT_SECRET_KEY = 'your-secret-key-change-in-production'
+            
             # Try to initialize auth services (should handle gracefully)
             from src.auth import AuthService, UserService
             
@@ -66,8 +64,7 @@ class TestAppStartup:
             
         finally:
             # Restore original secret key
-            if original_secret:
-                os.environ['JWT_SECRET_KEY'] = original_secret
+            Config.JWT_SECRET_KEY = original_secret
     
     def test_app_handles_missing_auth_services(self):
         """Test that app handles missing authentication services gracefully."""
@@ -158,6 +155,7 @@ class TestAppStartup:
     def test_user_service_handles_missing_auth_service(self):
         """Test that UserService handles missing AuthService gracefully."""
         import tempfile
+        from config.config import Config
         from src.auth.user_service import UserService
         
         # Create temp database
@@ -165,12 +163,19 @@ class TestAppStartup:
         os.close(fd)
         
         try:
-            # Mock Config to have no JWT_SECRET_KEY
-            with patch('src.auth.user_service.Config') as mock_config:
-                mock_config.JWT_SECRET_KEY = 'your-secret-key-change-in-production'
-                mock_config.AUTH_DB_PATH = None
+            # Save original values
+            original_jwt_secret = Config.JWT_SECRET_KEY
+            original_auth_db_path = getattr(Config, 'AUTH_DB_PATH', None)
+            original_expiration = Config.JWT_EXPIRATION_HOURS
+            
+            # Patch Config attributes directly to trigger ValueError in AuthService
+            # Set JWT_SECRET_KEY to the default placeholder which should trigger ValueError
+            with patch.object(Config, 'JWT_SECRET_KEY', 'your-secret-key-change-in-production'), \
+                 patch.object(Config, 'AUTH_DB_PATH', None, create=True), \
+                 patch.object(Config, 'JWT_EXPIRATION_HOURS', 24):
                 
                 # UserService should initialize but auth_service should be None
+                # because AuthService will raise ValueError due to invalid JWT_SECRET_KEY
                 user_service = UserService(db_path=db_path)
                 assert user_service is not None
                 assert user_service.auth_service is None
@@ -183,6 +188,12 @@ class TestAppStartup:
                 assert user_service.authenticate_user('test', 'password') is None
         
         finally:
+            # Restore original values
+            Config.JWT_SECRET_KEY = original_jwt_secret
+            if original_auth_db_path is not None:
+                Config.AUTH_DB_PATH = original_auth_db_path
+            Config.JWT_EXPIRATION_HOURS = original_expiration
+            
             # Cleanup
             try:
                 if os.path.exists(db_path):
@@ -194,23 +205,17 @@ class TestAppStartup:
         """Test app startup with valid configuration."""
         import app
         import secrets
+        from config.config import Config
         
         # Set valid JWT_SECRET_KEY
         test_secret = secrets.token_urlsafe(32)
         
-        original_secret = os.environ.get('JWT_SECRET_KEY')
-        os.environ['JWT_SECRET_KEY'] = test_secret
+        # Save original value
+        original_secret = Config.JWT_SECRET_KEY
         
         try:
-            # Reload config
-            from importlib import reload
-            from config import config
-            reload(config)
-            
-            # Reload auth modules
-            from importlib import reload
-            import src.auth.auth_service
-            reload(src.auth.auth_service)
+            # Patch Config directly (more reliable than reloading modules)
+            Config.JWT_SECRET_KEY = test_secret
             
             # Try to create AuthService (should succeed)
             from src.auth import AuthService
@@ -219,9 +224,5 @@ class TestAppStartup:
             assert auth_service.secret_key == test_secret
             
         finally:
-            # Restore
-            if original_secret:
-                os.environ['JWT_SECRET_KEY'] = original_secret
-            else:
-                if 'JWT_SECRET_KEY' in os.environ:
-                    del os.environ['JWT_SECRET_KEY']
+            # Restore original value
+            Config.JWT_SECRET_KEY = original_secret

@@ -41,75 +41,75 @@ def test_deepseek_chatbot():
     logger.info(f"API Key: {api_key[:10]}..." if len(api_key) > 10 else "API Key: ***")
     logger.info("")
     
+    # Disable LLM-based intent detection for this test so it only validates the DeepSeek chat path
+    # (otherwise it may issue extra LLM calls and become flaky/slow under the global pytest timeout).
+    original_intent_use_llm = Config.INTENT_USE_LLM
     try:
-        # Disable LLM-based intent detection for this test so it only validates the DeepSeek chat path
-        # (otherwise it may issue extra LLM calls and become flaky/slow under the global pytest timeout).
-        with patch('src.agent.agent_graph.Config.INTENT_USE_LLM', False), \
-             patch('config.config.Config.INTENT_USE_LLM', False):
+        # Patch Config directly (all modules will see this change)
+        Config.INTENT_USE_LLM = False
 
-            # Initialize chatbot with DeepSeek provider
-            logger.info("Initializing chatbot with DeepSeek provider...")
-            chatbot = Chatbot(
-                provider_name="deepseek",
-                use_agent=True,
-                enable_mcp_tools=False,  # Disable MCP for basic connectivity test
-                use_rag=False  # Disable RAG for basic connectivity test
-            )
-            logger.info("Chatbot initialized successfully!")
-            logger.info(f"Provider: {chatbot.provider_name}")
-            logger.info("")
+        # Initialize chatbot with DeepSeek provider
+        logger.info("Initializing chatbot with DeepSeek provider...")
+        chatbot = Chatbot(
+            provider_name="deepseek",
+            use_agent=True,
+            enable_mcp_tools=False,  # Disable MCP for basic connectivity test
+            use_rag=False  # Disable RAG for basic connectivity test
+        )
+        logger.info("Chatbot initialized successfully!")
+        logger.info(f"Provider: {chatbot.provider_name}")
+        logger.info("")
 
-            # Test 1: Basic conversation
-            logger.info("Test 1: Basic Conversation")
-            logger.info("-" * 80)
-            test_message = "Hello! Please respond with 'DeepSeek chatbot is working correctly!'"
-            logger.info(f"User: {test_message}")
+        # Test 1: Basic conversation
+        logger.info("Test 1: Basic Conversation")
+        logger.info("-" * 80)
+        test_message = "Hello! Please respond with 'DeepSeek chatbot is working correctly!'"
+        logger.info(f"User: {test_message}")
 
-            response = chatbot.get_response(test_message)
-            logger.info(f"DeepSeek: {response}")
-            logger.info("")
-            assert response and len(response) > 0, "Basic conversation returned an empty response"
-            logger.info("✓ Basic conversation test passed")
+        response = chatbot.get_response(test_message)
+        logger.info(f"DeepSeek: {response}")
+        logger.info("")
+        assert response and len(response) > 0, "Basic conversation returned an empty response"
+        logger.info("✓ Basic conversation test passed")
 
-            logger.info("")
+        logger.info("")
 
-            # Test 2: Multi-turn conversation
-            logger.info("Test 2: Multi-turn Conversation")
-            logger.info("-" * 80)
+        # Test 2: Multi-turn conversation
+        logger.info("Test 2: Multi-turn Conversation")
+        logger.info("-" * 80)
 
-            response1 = chatbot.get_response("What is 2+2?")
-            logger.info("User: What is 2+2?")
-            logger.info(f"DeepSeek: {response1}")
-            logger.info("")
+        response1 = chatbot.get_response("What is 2+2?")
+        logger.info("User: What is 2+2?")
+        logger.info(f"DeepSeek: {response1}")
+        logger.info("")
 
-            response2 = chatbot.get_response("What about 3+3?")
-            logger.info("User: What about 3+3?")
-            logger.info(f"DeepSeek: {response2}")
-            logger.info("")
+        response2 = chatbot.get_response("What about 3+3?")
+        logger.info("User: What about 3+3?")
+        logger.info(f"DeepSeek: {response2}")
+        logger.info("")
 
-            assert response1 and response2, "Multi-turn conversation returned an empty response"
-            logger.info("✓ Multi-turn conversation test passed")
+        assert response1 and response2, "Multi-turn conversation returned an empty response"
+        logger.info("✓ Multi-turn conversation test passed")
 
-            logger.info("")
+        logger.info("")
 
-            # Test 3: Complex query
-            logger.info("Test 3: Complex Query")
-            logger.info("-" * 80)
+        # Test 3: Complex query
+        logger.info("Test 3: Complex Query")
+        logger.info("-" * 80)
 
-            complex_query = "Explain in one sentence what artificial intelligence is."
-            response = chatbot.get_response(complex_query)
-            logger.info(f"User: {complex_query}")
-            logger.info(f"DeepSeek: {response[:200]}..." if len(response) > 200 else f"DeepSeek: {response}")
-            logger.info("")
+        complex_query = "Explain in one sentence what artificial intelligence is."
+        response = chatbot.get_response(complex_query)
+        logger.info(f"User: {complex_query}")
+        logger.info(f"DeepSeek: {response[:200]}..." if len(response) > 200 else f"DeepSeek: {response}")
+        logger.info("")
 
-            assert response and len(response) > 20, "Complex query returned a too-short response"
-            logger.info("✓ Complex query test passed")
+        assert response and len(response) > 20, "Complex query returned a too-short response"
+        logger.info("✓ Complex query test passed")
         
         logger.info("")
         logger.info("=" * 80)
         logger.info("All DeepSeek chatbot integration tests passed! ✓")
         logger.info("=" * 80)
-        return
         
     except Exception as e:
         logger.error(f"Error during testing: {e}")
@@ -121,7 +121,10 @@ def test_deepseek_chatbot():
         logger.info("2. Verify your .env file has DEEPSEEK_API_KEY configured")
         logger.info("3. Check that the API key is valid and has quota")
         logger.info("4. Verify network connectivity to api.deepseek.com")
-        return False
+        raise
+    finally:
+        # Restore original Config value
+        Config.INTENT_USE_LLM = original_intent_use_llm
 
 if __name__ == "__main__":
     success = test_deepseek_chatbot()

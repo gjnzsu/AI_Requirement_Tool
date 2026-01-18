@@ -660,6 +660,7 @@ class TestCozeAgentHandler:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 @pytest.mark.timeout(360)  # 6 minutes timeout to accommodate Coze API (300s) + buffer
 class TestCozeIntegrationE2E:
     """End-to-end integration tests for Coze platform."""

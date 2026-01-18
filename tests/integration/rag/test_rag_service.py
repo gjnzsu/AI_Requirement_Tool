@@ -181,7 +181,8 @@ def test_rag_retrieval(rag_service):
 
 
 @pytest.mark.rag
-@pytest.mark.timeout(300)  # 5 minutes for multiple LLM calls (each can take 20-30s)
+@pytest.mark.slow
+@pytest.mark.timeout(180)  # 3 minutes for multiple LLM calls (reduced from 300s)
 def test_rag_chatbot():
     """Test RAG-enabled chatbot."""
     logger.info("\n" + "=" * 70)

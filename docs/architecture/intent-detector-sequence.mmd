@@ -1,0 +1,81 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent as LangGraph Agent
+    participant KeywordMatcher as Keyword Matcher
+    participant Cache as Intent Cache
+    participant IntentDetector as IntentDetector Service
+    participant LLMProvider as LLM Provider
+    participant LLMAPI as LLM API (OpenAI/Gemini/DeepSeek)
+
+    User->>Agent: Send Chat Message
+    Agent->>Agent: Extract user_input & conversation_context
+    
+    Note over Agent: Step 1: Fast Path - Keyword Detection
+    Agent->>KeywordMatcher: Check Keywords (Jira/RAG/Coze/General)
+    
+    alt Clear Keyword Match Found
+        KeywordMatcher-->>Agent: Intent Detected (e.g., "jira_creation")
+        Agent->>Agent: Set intent & route to handler
+        Agent-->>User: Process request based on intent
+    else No Clear Match (Ambiguous)
+        Note over Agent: Step 2: Check Cache
+        Agent->>Cache: Lookup cached intent for user_input
+        
+        alt Cache Hit
+            Cache-->>Agent: Return cached intent result
+            Agent->>Agent: Use cached intent
+            Agent-->>User: Process request based on cached intent
+        else Cache Miss
+            Note over Agent: Step 3: LLM-based Detection
+            Agent->>IntentDetector: Initialize IntentDetector (if enabled)
+            
+            alt IntentDetector Available
+                Agent->>IntentDetector: detect_intent(user_input, conversation_context)
+                
+                Note over IntentDetector: Prepare Detection Prompt
+                IntentDetector->>IntentDetector: Extract last 3-5 messages for context
+                IntentDetector->>IntentDetector: Create intent prompt with:<br/>- Conversation context<br/>- Current user input<br/>- Intent descriptions
+                
+                Note over IntentDetector: Call LLM for Classification
+                IntentDetector->>LLMProvider: generate_response(<br/>system_prompt: "You are an expert intent classifier...",<br/>user_prompt: formatted prompt,<br/>temperature: 0.1,<br/>json_mode: true)
+                
+                LLMProvider->>LLMAPI: API Request (with JSON mode)
+                LLMAPI-->>LLMProvider: JSON Response:<br/>{<br/>  "intent": "jira_creation",<br/>  "confidence": 0.95,<br/>  "reasoning": "User wants to create..."<br/>}
+                LLMProvider-->>IntentDetector: Raw response content
+                
+                Note over IntentDetector: Parse & Validate Response
+                IntentDetector->>IntentDetector: Parse JSON from response<br/>(handle markdown code blocks)
+                IntentDetector->>IntentDetector: Validate intent in SUPPORTED_INTENTS
+                IntentDetector->>IntentDetector: Validate confidence (0.0-1.0)
+                
+                alt Valid Response
+                    IntentDetector-->>Agent: Return intent result:<br/>{<br/>  intent: "jira_creation",<br/>  confidence: 0.95,<br/>  reasoning: "..."<br/>}
+                    
+                    Agent->>Agent: Check confidence >= threshold
+                    
+                    alt Confidence Meets Threshold
+                        Agent->>Cache: Cache intent result
+                        Agent->>Agent: Set intent & route to handler
+                        Agent-->>User: Process request based on detected intent
+                    else Confidence Below Threshold
+                        Agent->>Agent: Fallback to general_chat
+                        Agent-->>User: Process as general chat
+                    end
+                else Invalid Response
+                    Note over IntentDetector: Fallback Text Extraction
+                    IntentDetector->>IntentDetector: Extract intent from text response
+                    IntentDetector-->>Agent: Return fallback result:<br/>{<br/>  intent: "general_chat",<br/>  confidence: 0.5,<br/>  reasoning: "JSON parsing failed"<br/>}
+                    Agent->>Agent: Use fallback intent
+                    Agent-->>User: Process as general chat
+                end
+            else IntentDetector Not Available
+                Agent->>Agent: Fallback to general_chat
+                Agent-->>User: Process as general chat
+            end
+        end
+    end
+
+    Note over Agent,User: Supported Intents:<br/>- jira_creation: Create Jira issues/tickets<br/>- rag_query: Search knowledge base<br/>- general_chat: General conversation<br/>- coze_agent: AI daily report/news
+```
+

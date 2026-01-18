@@ -120,6 +120,7 @@ def test_rag_retrieval():
 
 
 @pytest.mark.rag
+@pytest.mark.timeout(120)  # 2 minutes for LLM API calls
 def test_chatbot_with_rag():
     """Test chatbot with RAG enabled."""
     logger.info("\n" + "=" * 70)
@@ -129,7 +130,7 @@ def test_chatbot_with_rag():
     if not Config.OPENAI_API_KEY:
         logger.warning("\n⚠ OPENAI_API_KEY not configured.")
         logger.info("   Cannot test chatbot without API key.")
-        return
+        pytest.skip("OPENAI_API_KEY not configured")
     
     # Create chatbot with RAG (with timeout protection)
     logger.info("\nCreating chatbot with RAG enabled...")
@@ -161,20 +162,20 @@ def test_chatbot_with_rag():
         logger.info("     from src.chatbot import Chatbot")
         logger.info("     chatbot = Chatbot(use_rag=True)")
         logger.info("     chatbot.get_response('What is Acme Corporation?')")
-        return
+        pytest.skip("Chatbot initialization timeout - skipping to avoid hang")
     
     if init_error:
         logger.error(f"✗ Error initializing chatbot: {init_error}")
-        return
+        pytest.skip(f"Chatbot initialization failed: {init_error}")
     
     if not chatbot:
         logger.error("✗ Failed to initialize chatbot")
-        return
+        pytest.skip("Chatbot initialization failed")
     
     if not chatbot.rag_service:
         logger.error("✗ RAG service not available in chatbot!")
         logger.info("   Check configuration and API keys.")
-        return
+        pytest.skip("RAG service not available")
     
     logger.info("✓ Chatbot created with RAG support")
     

@@ -19,8 +19,8 @@ from src.utils.logger import get_logger
 logger = get_logger('test.mcp_enabled')
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)  # 60 second timeout for MCP connection
 async def test_mcp_enabled():
-
     """Test if MCP is enabled and custom server is available."""
     logger.info("=" * 70)
     logger.info("Testing MCP Configuration")
@@ -47,7 +47,7 @@ async def test_mcp_enabled():
         logger.info("=" * 70)
         logger.info("Test SKIPPED (MCP not enabled)")
         logger.info("=" * 70)
-        return True  # Return True - this is expected, not a failure
+        pytest.skip("MCP not enabled in configuration")
     
     logger.info("✓ MCP is ENABLED in configuration")
     logger.info("")
@@ -67,7 +67,6 @@ async def test_mcp_enabled():
                 await jira_client.connect()
                 logger.info("   ✓ MCP server connected successfully")
                 logger.info(f"   Available tools: {', '.join(jira_client.get_tools().keys())}")
-                return True
             except Exception as e:
                 logger.warning(f"   [WARNING] Failed to connect to MCP server: {e}")
                 logger.info("")
@@ -77,7 +76,6 @@ async def test_mcp_enabled():
                 logger.info("=" * 70)
                 logger.info("Test PASSED (fallback mechanism verified)")
                 logger.info("=" * 70)
-                return True  # Return True - fallback is working correctly
         else:
             logger.warning("   [WARNING] Could not create custom Jira MCP client")
             logger.info("   Check your Jira credentials in configuration")
@@ -88,7 +86,6 @@ async def test_mcp_enabled():
             logger.info("=" * 70)
             logger.info("Test PASSED (fallback mechanism verified)")
             logger.info("=" * 70)
-            return True  # Return True - fallback is working correctly
     except Exception as e:
         logger.warning(f"   [WARNING] Error creating MCP client: {e}")
         logger.info("")
@@ -98,9 +95,9 @@ async def test_mcp_enabled():
         logger.info("=" * 70)
         logger.info("Test PASSED (fallback mechanism verified)")
         logger.info("=" * 70)
-        return True  # Return True - fallback is working correctly
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)  # 60 second timeout for MCP initialization
 async def test_mcp_integration():
     """Test MCP integration initialization."""
     logger.info("")
@@ -122,7 +119,6 @@ async def test_mcp_integration():
             logger.info(f"   Available tools: {len(tools)}")
             for tool in tools:
                 logger.info(f"     - {tool.name}")
-            return True
         else:
             logger.warning("[WARNING] MCP Integration not initialized")
             logger.info("   This is normal if servers failed to connect")
@@ -131,7 +127,6 @@ async def test_mcp_integration():
             logger.info("=" * 70)
             logger.info("Test PASSED (fallback mechanism verified)")
             logger.info("=" * 70)
-            return True  # Return True - fallback is working correctly
     except Exception as e:
         logger.warning(f"[WARNING] MCP Integration failed: {e}")
         logger.info("")
@@ -143,7 +138,7 @@ async def test_mcp_integration():
         logger.info("=" * 70)
         import traceback
         traceback.print_exc()
-        return True  # Return True - fallback is working correctly
+        # Don't raise - this is expected behavior when MCP servers aren't configured
 
 async def main():
     """Main test function."""

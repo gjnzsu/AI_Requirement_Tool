@@ -54,36 +54,38 @@ def temp_auth_db():
 @pytest.fixture(scope="function")
 def auth_setup(temp_auth_db):
     """Set up authentication services with test secret key."""
+    from config.config import Config
+    
     # Generate a test secret key
     test_secret = secrets.token_urlsafe(32)
     
-    # Save original secret
-    original_secret = os.environ.get('JWT_SECRET_KEY')
-    os.environ['JWT_SECRET_KEY'] = test_secret
+    # Save original values
+    original_secret = Config.JWT_SECRET_KEY
+    original_expiration = Config.JWT_EXPIRATION_HOURS
     
-    # Reload config
-    from importlib import reload
-    from config import config
-    reload(config)
+    # Patch Config directly (more reliable than reloading modules)
+    # This ensures all modules that imported Config will see the new value
+    Config.JWT_SECRET_KEY = test_secret
+    Config.JWT_EXPIRATION_HOURS = 24
     
-    # Create auth services
-    auth_service = AuthService()
-    user_service = UserService(db_path=temp_auth_db)
+    try:
+        # Create auth services
+        auth_service = AuthService()
+        user_service = UserService(db_path=temp_auth_db)
+        
+        # Create a test user
+        test_user = user_service.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpassword123'
+        )
+        
+        yield auth_service, user_service, test_user, test_secret
     
-    # Create a test user
-    test_user = user_service.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpassword123'
-    )
-    
-    yield auth_service, user_service, test_user, test_secret
-    
-    # Restore original secret
-    if original_secret:
-        os.environ['JWT_SECRET_KEY'] = original_secret
-    elif 'JWT_SECRET_KEY' in os.environ:
-        del os.environ['JWT_SECRET_KEY']
+    finally:
+        # Restore original values
+        Config.JWT_SECRET_KEY = original_secret
+        Config.JWT_EXPIRATION_HOURS = original_expiration
 
 
 @pytest.mark.integration
