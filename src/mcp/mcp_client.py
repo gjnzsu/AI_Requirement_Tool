@@ -168,17 +168,29 @@ class MCPClient:
                 
                 # Common connection logic
                 async def _connect_and_discover():
-                    # Suppress stderr from subprocess (mcp-remote debug logs)
-                    # Monkey-patch subprocess.Popen to redirect stderr to devnull
+                    # Check if debug logging is enabled (general debug or MCP-specific debug)
+                    debug_mode = (Config.ENABLE_DEBUG_LOGGING or 
+                                 Config.LOG_LEVEL.upper() == 'DEBUG' or 
+                                 Config.MCP_DEBUG_OUTPUT)
+                    
+                    # Suppress stderr from subprocess (mcp-remote debug logs) unless in debug mode
+                    # Monkey-patch subprocess.Popen to redirect stderr to devnull for MCP subprocesses
                     def _quiet_popen(*args, **kwargs):
-                        """Wrapper to redirect stderr to devnull for MCP subprocesses."""
-                        if 'stderr' not in kwargs:
-                            kwargs['stderr'] = subprocess.DEVNULL
+                        """Wrapper to redirect stderr to devnull for MCP subprocesses (unless debug mode)."""
+                        if not debug_mode:
+                            if 'stderr' not in kwargs:
+                                kwargs['stderr'] = subprocess.DEVNULL
+                        # In debug mode, don't modify stderr - let it pass through naturally
+                        # This allows mcp-remote debug output to be visible in the terminal
                         return _original_popen(*args, **kwargs)
                     
                     # Temporarily replace subprocess.Popen
                     subprocess.Popen = _quiet_popen
                     try:
+                        if debug_mode:
+                            logger.debug(f"MCP debug mode enabled for {self.server_name} - stderr output will be visible")
+                            logger.info(f"Note: If you see 'Missing sessionId parameter' errors, this is expected - mcp-remote will fall back to SSE transport")
+                        
                         async with stdio_client(server_params) as (read, write):
                             async with ClientSession(read, write) as session:
                                 # Initialize the session with longer timeout
@@ -295,11 +307,20 @@ class MCPClient:
             
             # Create a new connection for this tool call
             # MCP stdio connections are session-based
-            # Suppress stderr from subprocess (mcp-remote debug logs)
+            # Check if debug logging is enabled (general debug or MCP-specific debug)
+            debug_mode = (Config.ENABLE_DEBUG_LOGGING or 
+                         Config.LOG_LEVEL.upper() == 'DEBUG' or 
+                         Config.MCP_DEBUG_OUTPUT)
+            
+            # Suppress stderr from subprocess (mcp-remote debug logs) unless in debug mode
             def _quiet_popen(*args, **kwargs):
-                """Wrapper to redirect stderr to devnull for MCP subprocesses."""
-                if 'stderr' not in kwargs:
-                    kwargs['stderr'] = subprocess.DEVNULL
+                """Wrapper to redirect stderr to devnull for MCP subprocesses (unless debug mode)."""
+                if not debug_mode:
+                    if 'stderr' not in kwargs:
+                        kwargs['stderr'] = subprocess.DEVNULL
+                else:
+                    # In debug mode, allow stderr to pass through
+                    logger.debug(f"MCP debug mode enabled - stderr visible for tool call: {tool_name}")
                 return _original_popen(*args, **kwargs)
             
             # Temporarily replace subprocess.Popen
@@ -438,10 +459,13 @@ class MCPClientManager:
         """Initialize all MCP servers with individual timeouts."""
         for name, adapter in self.adapters.items():
             try:
-                # Add individual timeout for each server (15 seconds)
-                await asyncio.wait_for(adapter.initialize(), timeout=15.0)
+                # Use longer timeout for Confluence (Rovo) server
+                # Rovo uses mcp-remote which may need network/OAuth setup time
+                timeout = Config.MCP_CONFLUENCE_TIMEOUT if name == 'confluence' else Config.MCP_SERVER_TIMEOUT
+                await asyncio.wait_for(adapter.initialize(), timeout=timeout)
             except asyncio.TimeoutError:
-                logger.warning(f"MCP server '{name}' initialization timeout (15s), skipping")
+                timeout_duration = Config.MCP_CONFLUENCE_TIMEOUT if name == 'confluence' else Config.MCP_SERVER_TIMEOUT
+                logger.warning(f"MCP server '{name}' initialization timeout ({timeout_duration}s), skipping")
             except Exception as e:
                 logger.warning(f"Failed to initialize MCP server '{name}': {e}")
     
@@ -485,8 +509,9 @@ def create_rovo_mcp_client() -> Optional[MCPClient]:
         # Use mcp-remote to connect to Atlassian Rovo MCP Server
         # The server endpoint is: https://mcp.atlassian.com/v1/sse
         # mcp-remote acts as a proxy between local stdio and remote SSE
+        # Pin to version 0.1.31 to match token storage version
         command = [
-            npx_cmd, '-y', 'mcp-remote',
+            npx_cmd, '-y', 'mcp-remote@0.1.31',
             'https://mcp.atlassian.com/v1/sse'
         ]
         

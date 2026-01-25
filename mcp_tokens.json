@@ -1,0 +1,7 @@
+{
+  "access_token": "557058-d06c2e17-6fc2-4e86-8de5-13eb4f325825:2ZIz6Y3Gv3kUqnku:C1B-dGHeVynzi3-QyIuHzux0n0rtUybF",
+  "token_type": "bearer",
+  "expires_in": 3300,
+  "scope": "openid email profile",
+  "refresh_token": "557058-d06c2e17-6fc2-4e86-8de5-13eb4f325825:2ZIz6Y3Gv3kUqnku:WwECBInYZEa63XEyqUKRJIQSX0nnFVLh"
+}

@@ -125,6 +125,11 @@ class Config:
     INTENT_CONFIDENCE_THRESHOLD: float = float(os.getenv('INTENT_CONFIDENCE_THRESHOLD', '0.7'))
     INTENT_LLM_TIMEOUT: float = float(os.getenv('INTENT_LLM_TIMEOUT', '5.0'))
     
+    # MCP Server Configuration
+    MCP_SERVER_TIMEOUT: float = float(os.getenv('MCP_SERVER_TIMEOUT', '15.0'))  # Default timeout for MCP servers
+    MCP_CONFLUENCE_TIMEOUT: float = float(os.getenv('MCP_CONFLUENCE_TIMEOUT', '30.0'))  # Longer timeout for Confluence (Rovo) server
+    MCP_DEBUG_OUTPUT: bool = os.getenv('MCP_DEBUG_OUTPUT', 'false').lower() in ('true', '1', 'yes')  # Enable MCP subprocess stderr output for debugging
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""
