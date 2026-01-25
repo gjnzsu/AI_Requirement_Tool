@@ -1,0 +1,64 @@
+```mermaid
+flowchart TD
+    Start([User Input Received]) --> CheckConfluence{Confluence<br/>Tooling<br/>Keywords?}
+    
+    CheckConfluence -->|Yes| GeneralChat1[Intent: general_chat]
+    CheckConfluence -->|No| CheckCoze{Coze<br/>Keywords?<br/>ai daily report/news}
+    
+    CheckCoze -->|Yes| CozeEnabled{Coze<br/>Enabled?}
+    CozeEnabled -->|Yes| CozeAgent[Intent: coze_agent]
+    CozeEnabled -->|No| GeneralChat2[Intent: general_chat]
+    
+    CheckCoze -->|No| CheckJira{Jira Creation<br/>Keywords/Patterns?<br/>create jira/issue/ticket}
+    
+    CheckJira -->|Yes| JiraToolsAvailable{Jira Tools<br/>Available?<br/>MCP or Custom}
+    JiraToolsAvailable -->|Yes| JiraCreation[Intent: jira_creation]
+    JiraToolsAvailable -->|No| CheckRAG
+    
+    CheckJira -->|No| CheckRAG{RAG<br/>Keywords?<br/>knowledge base/documentation}
+    
+    CheckRAG -->|Yes| RAGAvailable{RAG Service<br/>Available?}
+    RAGAvailable -->|Yes| RAGQuery[Intent: rag_query]
+    RAGAvailable -->|No| CheckGeneral
+    
+    CheckRAG -->|No| CheckGeneral{General Chat<br/>Keywords?<br/>hello/hi/help}
+    
+    CheckGeneral -->|Yes| GeneralChat3[Intent: general_chat]
+    CheckGeneral -->|No| LLMEnabled{LLM-based<br/>Detection<br/>Enabled?}
+    
+    LLMEnabled -->|No| GeneralChat4[Intent: general_chat<br/>Default Fallback]
+    
+    LLMEnabled -->|Yes| CheckCache{Cache<br/>Hit?}
+    
+    CheckCache -->|Yes| UseCached[Use Cached Intent]
+    CheckCache -->|No| InitializeDetector{Intent Detector<br/>Available?}
+    
+    InitializeDetector -->|No| GeneralChat5[Intent: general_chat<br/>Fallback]
+    InitializeDetector -->|Yes| CallLLM[Call LLM for<br/>Intent Detection]
+    
+    CallLLM --> LLMTimeout{LLM Call<br/>Timeout?}
+    LLMTimeout -->|Yes| GeneralChat6[Intent: general_chat<br/>Timeout Fallback]
+    LLMTimeout -->|No| ParseResponse[Parse LLM Response<br/>Extract Intent & Confidence]
+    
+    ParseResponse --> ValidResponse{Valid<br/>Response?}
+    ValidResponse -->|No| GeneralChat7[Intent: general_chat<br/>Invalid Response Fallback]
+    
+    ValidResponse -->|Yes| CheckConfidence{Confidence >=<br/>Threshold?}
+    
+    CheckConfidence -->|Yes| CacheResult[Cache Intent Result]
+    CacheResult --> UseLLMIntent[Use Detected Intent]
+    
+    CheckConfidence -->|No| GeneralChat8[Intent: general_chat<br/>Low Confidence Fallback]
+    
+    %% Styling
+    classDef intentNode fill:#90EE90,stroke:#006400,stroke-width:2px
+    classDef decisionNode fill:#FFE4B5,stroke:#FF8C00,stroke-width:2px
+    classDef fallbackNode fill:#FFB6C1,stroke:#DC143C,stroke-width:2px
+    classDef processNode fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    
+    class JiraCreation,RAGQuery,CozeAgent,GeneralChat1,GeneralChat2,GeneralChat3,UseCached,UseLLMIntent intentNode
+    class CheckConfluence,CheckCoze,CozeEnabled,CheckJira,JiraToolsAvailable,CheckRAG,RAGAvailable,CheckGeneral,LLMEnabled,CheckCache,InitializeDetector,LLMTimeout,ValidResponse,CheckConfidence decisionNode
+    class GeneralChat4,GeneralChat5,GeneralChat6,GeneralChat7,GeneralChat8 fallbackNode
+    class CallLLM,ParseResponse,CacheResult processNode
+```
+

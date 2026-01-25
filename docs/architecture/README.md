@@ -35,6 +35,23 @@ A sequence diagram showing how a user request flows through the system:
 - Different execution paths (General Chat, RAG Query, Tool Execution)
 - Response generation and storage
 
+### 4. Intent Detection Decision Tree
+**File:** `intent-detection-decision-tree.mmd`
+
+A decision tree diagram showing the complete intent detection flow:
+- Keyword-based detection (fast path)
+- LLM-based detection (ambiguous cases)
+- Cache checking and confidence validation
+- Fallback mechanisms
+
+### 5. Project Structure Diagram
+**File:** `project-structure-diagram.mmd`
+
+A visual representation of the project folder structure:
+- Directory organization
+- Component relationships
+- Module dependencies
+
 ## How to View Mermaid Diagrams
 
 ### Option 1: GitHub/GitLab
@@ -156,6 +173,29 @@ See `FUTURE_ARCHITECTURE.md` for planned enhancements:
 - Advanced caching and message queuing
 - Kubernetes deployment
 - Comprehensive monitoring and observability
+
+## Documentation
+
+### Project Structure and Design
+**File:** `PROJECT_STRUCTURE_AND_DESIGN.md`
+
+Comprehensive overview of:
+- Complete project folder structure with explanations
+- Architecture layers and design decisions
+- Component interactions and data flow
+- Design patterns used
+- Testing strategy
+- Deployment considerations
+
+### Future Architecture
+**File:** `FUTURE_ARCHITECTURE.md`
+
+Planned enhancements and scalability improvements:
+- Microservices architecture
+- API Gateway and load balancing
+- Real-time WebSocket communication
+- Advanced caching and message queuing
+- Kubernetes deployment
 
 ## Related Documentation
 
