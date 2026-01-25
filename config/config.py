@@ -12,10 +12,17 @@ from typing import Optional
 try:
     from dotenv import load_dotenv
     from pathlib import Path
-    # Load .env from project root (where config.py is located)
+    
+    # In production, try to load from /etc/chatbot/.env first (systemd service uses this)
+    production_env = Path('/etc/chatbot/.env')
+    if production_env.exists():
+        load_dotenv(dotenv_path=production_env, override=False)
+    
+    # Also try to load .env from project root (for local development)
     env_path = Path(__file__).parent.parent / '.env'
-    # Prefer real environment variables over .env (standard behavior for deployments/tests)
-    load_dotenv(dotenv_path=env_path, override=False)
+    if env_path.exists():
+        # Prefer real environment variables over .env (standard behavior for deployments/tests)
+        load_dotenv(dotenv_path=env_path, override=False)
 except ImportError:
     pass  # python-dotenv not installed, use environment variables only
 except Exception:

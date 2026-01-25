@@ -5,8 +5,9 @@ This provides a REST API and serves the web interface for the chatbot.
 """
 
 import sys
+import os
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect
 from flask_cors import CORS
 import json
 from datetime import datetime
@@ -138,8 +139,22 @@ user_service = None
 if AuthService is not None and UserService is not None:
     try:
         auth_service = AuthService()
-        user_service = UserService(db_path=Config.AUTH_DB_PATH)
-        safe_print("[OK] Initialized Authentication services")
+        db_path = Config.AUTH_DB_PATH
+        safe_print(f"[OK] Initialized Authentication services")
+        safe_print(f"     Config.AUTH_DB_PATH: {db_path}")
+        safe_print(f"     Environment AUTH_DB_PATH: {os.getenv('AUTH_DB_PATH', 'Not set')}")
+        user_service = UserService(db_path=db_path)
+        # Log the actual database path being used
+        actual_db_path = user_service.db_path
+        safe_print(f"     Using database at: {actual_db_path}")
+        # Verify database exists and has users
+        try:
+            users = user_service.list_users()
+            safe_print(f"     Users in database: {len(users)}")
+            for user in users:
+                safe_print(f"       - ID: {user['id']}, Username: {user['username']}")
+        except Exception as e:
+            safe_print(f"     Warning: Could not list users: {e}")
     except ValueError as e:
         safe_print(f"[WARNING] Authentication initialization warning: {e}")
         safe_print("   Authentication will be disabled. Set JWT_SECRET_KEY in .env to enable.")
@@ -1388,6 +1403,18 @@ def not_found(error):
         return jsonify({'error': 'Not Found', 'message': 'The requested resource was not found.'}), 404
     return error
 
+@app.errorhandler(405)
+def method_not_allowed(error):
+    """Handle 405 Method Not Allowed errors."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Method Not Allowed', 'message': 'The requested method is not allowed for this endpoint.'}), 405
+    # For non-API paths, redirect to GET or return 405
+    # This handles cases where someone tries to POST to a GET-only route
+    if request.method == 'POST' and request.path == '/':
+        # Someone tried to POST to root - redirect to GET
+        return redirect('/', code=303)
+    return error
+
 @app.errorhandler(500)
 def internal_error(error):
     """Handle 500 Internal Server errors with JSON response for API endpoints."""
@@ -1402,7 +1429,15 @@ def handle_exception(error):
         logger = get_logger('chatbot.app')
         logger.error(f"Unhandled exception: {error}", exc_info=True)
         return jsonify({'error': 'Internal Server Error', 'message': str(error)}), 500
-    raise error
+    # For non-API paths, log but don't crash - return a generic error page
+    logger = get_logger('chatbot.app')
+    logger.error(f"Unhandled exception for {request.path}: {error}", exc_info=True)
+    # Return a simple error response instead of raising
+    from werkzeug.exceptions import InternalServerError
+    if isinstance(error, InternalServerError):
+        return error
+    # For other exceptions on non-API paths, return a 500 error page
+    return 'Internal Server Error', 500
 
 if __name__ == '__main__':
     print("=" * 70)

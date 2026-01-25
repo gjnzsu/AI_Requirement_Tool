@@ -2,6 +2,7 @@
 DeepSeek LLM Provider Implementation.
 """
 
+import os
 from typing import Optional
 from openai import OpenAI
 from .base_provider import LLMProvider
@@ -23,7 +24,19 @@ class DeepSeekProvider(LLMProvider):
         """
         super().__init__(api_key, model, **kwargs)
         self.base_url = base_url
-        self.client = OpenAI(api_key=api_key, base_url=base_url, **kwargs)
+        # Extract timeout from kwargs or use default (slightly less than INTENT_LLM_TIMEOUT)
+        # This ensures API calls timeout before the ThreadPoolExecutor timeout
+        timeout = kwargs.pop('timeout', None)
+        if timeout is None:
+            # Try to get from environment variable or use default
+            try:
+                from config.config import Config
+                # Use 0.5s less than INTENT_LLM_TIMEOUT to ensure proper error handling
+                timeout = float(os.getenv('DEEPSEEK_API_TIMEOUT', str(Config.INTENT_LLM_TIMEOUT - 0.5)))
+            except (ImportError, AttributeError):
+                # Fallback if config not available
+                timeout = 4.5  # Default 4.5s (less than 5s ThreadPool timeout)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, **kwargs)
     
     def generate_response(self, system_prompt: str, user_prompt: str, 
                          temperature: float = 0.3, json_mode: bool = False) -> str:

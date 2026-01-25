@@ -763,12 +763,24 @@ class ChatbotAgent:
             return state
         
         # Check for Coze agent intent keywords (AI daily report, AI news)
-        coze_keywords = ['ai daily report', 'ai news']
-        if any(keyword in user_input for keyword in coze_keywords):
+        # Use case-insensitive matching
+        user_input_lower = user_input.lower()
+        coze_keywords = ['ai daily report', 'ai daily news', 'ai news']
+        # Check if any keyword appears in the input, or if both "ai" and "news" appear (for variations like "ai daily news")
+        coze_keyword_found = any(keyword in user_input_lower for keyword in coze_keywords)
+        # Also check for "ai" + "news" pattern (handles "ai daily news", "ai tech news", etc.)
+        if not coze_keyword_found:
+            words = user_input_lower.split()
+            coze_keyword_found = 'ai' in words and 'news' in words
+        if coze_keyword_found:
             # Check if Coze is enabled and configured
             if Config.COZE_ENABLED:
                 state["intent"] = "coze_agent"
-                matched_keywords = [k for k in coze_keywords if k in user_input]
+                # Find which keywords matched
+                matched_keywords = [k for k in coze_keywords if k in user_input_lower]
+                # If no exact keyword match, it was word-based matching
+                if not matched_keywords:
+                    matched_keywords = ["ai + news (word-based match)"]
                 logger.info(f"Intent: coze_agent (matched keywords: {matched_keywords})")
                 return state
             else:
@@ -806,7 +818,7 @@ class ChatbotAgent:
         
         # Check for RAG intent keywords (knowledge/documentation queries)
         # Use case-insensitive matching and check if any keyword appears in the input
-        user_input_lower = user_input.lower()
+        # user_input_lower already defined above for Coze keywords
         rag_keyword_found = any(keyword in user_input_lower for keyword in rag_keywords)
         
         # Also check if RAG service is available (if not, route to general_chat)

@@ -33,7 +33,11 @@ def ingest_pdf_file(file_path: str):
     print(f"File size: {path.stat().st_size / 1024:.2f} KB")
     
     try:
-        rag = RAGService()
+        # Use configured RAG vector store path from Config
+        vector_store_path = Config.RAG_VECTOR_STORE_PATH if Config.RAG_VECTOR_STORE_PATH else None
+        if vector_store_path:
+            print(f"Using RAG database: {vector_store_path}")
+        rag = RAGService(vector_store_path=vector_store_path)
         doc_id = rag.ingest_document(str(path))
         print(f"✓ Successfully ingested: {path.name}")
         print(f"  Document ID: {doc_id}")
@@ -73,7 +77,11 @@ def ingest_pdf_directory(directory_path: str, recursive: bool = False):
     print(f"Found {len(pdf_files)} PDF file(s)")
     print("-" * 70)
     
-    rag = RAGService()
+    # Use configured RAG vector store path from Config
+    vector_store_path = Config.RAG_VECTOR_STORE_PATH if Config.RAG_VECTOR_STORE_PATH else None
+    if vector_store_path:
+        print(f"Using RAG database: {vector_store_path}")
+    rag = RAGService(vector_store_path=vector_store_path)
     success_count = 0
     
     for pdf_file in pdf_files:

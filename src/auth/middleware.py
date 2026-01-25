@@ -7,6 +7,7 @@ from flask import request, jsonify
 from typing import Optional, Dict
 from src.auth.auth_service import AuthService
 from src.auth.user_service import UserService
+from config.config import Config
 from src.utils.logger import get_logger
 
 logger = get_logger('chatbot.auth.middleware')
@@ -14,7 +15,7 @@ logger = get_logger('chatbot.auth.middleware')
 # Initialize services (with error handling)
 try:
     auth_service = AuthService()
-    user_service = UserService()
+    user_service = UserService(db_path=Config.AUTH_DB_PATH)
 except (ValueError, Exception) as e:
     logger.warning(f"Authentication services not initialized: {e}")
     auth_service = None
@@ -53,31 +54,65 @@ def token_required(f):
             
             # Get token from Authorization header
             auth_header = request.headers.get('Authorization')
+            # Removed INFO log - only log at DEBUG level for troubleshooting
+            
             if auth_service:
                 token = auth_service.extract_token_from_header(auth_header)
+                if token:
+                    # Changed to DEBUG - only log if needed for troubleshooting
+                    logger.debug(f"[AUTH] Token extracted successfully (first 20 chars: {token[:20]}...)")
+                else:
+                    log_msg = f"[AUTH] No token extracted from header: {auth_header}"
+                    logger.warning(log_msg)
+                    print(log_msg)
+                    # Removed INFO log - changed to DEBUG for troubleshooting
+                    logger.debug(f"[AUTH] All request headers: {dict(request.headers)}")
             else:
                 return jsonify({
                     'error': 'Authentication service is not available.'
                 }), 503
             
             if not token:
+                log_msg = f"[AUTH] 401 Unauthorized for {request.path}: No token provided. Headers: {list(request.headers.keys())}"
+                logger.warning(log_msg)
+                print(log_msg)
                 return jsonify({'error': 'Authentication required. Please provide a valid token.'}), 401
             
             # Verify token
             payload = auth_service.verify_token(token)
             if not payload:
+                log_msg = f"[AUTH] Token verification failed for {request.path}"
+                logger.warning(log_msg)
+                print(log_msg)
                 return jsonify({'error': 'Invalid or expired token. Please login again.'}), 401
+            
+            # Changed to DEBUG - removed INFO log
+            logger.debug(f"[AUTH] Token verified successfully. Payload: user_id={payload.get('user_id')}, username={payload.get('username')}")
             
             # Get user from database
             user_id = payload.get('user_id')
             if user_service:
+                # Changed to DEBUG - removed INFO log
+                db_path = getattr(user_service, 'db_path', 'unknown')
+                logger.debug(f"[AUTH] Looking up user_id={user_id} in database: {db_path}")
+                
                 user = user_service.get_user_by_id(user_id)
+                if user:
+                    # Changed to DEBUG - removed INFO log
+                    logger.debug(f"[AUTH] User found: id={user.get('id')}, username={user.get('username')}")
+                else:
+                    log_msg = f"[AUTH] User not found for user_id={user_id} in database: {db_path}"
+                    logger.warning(log_msg)
+                    print(log_msg)
             else:
                 return jsonify({
                     'error': 'User service is not available.'
                 }), 503
             
             if not user:
+                log_msg = f"[AUTH] 401 Unauthorized: User not found or inactive for user_id={user_id}"
+                logger.warning(log_msg)
+                print(log_msg)
                 return jsonify({'error': 'User not found or inactive.'}), 401
             
             # Attach user to request object

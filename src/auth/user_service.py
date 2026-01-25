@@ -202,6 +202,7 @@ class UserService:
         Returns:
             User dictionary if found, None otherwise (without password hash)
         """
+        logger.debug(f"Looking up user_id={user_id} in database: {self.db_path}")
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -212,6 +213,7 @@ class UserService:
             row = cursor.fetchone()
             
             if row:
+                logger.debug(f"User found: id={row['id']}, username={row['username']}")
                 return {
                     'id': row['id'],
                     'username': row['username'],

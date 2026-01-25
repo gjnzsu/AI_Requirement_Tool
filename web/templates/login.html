@@ -233,6 +233,13 @@
                 const success = await auth.login(username, password);
                 
                 if (success) {
+                    // Verify token is stored before redirecting
+                    const token = localStorage.getItem('chatbot_auth_token');
+                    console.log('[Login] Token verified before redirect:', token ? token.substring(0, 20) + '...' : 'MISSING');
+                    
+                    // Small delay to ensure localStorage is written
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
                     // Redirect to main app
                     window.location.href = '/';
                 } else {

@@ -145,14 +145,19 @@ class Chatbot:
                 logger.info("=" * 70)
                 # Check if OpenAI API key is available (required for embeddings)
                 if Config.OPENAI_API_KEY:
+                    # Use configured RAG vector store path from Config
+                    vector_store_path = getattr(Config, 'RAG_VECTOR_STORE_PATH', None)
                     self.rag_service = RAGService(
                         chunk_size=getattr(Config, 'RAG_CHUNK_SIZE', 1000),
                         chunk_overlap=getattr(Config, 'RAG_CHUNK_OVERLAP', 200),
                         embedding_model=getattr(Config, 'RAG_EMBEDDING_MODEL', 'text-embedding-ada-002'),
+                        vector_store_path=vector_store_path,
                         enable_cache=getattr(Config, 'RAG_ENABLE_CACHE', True),
                         cache_ttl_hours=getattr(Config, 'RAG_CACHE_TTL_HOURS', 24)
                     )
                     cache_status = "with caching" if getattr(Config, 'RAG_ENABLE_CACHE', True) else "without caching"
+                    if vector_store_path:
+                        logger.info(f"RAG database: {vector_store_path}")
                     logger.info(f"Initialized RAG Service ({cache_status})")
                     logger.info("=" * 70)
                 else:

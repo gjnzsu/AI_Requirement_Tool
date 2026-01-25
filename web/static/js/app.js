@@ -15,9 +15,30 @@ const searchInput = document.getElementById('searchInput');
 const modelSelect = document.getElementById('modelSelect');
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    loadConversations();
-    loadCurrentModel();
+document.addEventListener('DOMContentLoaded', async () => {
+    // Wait a moment for auth.js to fully load and set up fetch override
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify token is available
+    const token = auth.getToken();
+    console.log('[App] Initialization - Token available:', !!token);
+    if (token) {
+        console.log('[App] Token (first 20 chars):', token.substring(0, 20) + '...');
+    }
+    
+    // Only load data if user is authenticated
+    if (auth.isAuthenticated()) {
+        console.log('[App] User is authenticated, loading data...');
+        loadConversations();
+        loadCurrentModel();
+    } else {
+        console.warn('[App] User not authenticated, skipping API calls');
+        console.warn('[App] localStorage contents:', {
+            token: localStorage.getItem('chatbot_auth_token'),
+            user: localStorage.getItem('chatbot_user')
+        });
+    }
+    
     setupEventListeners();
 });
 

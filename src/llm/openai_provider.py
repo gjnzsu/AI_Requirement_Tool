@@ -2,6 +2,7 @@
 OpenAI LLM Provider Implementation.
 """
 
+import os
 from typing import Optional
 from openai import OpenAI
 from .base_provider import LLMProvider
@@ -20,7 +21,19 @@ class OpenAIProvider(LLMProvider):
             **kwargs: Additional OpenAI client parameters
         """
         super().__init__(api_key, model, **kwargs)
-        self.client = OpenAI(api_key=api_key, **kwargs)
+        # Extract timeout from kwargs or use default (slightly less than INTENT_LLM_TIMEOUT)
+        # This ensures API calls timeout before the ThreadPoolExecutor timeout
+        timeout = kwargs.pop('timeout', None)
+        if timeout is None:
+            # Try to get from environment variable or use default
+            try:
+                from config.config import Config
+                # Use 0.5s less than INTENT_LLM_TIMEOUT to ensure proper error handling
+                timeout = float(os.getenv('OPENAI_API_TIMEOUT', str(Config.INTENT_LLM_TIMEOUT - 0.5)))
+            except (ImportError, AttributeError):
+                # Fallback if config not available
+                timeout = 4.5  # Default 4.5s (less than 5s ThreadPool timeout)
+        self.client = OpenAI(api_key=api_key, timeout=timeout, **kwargs)
     
     def generate_response(self, system_prompt: str, user_prompt: str, 
                          temperature: float = 0.3, json_mode: bool = False) -> str:
