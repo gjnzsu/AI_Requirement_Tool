@@ -64,7 +64,6 @@ def token_required(f):
                 else:
                     log_msg = f"[AUTH] No token extracted from header: {auth_header}"
                     logger.warning(log_msg)
-                    print(log_msg)
                     # Removed INFO log - changed to DEBUG for troubleshooting
                     logger.debug(f"[AUTH] All request headers: {dict(request.headers)}")
             else:
@@ -75,7 +74,6 @@ def token_required(f):
             if not token:
                 log_msg = f"[AUTH] 401 Unauthorized for {request.path}: No token provided. Headers: {list(request.headers.keys())}"
                 logger.warning(log_msg)
-                print(log_msg)
                 return jsonify({'error': 'Authentication required. Please provide a valid token.'}), 401
             
             # Verify token
@@ -83,7 +81,6 @@ def token_required(f):
             if not payload:
                 log_msg = f"[AUTH] Token verification failed for {request.path}"
                 logger.warning(log_msg)
-                print(log_msg)
                 return jsonify({'error': 'Invalid or expired token. Please login again.'}), 401
             
             # Changed to DEBUG - removed INFO log
@@ -103,7 +100,6 @@ def token_required(f):
                 else:
                     log_msg = f"[AUTH] User not found for user_id={user_id} in database: {db_path}"
                     logger.warning(log_msg)
-                    print(log_msg)
             else:
                 return jsonify({
                     'error': 'User service is not available.'
@@ -112,7 +108,6 @@ def token_required(f):
             if not user:
                 log_msg = f"[AUTH] 401 Unauthorized: User not found or inactive for user_id={user_id}"
                 logger.warning(log_msg)
-                print(log_msg)
                 return jsonify({'error': 'User not found or inactive.'}), 401
             
             # Attach user to request object

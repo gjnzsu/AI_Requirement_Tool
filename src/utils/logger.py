@@ -62,12 +62,18 @@ def get_logger(name: str = 'chatbot') -> logging.Logger:
     )
     
     # Console handler - only add if not already present
-    # Check if there's already a StreamHandler to stdout
+    #
+    # IMPORTANT (pytest/xdist): sys.stdout can be swapped/closed by pytest's capturing
+    # during worker teardown while background threads are still logging.
+    # Use the original interpreter streams to avoid "ValueError: I/O operation on closed file."
+    stream = getattr(sys, "__stdout__", sys.stdout)
+
+    # Check if there's already a StreamHandler to our target stream
     has_console_handler = False
     expected_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
     for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stdout:
+        if isinstance(handler, logging.StreamHandler) and handler.stream == stream:
             # Check if it has our formatter format (to avoid duplicates)
             if handler.formatter:
                 try:
@@ -86,7 +92,7 @@ def get_logger(name: str = 'chatbot') -> logging.Logger:
                 break
     
     if not has_console_handler:
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(stream)
         console_handler.setLevel(logger.level)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
@@ -123,7 +129,8 @@ def get_logger(name: str = 'chatbot') -> logging.Logger:
             except Exception as e:
                 # If file logging fails, log to console only
                 # Use print to avoid circular logging issues
-                print(f"Warning: Failed to set up file logging: {e}", file=sys.stderr)
+                err_stream = getattr(sys, "__stderr__", sys.stderr)
+                print(f"Warning: Failed to set up file logging: {e}", file=err_stream)
     
     return logger
 

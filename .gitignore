@@ -58,3 +58,8 @@ data/rag_*.pkl
 .DS_Store
 Thumbs.db
 
+# E2E test screenshots
+tests/e2e/screenshots/*.png
+tests/e2e/screenshots/*.jpg
+tests/e2e/screenshots/*.jpeg
+
