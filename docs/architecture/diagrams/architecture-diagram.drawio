@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.4" pages="9">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.6" pages="9">
   <diagram name="Architecture Diagram" id="architecture-diagram">
     <mxGraphModel dx="3154" dy="823" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
@@ -119,29 +119,25 @@
         <mxCell id="NBUrgZ9KJVTLsQvB_bNu-4" edge="1" parent="1" source="mcp-integration" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="NBUrgZ9KJVTLsQvB_bNu-3">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="mcp-integration" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="MCP Integration&#xa;(src/mcp/mcp_integration.py)&#xa;&#xa;• MCP Client&#xa;• Tool Discovery&#xa;• Protocol Handling&#xa;• Response Parsing" vertex="1">
+        <mxCell id="mcp-integration" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="MCP Integration&#xa;(src/mcp/mcp_integration.py)&#xa;&#xa;• MCP Client&#xa;• Tool Discovery&#xa;• Protocol Handling&#xa;• Response Parsing" vertex="1">
           <mxGeometry height="120" width="200" x="1580" y="990" as="geometry" />
         </mxCell>
         <mxCell id="NBUrgZ9KJVTLsQvB_bNu-1" edge="1" parent="1" source="jira-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mcp-integration">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-4" edge="1" parent="1" source="jira-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="nigtIxCgUjvMZdVg63nm-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="jira-tool" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Jira Tool&#xa;(src/tools/jira_tool.py)&#xa;&#xa;• Issue Creation&#xa;• Issue Management&#xa;• API Integration" vertex="1">
           <mxGeometry height="100" width="200" x="1250" y="1000" as="geometry" />
         </mxCell>
-        <mxCell id="NBUrgZ9KJVTLsQvB_bNu-2" edge="1" parent="1" source="confluence-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mcp-integration">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="NBUrgZ9KJVTLsQvB_bNu-5" edge="1" parent="1" source="confluence-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="confluence-api">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="tZi8pfmqOm04CgsNkrrf-4" edge="1" parent="1" source="confluence-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jira-evaluator">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="NBUrgZ9KJVTLsQvB_bNu-5" edge="1" parent="1" source="confluence-tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1590" y="1420" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="confluence-tool" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Confluence Tool&#xa;(src/tools/confluence_tool.py)&#xa;&#xa;• Page Creation&#xa;• Content Management&#xa;• API Integration" vertex="1">
-          <mxGeometry height="100" width="200" x="1380" y="1200" as="geometry" />
-        </mxCell>
-        <mxCell id="jira-evaluator" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Jira Maturity Evaluator&#xa;(src/services/jira_maturity_evaluator.py)&#xa;&#xa;• Requirement Analysis&#xa;• Maturity Scoring&#xa;• Recommendations" vertex="1">
-          <mxGeometry height="100" width="200" x="1380" y="1350" as="geometry" />
+          <mxGeometry height="100" width="200" x="1250" y="1370" as="geometry" />
         </mxCell>
         <mxCell id="openai-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="OpenAI API" vertex="1">
           <mxGeometry height="40" width="140" x="660" y="1430" as="geometry" />
@@ -152,17 +148,11 @@
         <mxCell id="deepseek-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="DeepSeek API" vertex="1">
           <mxGeometry height="40" width="140" x="990" y="1430" as="geometry" />
         </mxCell>
-        <mxCell id="vector-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Vector Database&#xa;(SQLite + Embeddings)" vertex="1">
+        <mxCell id="vector-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Vector Database&lt;br&gt;(SQLite + PyNum Embeddings)" vertex="1">
           <mxGeometry height="60" width="180" x="310" y="1200" as="geometry" />
         </mxCell>
         <mxCell id="memory-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Memory Database&#xa;(SQLite)" vertex="1">
           <mxGeometry height="60" width="200" x="500" y="620" as="geometry" />
-        </mxCell>
-        <mxCell id="jira-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Jira API&#xa;(Atlassian)" vertex="1">
-          <mxGeometry height="40" width="200" x="1700" y="1380" as="geometry" />
-        </mxCell>
-        <mxCell id="confluence-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Confluence API&#xa;(Atlassian)" vertex="1">
-          <mxGeometry height="40" width="200" x="1700" y="1230" as="geometry" />
         </mxCell>
         <mxCell id="qIZVnxX9wtbSYXflaPhP-1" edge="1" parent="1" source="coze-client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="coze-api">
           <mxGeometry relative="1" as="geometry" />
@@ -173,7 +163,10 @@
         <mxCell id="coze-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Coze Platform API" vertex="1">
           <mxGeometry height="40" width="200" x="-90" y="1200" as="geometry" />
         </mxCell>
-        <mxCell id="mcp-server" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=2;fontSize=12;" value="Self-built MCP Server&lt;br&gt;(Jira MCP Server)" vertex="1">
+        <mxCell id="nigtIxCgUjvMZdVg63nm-16" edge="1" parent="1" source="mcp-server" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="nigtIxCgUjvMZdVg63nm-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp-server" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Self-built MCP Server&lt;br&gt;(Jira MCP Server)" vertex="1">
           <mxGeometry height="60" width="200" x="1880" y="990" as="geometry" />
         </mxCell>
         <mxCell id="edge1" edge="1" parent="1" source="user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="web-ui" value="">
@@ -218,9 +211,6 @@
         <mxCell id="edge19" edge="1" parent="1" source="mcp-integration" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mcp-server" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge23" edge="1" parent="1" source="jira-evaluator" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="jira-api" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="legend-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=14;" value="Architecture Components" vertex="1">
           <mxGeometry height="30" width="200" x="40" y="40" as="geometry" />
         </mxCell>
@@ -242,8 +232,72 @@
         <mxCell id="legend-external" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=2;" value="External Services" vertex="1">
           <mxGeometry height="30" width="140" x="40" y="280" as="geometry" />
         </mxCell>
-        <mxCell id="NBUrgZ9KJVTLsQvB_bNu-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Atlassian Offical MCP Server&lt;br&gt;(Confluence MCP Server)" vertex="1">
+        <mxCell id="nigtIxCgUjvMZdVg63nm-17" edge="1" parent="1" source="NBUrgZ9KJVTLsQvB_bNu-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="nigtIxCgUjvMZdVg63nm-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NBUrgZ9KJVTLsQvB_bNu-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Atlassian Offical MCP Server&lt;br&gt;(Jira MCP Server)" vertex="1">
           <mxGeometry height="60" width="200" x="1880" y="1075" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-5" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="confluence-tool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Jira Maturity Evaluator&#xa;(src/services/jira_maturity_evaluator.py)&#xa;&#xa;• Requirement Analysis&#xa;• Maturity Scoring&#xa;• Recommendations" vertex="1">
+          <mxGeometry height="100" width="200" x="1250" y="1200" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Jira API&#xa;(Atlassian)" vertex="1">
+          <mxGeometry height="40" width="200" x="1590" y="1230" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-3" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="nigtIxCgUjvMZdVg63nm-2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-13" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="nigtIxCgUjvMZdVg63nm-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="MCP Integration&#xa;(src/mcp/mcp_integration.py)&#xa;&#xa;• MCP Client&#xa;• Tool Discovery&#xa;• Protocol Handling&#xa;• Response Parsing" vertex="1">
+          <mxGeometry height="120" width="200" x="1590" y="1350" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-9" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1890" y="1380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-19" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="nigtIxCgUjvMZdVg63nm-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Atlassian Offical MCP Server&lt;br&gt;(Confluence MCP Server)" vertex="1">
+          <mxGeometry height="60" width="200" x="1890" y="1350" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-20" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="nigtIxCgUjvMZdVg63nm-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Confluence API&lt;br&gt;(Atlassian)" vertex="1">
+          <mxGeometry height="40" width="200" x="1890" y="1450" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-15" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Ingest knowledge on RAG Service" vertex="1">
+          <mxGeometry height="60" width="200" x="2160" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-22" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2410" y="1430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-18" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Ingest knowledge on RAG Service" vertex="1">
+          <mxGeometry height="60" width="200" x="2160" y="1400" as="geometry" />
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-21" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.454;entryDx=0;entryDy=0;entryPerimeter=0;" target="rag-service">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2410" y="1060" />
+              <mxPoint x="2410" y="1610" />
+              <mxPoint x="240" y="1610" />
+              <mxPoint x="240" y="1064" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nigtIxCgUjvMZdVg63nm-23" connectable="0" parent="nigtIxCgUjvMZdVg63nm-21" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Knowledge Ingestion" vertex="1">
+          <mxGeometry relative="1" x="0.1354" y="4" as="geometry">
+            <mxPoint x="42" y="-4" as="offset" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
