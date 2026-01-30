@@ -713,6 +713,39 @@ class ChatbotAgent:
         
         return graph.compile()
     
+    def _ingest_to_rag(self, content: str, metadata: dict) -> Optional[str]:
+        """
+        Ingest content into RAG knowledge base for future retrieval.
+        
+        This method is called after successful Jira/Confluence creation to
+        automatically capture organizational knowledge.
+        
+        Args:
+            content: Text content to ingest
+            metadata: Metadata dict (type, key, title, link, etc.)
+            
+        Returns:
+            Document ID if successful, None otherwise
+        """
+        if not self._rag_service:
+            logger.debug("RAG service not available, skipping ingestion")
+            return None
+        
+        try:
+            # Generate unique document ID based on type and key/title for deduplication
+            # This allows re-ingesting updated content without creating duplicates
+            doc_type = metadata.get('type', 'unknown')
+            doc_key = metadata.get('key', metadata.get('title', ''))
+            custom_doc_id = f"{doc_type}:{doc_key}" if doc_key else None
+            
+            doc_id = self._rag_service.ingest_text(content, metadata, document_id=custom_doc_id)
+            logger.info(f"Ingested to RAG: {doc_type} - {doc_key} (doc_id: {doc_id})")
+            return doc_id
+        except Exception as e:
+            # Non-blocking: log but don't raise
+            logger.warning(f"Failed to ingest to RAG: {e}")
+            return None
+    
     def _detect_intent(self, state: AgentState) -> AgentState:
         """Detect user intent from the input with comprehensive keyword-based detection."""
         user_input = state.get("user_input", "").lower()
@@ -741,9 +774,17 @@ class ChatbotAgent:
             'knowledge base', 'document', 'documentation', 'documents',
             'guide', 'guides', 'tutorial', 'tutorials',
             'example', 'examples', 'sample', 'samples',
-            # Knowledge patterns
-            'understand', 'understanding',
-            'search', 'search for', 'look for', 'look up'
+            
+            # Jira/Confluence knowledge lookup patterns
+            'what was the', 'show me the', 'find the',
+            'acceptance criteria', 'business value',
+            'details of', 'details for', 'info about', 'information about',
+            'look up', 'lookup', 'search for',
+            'previous ticket', 'previous issue', 'previous jira',
+            'created ticket', 'created issue', 'created jira',
+            'our tickets', 'our issues', 'our jiras',
+            'ticket details', 'issue details', 'jira details',
+            'confluence page', 'wiki page',
         ]
         
         # General chat keywords (simple questions, greetings)
@@ -814,6 +855,21 @@ class ChatbotAgent:
                 if has_jira_capability:
                     state["intent"] = "jira_creation"
                     logger.debug(f"Intent: jira_creation (pattern match: {pattern})")
+                    return state
+        
+        # Check for Jira issue key pattern in query (for RAG lookup, not creation)
+        # Pattern matches: PROJ-123, AUTH-001, TEST-9999, etc.
+        jira_key_lookup_pattern = r'\b[A-Z]{2,10}-\d+\b'
+        jira_key_match = re.search(jira_key_lookup_pattern, state.get("user_input", ""))
+        if jira_key_match:
+            # Only route to RAG if NOT a creation request
+            is_creation_request = any(k in user_input for k in jira_creation_keywords)
+            if not is_creation_request:
+                rag_service_available = getattr(self, '_rag_service', None) is not None
+                if rag_service_available:
+                    matched_key = jira_key_match.group(0)
+                    state["intent"] = "rag_query"
+                    logger.info(f"Intent: rag_query (Jira key reference detected: {matched_key})")
                     return state
         
         # Check for RAG intent keywords (knowledge/documentation queries)
@@ -1596,6 +1652,28 @@ class ChatbotAgent:
                            f"Link: {result['link']}\n\n"
                            f"_(Created using {tool_used})_"
                 ))
+                
+                # Ingest Jira issue into RAG knowledge base for future queries
+                jira_content = f"""Jira Issue: {result['key']}
+Summary: {backlog_data.get('summary', '')}
+Priority: {backlog_data.get('priority', 'Medium')}
+Business Value: {backlog_data.get('business_value', '')}
+Acceptance Criteria: {', '.join(backlog_data.get('acceptance_criteria', [])) if isinstance(backlog_data.get('acceptance_criteria'), list) else backlog_data.get('acceptance_criteria', '')}
+INVEST Analysis: {backlog_data.get('invest_analysis', '')}
+Description: {backlog_data.get('description', '')}
+Link: {result['link']}
+Created: {datetime.datetime.now().isoformat()}
+Tool Used: {tool_used}
+"""
+                jira_metadata = {
+                    'type': 'jira_issue',
+                    'key': result['key'],
+                    'title': backlog_data.get('summary', ''),
+                    'priority': backlog_data.get('priority', 'Medium'),
+                    'link': result['link'],
+                    'created_at': datetime.datetime.now().isoformat()
+                }
+                self._ingest_to_rag(jira_content, jira_metadata)
             else:
                 error_msg = result.get('error', 'Unknown error') if result else 'No result returned'
                 state["jira_result"] = {"success": False, "error": error_msg}
@@ -2410,6 +2488,18 @@ class ChatbotAgent:
                            f"Link: {confluence_result['link']}"
                 ))
                 logger.info(f"Confluence page created: {confluence_result['link']}")
+                
+                # Ingest Confluence page into RAG knowledge base for future queries
+                import datetime as dt
+                confluence_metadata = {
+                    'type': 'confluence_page',
+                    'title': page_title,
+                    'related_jira': issue_key,
+                    'link': confluence_result.get('link', ''),
+                    'page_id': confluence_result.get('id', ''),
+                    'created_at': dt.datetime.now().isoformat()
+                }
+                self._ingest_to_rag(confluence_content, confluence_metadata)
             else:
                 error_msg = confluence_result.get('error', 'Unknown error') if confluence_result else 'No tool available'
                 error_code = confluence_result.get('error_code', 'UNKNOWN') if confluence_result else None
@@ -2458,15 +2548,53 @@ class ChatbotAgent:
         
         if rag_service:
             try:
-                # Retrieve relevant context using RAG service with timeout
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(rag_service.get_context, user_input, 3)
-                    try:
-                        context_str = future.result(timeout=15.0)  # 15 second timeout for RAG retrieval
-                    except concurrent.futures.TimeoutError:
-                        logger.warning("RAG retrieval timeout (15s), proceeding without context")
-                        context_str = None
+                context_str = None
+                
+                # First, check if user is asking about a specific Jira issue by key
+                # Direct document lookup is more reliable than semantic search for specific tickets
+                import re
+                jira_key_match = re.search(r'\b([A-Z]{2,10}-\d+)\b', user_input)
+                if jira_key_match:
+                    jira_key = jira_key_match.group(1)
+                    logger.info(f"RAG: Detected Jira key '{jira_key}', attempting direct document lookup...")
+                    
+                    # Try direct document lookup by Jira key
+                    direct_context_parts = []
+                    
+                    # Look up Jira issue document
+                    jira_doc_id = f"jira_issue:{jira_key}"
+                    jira_doc = rag_service.vector_store.get_document(jira_doc_id)
+                    if jira_doc:
+                        direct_context_parts.append(f"=== Jira Issue Content ===\n{jira_doc['content']}")
+                        logger.info(f"RAG: Found Jira document for {jira_key} via direct lookup")
+                    
+                    # Look up related Confluence page (search by pattern since title may vary)
+                    # Try common patterns for confluence page IDs
+                    docs = rag_service.vector_store.list_documents()
+                    for doc in docs:
+                        if doc['id'].startswith('confluence_page:') and jira_key in doc['id']:
+                            confluence_doc = rag_service.vector_store.get_document(doc['id'])
+                            if confluence_doc:
+                                direct_context_parts.append(f"=== Related Confluence Page ===\n{confluence_doc['content']}")
+                                logger.info(f"RAG: Found Confluence document for {jira_key} via direct lookup")
+                            break
+                    
+                    if direct_context_parts:
+                        context_str = "\n\n".join(direct_context_parts)
+                        logger.info(f"RAG: Using direct lookup context ({len(direct_context_parts)} documents found)")
+                    else:
+                        logger.info(f"RAG: No direct documents found for {jira_key}, falling back to semantic search")
+                
+                # If no direct lookup results, fall back to semantic search
+                if not context_str:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(rag_service.get_context, user_input, 3)
+                        try:
+                            context_str = future.result(timeout=15.0)  # 15 second timeout for RAG retrieval
+                        except concurrent.futures.TimeoutError:
+                            logger.warning("RAG retrieval timeout (15s), proceeding without context")
+                            context_str = None
                 
                 if context_str and context_str.strip():
                     # Add context to prompt
@@ -2486,6 +2614,7 @@ class ChatbotAgent:
                     messages.append(HumanMessage(content=rag_prompt))
                 else:
                     # No relevant context found, proceed with normal chat
+                    logger.info("RAG: No relevant context found, proceeding with normal chat")
                     messages.append(HumanMessage(content=user_input))
             except Exception as e:
                 logger.error(f"Error in RAG retrieval: {e}")

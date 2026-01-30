@@ -125,21 +125,24 @@ class RAGService:
         
         return document_ids
     
-    def ingest_text(self, text: str, metadata: Optional[Dict] = None) -> str:
+    def ingest_text(self, text: str, metadata: Optional[Dict] = None, document_id: Optional[str] = None) -> str:
         """
         Ingest text directly (for programmatic use).
         
         Args:
             text: Text content
             metadata: Optional metadata
+            document_id: Optional custom document ID for deduplication (e.g., 'jira:PROJ-123')
+                        If not provided, generates from text hash.
             
         Returns:
             Document ID
         """
         document = self.document_loader.load_text(text, metadata)
         
-        # Generate document ID from text hash
-        document_id = hashlib.md5(text.encode()).hexdigest()
+        # Use custom document ID if provided, otherwise generate from text hash
+        if document_id is None:
+            document_id = hashlib.md5(text.encode()).hexdigest()
         
         # Store document
         self.vector_store.add_document(
