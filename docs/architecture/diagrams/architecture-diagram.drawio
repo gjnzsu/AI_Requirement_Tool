@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.6" pages="9">
   <diagram name="Architecture Diagram" id="architecture-diagram">
-    <mxGraphModel dx="3154" dy="823" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="3393" dy="823" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -23,7 +23,7 @@
           <mxGeometry height="100" width="200" x="1130" y="460" as="geometry" />
         </mxCell>
         <mxCell id="auth-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=2;fontSize=12;" value="Auth Database&#xa;(SQLite auth.db)" vertex="1">
-          <mxGeometry height="60" width="200" x="1130" y="600" as="geometry" />
+          <mxGeometry height="60" width="200" x="1130" y="620" as="geometry" />
         </mxCell>
         <mxCell id="chatbot" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Chatbot Core&#xa;(src/chatbot.py)&#xa;&#xa;• Conversation Management&#xa;• Response Generation&#xa;• Provider Switching&#xa;• Error Handling" vertex="1">
           <mxGeometry height="140" width="200" x="800" y="460" as="geometry" />
@@ -113,7 +113,7 @@
         <mxCell id="rag-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="RAG Service&#xa;(src/rag/rag_service.py)&#xa;&#xa;• Document Loading&#xa;• Text Chunking&#xa;• Embedding Generation&#xa;• Vector Search&#xa;• Cache Management" vertex="1">
           <mxGeometry height="140" width="180" x="310" y="1000" as="geometry" />
         </mxCell>
-        <mxCell id="memory-manager" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Memory Manager&#xa;(src/services/memory_manager.py)&#xa;&#xa;• Conversation Storage&#xa;• Message History&#xa;• Summarization&#xa;• Context Management" vertex="1">
+        <mxCell id="memory-manager" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Memory Manager/Memory Summarizer&lt;br&gt;(src/services/memory_manager.py)&lt;div&gt;(src/services/memory_summarizer.py)&lt;br&gt;&lt;br&gt;• Conversation Storage&lt;br&gt;• Message History&lt;br&gt;• Summarization&lt;br&gt;• Context Management&lt;/div&gt;" vertex="1">
           <mxGeometry height="120" width="200" x="500" y="470" as="geometry" />
         </mxCell>
         <mxCell id="NBUrgZ9KJVTLsQvB_bNu-4" edge="1" parent="1" source="mcp-integration" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="NBUrgZ9KJVTLsQvB_bNu-3">
@@ -254,12 +254,6 @@
         <mxCell id="nigtIxCgUjvMZdVg63nm-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="Jira Maturity Evaluator&#xa;(src/services/jira_maturity_evaluator.py)&#xa;&#xa;• Requirement Analysis&#xa;• Maturity Scoring&#xa;• Recommendations" vertex="1">
           <mxGeometry height="100" width="200" x="1250" y="1200" as="geometry" />
         </mxCell>
-        <mxCell id="nigtIxCgUjvMZdVg63nm-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Jira API&#xa;(Atlassian)" vertex="1">
-          <mxGeometry height="40" width="200" x="1590" y="1230" as="geometry" />
-        </mxCell>
-        <mxCell id="nigtIxCgUjvMZdVg63nm-3" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="nigtIxCgUjvMZdVg63nm-2" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="nigtIxCgUjvMZdVg63nm-13" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="nigtIxCgUjvMZdVg63nm-12">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -303,6 +297,9 @@
         </mxCell>
         <mxCell id="nigtIxCgUjvMZdVg63nm-22" edge="1" parent="1" source="nigtIxCgUjvMZdVg63nm-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
           <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2410" y="1420" />
+            </Array>
             <mxPoint x="2410" y="1430" as="targetPoint" />
           </mxGeometry>
         </mxCell>
