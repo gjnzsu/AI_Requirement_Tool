@@ -35,6 +35,7 @@ from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.services.coze_client import CozeClient
 from src.services.intent_detector import IntentDetector
 from src.mcp.mcp_integration import MCPIntegration
+from src.agent.callbacks import LLMMonitoringCallback
 from config.config import Config
 from src.utils.logger import get_logger
 
@@ -350,6 +351,15 @@ class ChatbotAgent:
         self.use_mcp = use_mcp if use_mcp is not None else Config.USE_MCP
         self._rag_service = rag_service
         
+        # Initialize LLM monitoring callback (before LLM initialization)
+        # Wrapped in try/except to ensure callback issues don't break LLM init
+        self.llm_callback = None
+        try:
+            self.llm_callback = LLMMonitoringCallback()
+            logger.debug("LLM monitoring callback initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM monitoring callback: {e}. Continuing without monitoring.")
+        
         # Initialize LLM
         self.llm = self._initialize_llm(model)
         
@@ -400,6 +410,9 @@ class ChatbotAgent:
     
     def _initialize_llm(self, model: Optional[str] = None):
         """Initialize the LLM based on provider."""
+        # Get callback list (only if callback was successfully initialized)
+        callback_list = [self.llm_callback] if self.llm_callback else None
+        
         if self.provider_name == "openai":
             api_key = Config.OPENAI_API_KEY
             model_name = model or Config.OPENAI_MODEL
@@ -424,7 +437,8 @@ class ChatbotAgent:
                     temperature=self.temperature,
                     api_key=api_key,
                     timeout=60.0,  # Increased timeout to 60 seconds for better reliability
-                    max_retries=2  # Increased retries for better reliability
+                    max_retries=2,  # Increased retries for better reliability
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
                 logger.info(f"LLM initialized: {self.provider_name} ({model_name})")
                 return llm
@@ -434,7 +448,8 @@ class ChatbotAgent:
                 return ChatOpenAI(
                     model=model_name,
                     temperature=self.temperature,
-                    api_key=api_key
+                    api_key=api_key,
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
             except Exception as e:
                 logger.error(f"LLM initialization error: {e}")
@@ -460,14 +475,16 @@ class ChatbotAgent:
                     temperature=self.temperature,
                     google_api_key=api_key,
                     timeout=30.0,  # Add timeout to LLM calls
-                    max_retries=2  # Limit retries to avoid long waits
+                    max_retries=2,  # Limit retries to avoid long waits
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
             except TypeError:
                 # Fallback if parameters not supported
                 return ChatGoogleGenerativeAI(
                     model=model_name,
                     temperature=self.temperature,
-                    google_api_key=api_key
+                    google_api_key=api_key,
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
         elif self.provider_name == "deepseek":
             api_key = Config.DEEPSEEK_API_KEY
@@ -484,7 +501,8 @@ class ChatbotAgent:
                     api_key=api_key,
                     base_url="https://api.deepseek.com",
                     timeout=60.0,  # Increased timeout to 60 seconds for DeepSeek API
-                    max_retries=2  # Increased retries for better reliability
+                    max_retries=2,  # Increased retries for better reliability
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
                 logger.info(f"LLM initialized: {self.provider_name} ({model_name})")
                 return llm
@@ -495,7 +513,8 @@ class ChatbotAgent:
                     model=model_name,
                     temperature=self.temperature,
                     api_key=api_key,
-                    base_url="https://api.deepseek.com"
+                    base_url="https://api.deepseek.com",
+                    callbacks=callback_list  # Add monitoring callback (optional)
                 )
             except Exception as e:
                 logger.error(f"LLM initialization error: {e}")
@@ -727,20 +746,36 @@ class ChatbotAgent:
         Returns:
             Document ID if successful, None otherwise
         """
+        import concurrent.futures
+        import time
+        
         if not self._rag_service:
             logger.debug("RAG service not available, skipping ingestion")
             return None
         
+        doc_type = metadata.get('type', 'unknown')
+        doc_key = metadata.get('key', metadata.get('title', ''))
+        
         try:
             # Generate unique document ID based on type and key/title for deduplication
-            # This allows re-ingesting updated content without creating duplicates
-            doc_type = metadata.get('type', 'unknown')
-            doc_key = metadata.get('key', metadata.get('title', ''))
             custom_doc_id = f"{doc_type}:{doc_key}" if doc_key else None
             
-            doc_id = self._rag_service.ingest_text(content, metadata, document_id=custom_doc_id)
-            logger.info(f"Ingested to RAG: {doc_type} - {doc_key} (doc_id: {doc_id})")
-            return doc_id
+            # Use timeout to prevent RAG ingestion from blocking the response
+            RAG_INGEST_TIMEOUT = 10  # 10 seconds max for RAG ingestion
+            
+            def do_ingest():
+                return self._rag_service.ingest_text(content, metadata, document_id=custom_doc_id)
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(do_ingest)
+                try:
+                    doc_id = future.result(timeout=RAG_INGEST_TIMEOUT)
+                    logger.info(f"Ingested to RAG: {doc_type} - {doc_key}")
+                    return doc_id
+                except concurrent.futures.TimeoutError:
+                    logger.warning(f"RAG ingestion timeout for {doc_type}: {doc_key}")
+                    return None
+                    
         except Exception as e:
             # Non-blocking: log but don't raise
             logger.warning(f"Failed to ingest to RAG: {e}")
@@ -1746,28 +1781,51 @@ Tool Used: {tool_used}
     
     def _handle_evaluation(self, state: AgentState) -> AgentState:
         """Evaluate the created Jira issue."""
+        import time
+        import concurrent.futures
+        
         jira_result = state.get("jira_result")
         
+        # Skip evaluation if no result, not successful, or no evaluator
         if not jira_result or not jira_result.get("success") or not self.jira_evaluator:
+            skip_reason = []
+            logger.debug(f"Skipping evaluation: no jira_result or evaluator")
             return state
         
         issue_key = jira_result["key"]
+        logger.info(f"Starting evaluation for {issue_key}...")
+        eval_start = time.time()
         
         try:
-            # Fetch the issue from Jira
-            issue = self.jira_evaluator.jira.issue(issue_key)
-            issue_dict = {
-                'key': issue.key,
-                'summary': issue.fields.summary,
-                'description': issue.fields.description or '',
-                'status': issue.fields.status.name,
-                'priority': issue.fields.priority.name if issue.fields.priority else 'Unassigned'
-            }
+            def do_evaluation():
+                # Fetch the issue from Jira
+                issue = self.jira_evaluator.jira.issue(issue_key)
+                issue_dict = {
+                    'key': issue.key,
+                    'summary': issue.fields.summary,
+                    'description': issue.fields.description or '',
+                    'status': issue.fields.status.name,
+                    'priority': issue.fields.priority.name if issue.fields.priority else 'Unassigned'
+                }
+                return self.jira_evaluator.evaluate_maturity(issue_dict)
             
-            # Evaluate maturity
-            evaluation = self.jira_evaluator.evaluate_maturity(issue_dict)
+            # Run evaluation with 90 second timeout (LLM timeout is 60s + buffer)
+            EVAL_TIMEOUT = 90
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(do_evaluation)
+                try:
+                    evaluation = future.result(timeout=EVAL_TIMEOUT)
+                except concurrent.futures.TimeoutError:
+                    logger.warning(f"Evaluation timed out for {issue_key}")
+                    state["evaluation_result"] = {"error": f"Evaluation timed out after {EVAL_TIMEOUT}s"}
+                    state["messages"].append(AIMessage(
+                        content=f"⚠️ Maturity evaluation timed out. The Confluence page will be created without evaluation scores."
+                    ))
+                    return state
             
-            if 'error' not in evaluation:
+            elapsed = time.time() - eval_start
+            
+            if evaluation and 'error' not in evaluation:
                 state["evaluation_result"] = evaluation
                 
                 # Format evaluation message
@@ -1788,11 +1846,18 @@ Tool Used: {tool_used}
                         eval_msg += f"  → {rec}\n"
                 
                 state["messages"].append(AIMessage(content=eval_msg))
+                logger.info(f"Evaluation completed for {issue_key}: {evaluation.get('overall_maturity_score', 'N/A')}/100 ({elapsed:.1f}s)")
             else:
-                state["evaluation_result"] = {"error": evaluation.get('error')}
+                error_msg = evaluation.get('error', 'Unknown error') if evaluation else 'No result'
+                state["evaluation_result"] = {"error": error_msg}
+                logger.warning(f"Evaluation failed for {issue_key}: {error_msg}")
+                state["messages"].append(AIMessage(
+                    content=f"⚠️ Maturity evaluation failed: {error_msg}. The Confluence page will be created without evaluation scores."
+                ))
+                
         except Exception as e:
             state["evaluation_result"] = {"error": str(e)}
-            logger.error(f"Error during evaluation: {e}")
+            logger.error(f"Evaluation error for {issue_key}: {e}")
         
         return state
     
@@ -2290,11 +2355,17 @@ Tool Used: {tool_used}
                                                 
                                                 if has_success_indicators or (not has_error and len(cleaned_result.strip()) > 0):
                                                     # Success - create result dict
+                                                    # Construct proper Confluence Cloud URL with /wiki prefix
+                                                    fallback_link = None
+                                                    if not page_url and page_id:
+                                                        fallback_base = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
+                                                        fallback_link = f"{fallback_base}/wiki/pages/viewpage.action?pageId={page_id}"
+                                                    
                                                     confluence_result = {
                                                         'success': True,
                                                         'id': page_id,
                                                         'title': page_title,
-                                                        'link': page_url or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
+                                                        'link': page_url or fallback_link or f"{Config.CONFLUENCE_URL}/wiki/pages/viewpage.action?pageId={page_id or 'unknown'}",
                                                         'tool_used': 'MCP Protocol'
                                                     }
                                                     logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
@@ -2379,16 +2450,24 @@ Tool Used: {tool_used}
                                                     if webui_path.startswith('http'):
                                                         page_link = webui_path
                                                     else:
+                                                        # Confluence Cloud URLs require /wiki prefix
                                                         base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                        page_link = f"{base_url}{webui_path}"
+                                                        page_link = f"{base_url}/wiki{webui_path}"
                                                 elif page_id:
-                                                    page_link = f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id}"
+                                                    # Construct proper Confluence Cloud URL with /wiki prefix
+                                                    base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
+                                                    page_link = f"{base_url}/wiki/pages/viewpage.action?pageId={page_id}"
+                                                
+                                                # Construct fallback URL with /wiki prefix if page_link not set
+                                                if not page_link and page_id:
+                                                    fallback_base = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
+                                                    page_link = f"{fallback_base}/wiki/pages/viewpage.action?pageId={page_id}"
                                                 
                                                 confluence_result = {
                                                     'success': True,
                                                     'id': page_id,
                                                     'title': mcp_data.get('title', page_title),
-                                                    'link': page_link or f"{Config.CONFLUENCE_URL}/pages/viewpage.action?pageId={page_id or 'unknown'}",
+                                                    'link': page_link or f"{Config.CONFLUENCE_URL}/wiki/pages/viewpage.action?pageId={page_id or 'unknown'}",
                                                     'tool_used': 'MCP Protocol'
                                                 }
                                                 logger.info(f"Confluence page created successfully via MCP Protocol (ID: {page_id})")
@@ -2489,7 +2568,8 @@ Tool Used: {tool_used}
                 ))
                 logger.info(f"Confluence page created: {confluence_result['link']}")
                 
-                # Ingest Confluence page into RAG knowledge base for future queries
+                # Ingest simplified Confluence content into RAG knowledge base
+                # Use compact text version to reduce embedding API calls (1-2 chunks vs 5-10+)
                 import datetime as dt
                 confluence_metadata = {
                     'type': 'confluence_page',
@@ -2499,7 +2579,14 @@ Tool Used: {tool_used}
                     'page_id': confluence_result.get('id', ''),
                     'created_at': dt.datetime.now().isoformat()
                 }
-                self._ingest_to_rag(confluence_content, confluence_metadata)
+                # Create simplified content for RAG (reduces from ~4000 chars to ~800 chars)
+                simplified_content = self._simplify_for_rag(
+                    issue_key=issue_key,
+                    backlog_data=backlog_data,
+                    evaluation=evaluation_result if evaluation_result else {},
+                    confluence_link=confluence_result.get('link', '')
+                )
+                self._ingest_to_rag(simplified_content, confluence_metadata)
             else:
                 error_msg = confluence_result.get('error', 'Unknown error') if confluence_result else 'No tool available'
                 error_code = confluence_result.get('error_code', 'UNKNOWN') if confluence_result else None
@@ -2536,6 +2623,7 @@ Tool Used: {tool_used}
             logger.error(f"Error creating Confluence page: {e}")
             logger.debug("Exception details:", exc_info=True)
         
+        logger.debug(f"Confluence creation completed for {issue_key}")
         return state
     
     def _handle_rag_query(self, state: AgentState) -> AgentState:
@@ -2951,6 +3039,68 @@ Tool Used: {tool_used}
         
         return markdown
     
+    def _simplify_for_rag(self, issue_key: str, backlog_data: Dict, 
+                          evaluation: Dict, confluence_link: str) -> str:
+        """
+        Create a simplified, compact text version for RAG ingestion.
+        
+        This reduces content size significantly to minimize embedding API calls
+        while preserving searchable keywords and key information.
+        
+        Args:
+            issue_key: Jira issue key
+            backlog_data: Backlog data dict
+            evaluation: Evaluation results dict
+            confluence_link: Link to Confluence page
+            
+        Returns:
+            Simplified plain text (target: <1000 chars for 1-2 chunks)
+        """
+        parts = []
+        
+        # Essential identifiers
+        summary = backlog_data.get('summary', 'Untitled')
+        parts.append(f"Confluence: {issue_key} - {summary}")
+        parts.append(f"Link: {confluence_link}")
+        
+        # Priority (short)
+        priority = backlog_data.get('priority', 'Medium')
+        parts.append(f"Priority: {priority}")
+        
+        # Business value (truncate if long)
+        business_value = backlog_data.get('business_value', '')
+        if business_value:
+            # Keep first 150 chars
+            bv_short = business_value[:150] + "..." if len(business_value) > 150 else business_value
+            parts.append(f"Business Value: {bv_short}")
+        
+        # Acceptance criteria (just count and first item)
+        acceptance_criteria = backlog_data.get('acceptance_criteria', [])
+        if acceptance_criteria:
+            parts.append(f"Acceptance Criteria: {len(acceptance_criteria)} items")
+            if acceptance_criteria[0]:
+                ac_first = acceptance_criteria[0][:80] + "..." if len(acceptance_criteria[0]) > 80 else acceptance_criteria[0]
+                parts.append(f"  - {ac_first}")
+        
+        # Evaluation summary (just score, no details)
+        if evaluation and 'overall_maturity_score' in evaluation:
+            score = evaluation['overall_maturity_score']
+            parts.append(f"Maturity Score: {score}/100")
+            
+            # Just list criteria names with scores (compact)
+            detailed = evaluation.get('detailed_scores', {})
+            if detailed:
+                score_summary = ", ".join([f"{k.replace('_', ' ')}: {v}" for k, v in detailed.items()])
+                # Truncate if too long
+                if len(score_summary) > 200:
+                    score_summary = score_summary[:200] + "..."
+                parts.append(f"Scores: {score_summary}")
+        
+        # Keywords for search
+        parts.append(f"Keywords: confluence page, {issue_key}, requirements, documentation")
+        
+        return "\n".join(parts)
+    
     def _format_confluence_error_message(self, error_msg: str, error_code: Optional[str] = None, tool_used: Optional[str] = None) -> str:
         """
         Format a user-friendly error message for Confluence page creation failures.
@@ -3067,6 +3217,22 @@ Tool Used: {tool_used}
                 f"You can create the Confluence page manually if needed."
             )
     
+    def get_monitoring_stats(self) -> Dict[str, Any]:
+        """
+        Get LLM monitoring statistics.
+        
+        Returns:
+            Dictionary with monitoring statistics (calls, tokens, duration, cost)
+        """
+        if hasattr(self, 'llm_callback'):
+            return self.llm_callback.get_statistics()
+        return {}
+    
+    def log_monitoring_summary(self):
+        """Log a summary of LLM monitoring statistics."""
+        if hasattr(self, 'llm_callback'):
+            self.llm_callback.log_summary()
+    
     def invoke(self, user_input: str, conversation_history: Optional[List[Dict]] = None) -> str:
         """
         Invoke the agent with user input.
@@ -3146,5 +3312,6 @@ Tool Used: {tool_used}
                 logger.debug("Response generated successfully")
                 return last_msg.content
         
+        logger.warning("No response generated")
         return "I apologize, but I couldn't generate a response."
 

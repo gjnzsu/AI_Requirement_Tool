@@ -110,6 +110,10 @@ class JiraMaturityEvaluator:
         Returns:
             Dictionary with maturity score and detailed evaluation
         """
+        import time
+        start_time = time.time()
+        issue_key = issue.get('key', 'UNKNOWN')
+        
         # Prepare prompt for LLM evaluation
         prompt = self._create_evaluation_prompt(issue)
         
@@ -124,17 +128,17 @@ class JiraMaturityEvaluator:
             # Use JSON mode if supported by the provider
             json_mode = self.llm_provider.supports_json_mode()
             
-            # Call LLM provider for evaluation
+            # Call LLM provider for evaluation with longer timeout (60s)
             response_content = self.llm_provider.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=prompt,
                 temperature=0.3,
-                json_mode=json_mode
+                json_mode=json_mode,
+                timeout=60.0  # 60 seconds for complex evaluation task
             )
             
             # Try to extract JSON if response_format wasn't used
             if not response_content.startswith('{'):
-                # Try to find JSON in the response
                 start_idx = response_content.find('{')
                 end_idx = response_content.rfind('}') + 1
                 if start_idx != -1 and end_idx > start_idx:
@@ -145,8 +149,11 @@ class JiraMaturityEvaluator:
             # Calculate overall maturity score (weighted average)
             overall_score = self._calculate_overall_score(evaluation_result)
             
+            duration = time.time() - start_time
+            logger.info(f"Evaluation completed for {issue_key}: score {overall_score}/100 ({duration:.1f}s)")
+            
             return {
-                'issue_key': issue['key'],
+                'issue_key': issue_key,
                 'overall_maturity_score': overall_score,
                 'detailed_scores': evaluation_result.get('scores', {}),
                 'recommendations': evaluation_result.get('recommendations', []),
@@ -154,19 +161,19 @@ class JiraMaturityEvaluator:
                 'weaknesses': evaluation_result.get('weaknesses', [])
             }
             
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error for {issue_key}: {e}")
+            return {
+                'issue_key': issue_key,
+                'overall_maturity_score': 0,
+                'error': f"JSON parse error: {str(e)}"
+            }
+            
         except Exception as e:
             error_msg = str(e)
-            print(f"Error evaluating maturity for {issue['key']}: {error_msg}")
-            
-            # Provide helpful error message for model access issues
-            provider_name = self.llm_provider.get_provider_name()
-            model_name = self.llm_provider.model
-            if 'model' in error_msg.lower() and ('not exist' in error_msg.lower() or 'not found' in error_msg.lower()):
-                print(f"  → Model '{model_name}' from provider '{provider_name}' is not available or you don't have access.")
-                print(f"  → Try using a different model or provider.")
-            
+            logger.error(f"Evaluation failed for {issue_key}: {error_msg}")
             return {
-                'issue_key': issue['key'],
+                'issue_key': issue_key,
                 'overall_maturity_score': 0,
                 'error': error_msg
             }

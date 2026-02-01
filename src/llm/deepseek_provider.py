@@ -39,8 +39,17 @@ class DeepSeekProvider(LLMProvider):
         self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, **kwargs)
     
     def generate_response(self, system_prompt: str, user_prompt: str, 
-                         temperature: float = 0.3, json_mode: bool = False) -> str:
-        """Generate response using DeepSeek API (OpenAI-compatible)."""
+                         temperature: float = 0.3, json_mode: bool = False,
+                         timeout: float = None) -> str:
+        """Generate response using DeepSeek API (OpenAI-compatible).
+        
+        Args:
+            system_prompt: System message/instructions
+            user_prompt: User message/content
+            temperature: Sampling temperature (0.0 to 1.0)
+            json_mode: Whether to force JSON response format
+            timeout: Override timeout for this request (seconds). Default uses client timeout.
+        """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -56,7 +65,11 @@ class DeepSeekProvider(LLMProvider):
         if json_mode and self.supports_json_mode():
             params["response_format"] = {"type": "json_object"}
         
-        response = self.client.chat.completions.create(**params)
+        # Use custom timeout if provided, otherwise use client default
+        if timeout is not None:
+            response = self.client.with_options(timeout=timeout).chat.completions.create(**params)
+        else:
+            response = self.client.chat.completions.create(**params)
         return response.choices[0].message.content.strip()
     
     def supports_json_mode(self) -> bool:

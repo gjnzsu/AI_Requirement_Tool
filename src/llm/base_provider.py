@@ -31,7 +31,8 @@ class LLMProvider(ABC):
     
     @abstractmethod
     def generate_response(self, system_prompt: str, user_prompt: str, 
-                         temperature: float = 0.3, json_mode: bool = False) -> str:
+                         temperature: float = 0.3, json_mode: bool = False,
+                         timeout: float = None) -> str:
         """
         Generate a response from the LLM.
         
@@ -40,6 +41,9 @@ class LLMProvider(ABC):
             user_prompt: User message/content
             temperature: Sampling temperature (0.0 to 1.0)
             json_mode: Whether to force JSON response format
+            timeout: Override timeout for this specific request (in seconds).
+                     If None, uses the provider's default timeout.
+                     Use longer timeouts (e.g., 60s) for complex tasks like evaluation.
             
         Returns:
             Generated text response from the LLM

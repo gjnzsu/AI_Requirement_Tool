@@ -109,7 +109,8 @@ class LLMProviderManager:
         self.fallbacks = fallback_providers or []
     
     def generate_response(self, system_prompt: str, user_prompt: str,
-                         temperature: float = 0.3, json_mode: bool = False) -> str:
+                         temperature: float = 0.3, json_mode: bool = False,
+                         timeout: float = None) -> str:
         """
         Generate response with automatic fallback.
         
@@ -118,6 +119,7 @@ class LLMProviderManager:
             user_prompt: User message
             temperature: Sampling temperature
             json_mode: Whether to use JSON mode
+            timeout: Override timeout for this request (seconds). Default uses provider timeout.
             
         Returns:
             Generated response
@@ -133,7 +135,8 @@ class LLMProviderManager:
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     temperature=temperature,
-                    json_mode=json_mode
+                    json_mode=json_mode,
+                    timeout=timeout
                 )
             except Exception as e:
                 if provider == providers[-1]:  # Last provider

@@ -45,8 +45,17 @@ class GeminiProvider(LLMProvider):
         self.proxy = proxy
     
     def generate_response(self, system_prompt: str, user_prompt: str, 
-                         temperature: float = 0.3, json_mode: bool = False) -> str:
-        """Generate response using Gemini API."""
+                         temperature: float = 0.3, json_mode: bool = False,
+                         timeout: float = None) -> str:
+        """Generate response using Gemini API.
+        
+        Args:
+            system_prompt: System message/instructions
+            user_prompt: User message/content
+            temperature: Sampling temperature (0.0 to 1.0)
+            json_mode: Whether to force JSON response format
+            timeout: Override timeout for this request (seconds). Default uses client timeout.
+        """
         # Combine system and user prompts for Gemini
         # Gemini doesn't have separate system/user roles in the same way
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
@@ -63,9 +72,15 @@ class GeminiProvider(LLMProvider):
             generation_config["response_mime_type"] = "application/json"
         
         try:
+            # Build request options with timeout if specified
+            request_options = {}
+            if timeout is not None:
+                request_options["timeout"] = timeout
+            
             response = self.client.generate_content(
                 full_prompt,
-                generation_config=genai.types.GenerationConfig(**generation_config)
+                generation_config=genai.types.GenerationConfig(**generation_config),
+                request_options=request_options if request_options else None
             )
             
             return response.text.strip()
