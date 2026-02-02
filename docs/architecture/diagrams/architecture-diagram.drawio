@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.6" pages="9">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.6" pages="10">
   <diagram name="Architecture Diagram" id="architecture-diagram">
     <mxGraphModel dx="3393" dy="823" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
@@ -1901,6 +1901,136 @@
               <mxPoint x="1543" y="2327" />
               <mxPoint x="1543" y="2364" />
             </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="tPPPXv3dzPL6T9jx-cXI" name="graph_state_structure">
+    <mxGraphModel dx="1494" dy="686" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-1" parent="1" style="rounded=1;whiteSpace=wrap;arcSize=50;strokeWidth=2;" value="User Input" vertex="1">
+          <mxGeometry height="39" width="99" x="731" y="298" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-2" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="intent_detection&#xa;Detect User Intent" vertex="1">
+          <mxGeometry height="78" width="193" x="684" y="394" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="jira_creation&#xa;Create Jira Issue&#xa;Updates: jira_result" vertex="1">
+          <mxGeometry height="102" width="204" x="158" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="rag_query&#xa;Retrieve Documents&#xa;Updates: rag_context" vertex="1">
+          <mxGeometry height="102" width="215" x="412" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="general_chat&#xa;Handle Conversation&#xa;Updates: messages" vertex="1">
+          <mxGeometry height="102" width="208" x="676" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-6" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="coze_agent&#xa;Coze Agent Execution&#xa;Updates: coze_result" vertex="1">
+          <mxGeometry height="102" width="215" x="934" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-7" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="1199" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-8" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="evaluation&#xa;Evaluate Maturity&#xa;Updates: evaluation_result" vertex="1">
+          <mxGeometry height="102" width="254" x="133" y="698" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-9" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="confluence_creation&#xa;Create Confluence Page&#xa;Updates: confluence_result" vertex="1">
+          <mxGeometry height="102" width="257" x="20" y="874" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-10" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="327" y="898" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-11" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="104" y="1026" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-12" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="475" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="736" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="END" vertex="1">
+          <mxGeometry height="54" width="89" x="997" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-15" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="```" vertex="1">
+          <mxGeometry height="54" width="85" x="879" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-16" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-1" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-17" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-2" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.68;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-3" value="intent: jira_creation">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="509" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-18" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-2" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.86;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-4" value="intent: rag_query">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="519" y="509" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-19" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-2" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-5" value="intent: general_chat">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-20" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-2" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.86;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-6" value="intent: coze_agent">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1041" y="509" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-21" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-2" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.7;entryX=0.49;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-7" value="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1243" y="509" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-22" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-3" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-8" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-23" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-8" style="curved=1;startArrow=none;endArrow=block;exitX=0.25;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-9" value="route: confluence_creation">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="149" y="837" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-24" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-8" style="curved=1;startArrow=none;endArrow=block;exitX=0.75;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-10" value="route: end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="372" y="837" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-25" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-9" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-26" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-4" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-12" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-27" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-5" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-13" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRU-mzGsNd4VEneu7DZP-28" edge="1" parent="1" source="IRU-mzGsNd4VEneu7DZP-6" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="IRU-mzGsNd4VEneu7DZP-14" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
           </mxGeometry>
         </mxCell>
       </root>
