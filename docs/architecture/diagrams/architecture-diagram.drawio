@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.3.6" pages="10">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.4.0" pages="10">
   <diagram name="Architecture Diagram" id="architecture-diagram">
-    <mxGraphModel dx="2895" dy="1886" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="3154" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -72,7 +72,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&#xa;(src/agent/agent_graph.py)&#xa;&#xa;• Hybrid Intent Detection&#xa;  - Keywords → Cache → LLM (IntentDetector)&#xa;  - Timeout + Confidence Threshold + Fallback&#xa;• Tool Orchestration&#xa;• State Management&#xa;• Decision Routing&#xa;• Coze Agent Integration" vertex="1">
+        <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&lt;br&gt;(src/agent/agent_graph.py)&lt;br&gt;&lt;br&gt;• Hybrid Intent Detection&lt;br&gt;  - Keywords (Rule-based) → Cache → LLM (IntentDetector)&lt;br&gt;  - Timeout + Confidence Threshold + Fallback&lt;br&gt;• Tool Orchestration&lt;br&gt;• State Management&lt;br&gt;• Decision Routing&lt;br&gt;• Coze Agent Integration" vertex="1">
           <mxGeometry height="210" width="200" x="800" y="660" as="geometry" />
         </mxCell>
         <mxCell id="edge-intent-llm2" edge="1" parent="1" source="intent-detector" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;flowAnimation=0;" target="llm-router" value="LLM intent classification">
