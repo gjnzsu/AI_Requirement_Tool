@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.4.0" pages="10">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.6.0" pages="10">
   <diagram name="Architecture Diagram" id="architecture-diagram">
-    <mxGraphModel dx="3154" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="3393" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -64,14 +64,6 @@
             <mxPoint x="-324" y="28" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="MW-gAs1v7CuEkMY-fqQn-12" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;flowAnimation=1;" target="openai-provider">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="900" y="960" />
-              <mxPoint x="730" y="960" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
         <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&lt;br&gt;(src/agent/agent_graph.py)&lt;br&gt;&lt;br&gt;• Hybrid Intent Detection&lt;br&gt;  - Keywords (Rule-based) → Cache → LLM (IntentDetector)&lt;br&gt;  - Timeout + Confidence Threshold + Fallback&lt;br&gt;• Tool Orchestration&lt;br&gt;• State Management&lt;br&gt;• Decision Routing&lt;br&gt;• Coze Agent Integration" vertex="1">
           <mxGeometry height="210" width="200" x="800" y="660" as="geometry" />
         </mxCell>
@@ -81,37 +73,21 @@
         <mxCell id="intent-detector" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="IntentDetector Service&#xa;(src/services/intent_detector.py)&#xa;&#xa;• JSON intent output (+ reasoning)&#xa;• Uses conversation context (recent msgs)&#xa;• Parses + validates intent/confidence" vertex="1">
           <mxGeometry height="130" width="240" x="780" y="320" as="geometry" />
         </mxCell>
-        <mxCell id="YHCqiRh2gld2sc-pwDH6-3" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;" target="deepseek-provider">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="900" y="960" />
-              <mxPoint x="1050" y="960" />
-            </Array>
-            <mxPoint x="900" y="870" as="sourcePoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="-he-L4hF-hgcVMBdopEP-1" connectable="0" parent="YHCqiRh2gld2sc-pwDH6-3" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="General Chat" vertex="1">
-          <mxGeometry relative="1" x="-0.487" y="2" as="geometry">
-            <mxPoint x="-2" y="8" as="offset" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="MW-gAs1v7CuEkMY-fqQn-13" edge="1" parent="1" source="llm-router" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="agent">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="llm-router" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="LLM Router&#xa;(src/llm/router.py)&#xa;&#xa;• Multi-Provider Support&#xa;• Fallback Management&#xa;• Provider Factory" vertex="1">
           <mxGeometry height="100" width="180" x="810" y="520" as="geometry" />
         </mxCell>
-        <mxCell id="YHCqiRh2gld2sc-pwDH6-23" edge="1" parent="1" source="openai-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="openai-api">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="YHCqiRh2gld2sc-pwDH6-23" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="openai-api">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="730" y="1270" as="sourcePoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="openai-provider" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;OpenAI Provider&lt;br&gt;(openai_provider.py)&lt;/font&gt;" vertex="1">
-          <mxGeometry height="80" width="170" x="645" y="1000" as="geometry" />
-        </mxCell>
-        <mxCell id="YHCqiRh2gld2sc-pwDH6-25" edge="1" parent="1" source="deepseek-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="deepseek-api">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="deepseek-provider" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;DeepSeek Provider&lt;br&gt;(deepseek_provider.py)&lt;/font&gt;" vertex="1">
-          <mxGeometry height="80" width="160" x="970" y="1000" as="geometry" />
+        <mxCell id="YHCqiRh2gld2sc-pwDH6-25" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="deepseek-api">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1050" y="1270" as="sourcePoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="rag-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="RAG Service&lt;br&gt;(src/rag/rag_service.py)&lt;br&gt;&lt;br&gt;• Document Loading&lt;br&gt;• Text Chunking&lt;br&gt;• Embedding Generation&lt;br&gt;• Vector Search&lt;br&gt;• Cache Management on Redis" vertex="1">
           <mxGeometry height="140" width="180" x="310" y="1000" as="geometry" />
@@ -148,10 +124,10 @@
           <mxGeometry height="100" width="200" x="1250" y="1370" as="geometry" />
         </mxCell>
         <mxCell id="openai-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="OpenAI API" vertex="1">
-          <mxGeometry height="40" width="140" x="660" y="1200" as="geometry" />
+          <mxGeometry height="40" width="140" x="660" y="1390" as="geometry" />
         </mxCell>
         <mxCell id="deepseek-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="DeepSeek API" vertex="1">
-          <mxGeometry height="40" width="140" x="980" y="1200" as="geometry" />
+          <mxGeometry height="40" width="140" x="980" y="1390" as="geometry" />
         </mxCell>
         <mxCell id="vector-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Vector Database&lt;br&gt;(SQLite + PyNum Embeddings)" vertex="1">
           <mxGeometry height="60" width="180" x="310" y="1200" as="geometry" />
@@ -334,6 +310,18 @@
         </mxCell>
         <mxCell id="MW-gAs1v7CuEkMY-fqQn-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Self-Build Coze Agent" vertex="1">
           <mxGeometry height="40" width="200" x="-90" y="1290" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;AI Gateway Service&lt;/span&gt;" vertex="1">
+          <mxGeometry height="80" width="230" x="780" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;OpenAI Adapter&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="120" x="780" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;DeepSeek Adapter&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="110" x="900" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="Middleware Services" vertex="1">
+          <mxGeometry height="30" width="140" x="280" y="-10" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
