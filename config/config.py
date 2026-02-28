@@ -130,6 +130,19 @@ class Config:
     MCP_CONFLUENCE_TIMEOUT: float = float(os.getenv('MCP_CONFLUENCE_TIMEOUT', '30.0'))  # Longer timeout for Confluence (Rovo) server
     MCP_DEBUG_OUTPUT: bool = os.getenv('MCP_DEBUG_OUTPUT', 'false').lower() in ('true', '1', 'yes')  # Enable MCP subprocess stderr output for debugging
     
+    # AI Gateway Configuration
+    GATEWAY_ENABLED: bool = os.getenv('GATEWAY_ENABLED', 'false').lower() in ('true', '1', 'yes')
+    GATEWAY_HOST: str = os.getenv('GATEWAY_HOST', 'localhost')
+    GATEWAY_PORT: int = int(os.getenv('GATEWAY_PORT', '8000'))
+    GATEWAY_CACHE_ENABLED: bool = os.getenv('GATEWAY_CACHE_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    GATEWAY_CACHE_TTL: int = int(os.getenv('GATEWAY_CACHE_TTL', '3600'))  # 1 hour default
+    GATEWAY_RATE_LIMIT_ENABLED: bool = os.getenv('GATEWAY_RATE_LIMIT_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    GATEWAY_RATE_LIMIT_PER_MINUTE: int = int(os.getenv('GATEWAY_RATE_LIMIT_PER_MINUTE', '60'))
+    GATEWAY_FALLBACK_ENABLED: bool = os.getenv('GATEWAY_FALLBACK_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    GATEWAY_CIRCUIT_BREAKER_ENABLED: bool = os.getenv('GATEWAY_CIRCUIT_BREAKER_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    GATEWAY_ROUTING_STRATEGY: str = os.getenv('GATEWAY_ROUTING_STRATEGY', 'auto')  # 'auto', 'cost', 'latency', 'load', 'explicit'
+    USE_GATEWAY: bool = os.getenv('USE_GATEWAY', 'false').lower() in ('true', '1', 'yes')  # Feature flag for using gateway in chatbot
+    
     @classmethod
     def get_llm_api_key(cls) -> str:
         """Get the API key for the configured LLM provider."""

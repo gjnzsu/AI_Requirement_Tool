@@ -214,6 +214,24 @@ class Chatbot:
     def _initialize_provider(self):
         """Initialize the LLM provider(s) based on configuration."""
         try:
+            # Check if gateway should be used
+            use_gateway = getattr(Config, 'USE_GATEWAY', False) and getattr(Config, 'GATEWAY_ENABLED', False)
+            
+            if use_gateway:
+                # Use gateway provider wrapper
+                gateway_provider = LLMRouter.get_gateway_provider(
+                    model=Config.get_llm_model(),
+                    provider=self.provider_name if self.provider_name != 'gateway' else None
+                )
+                
+                if gateway_provider:
+                    self.llm_provider = gateway_provider
+                    self.provider_manager = None
+                    logger.info(f"Initialized Gateway provider (routing to: {self.provider_name})")
+                    return
+                else:
+                    logger.warning("Gateway enabled but not available, falling back to direct provider")
+            
             # Get API key and model for primary provider
             api_key = Config.get_llm_api_key()
             model = Config.get_llm_model()

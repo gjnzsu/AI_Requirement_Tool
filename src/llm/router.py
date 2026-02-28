@@ -10,6 +10,14 @@ from .openai_provider import OpenAIProvider
 from .gemini_provider import GeminiProvider
 from .deepseek_provider import DeepSeekProvider
 
+# Try to import gateway provider wrapper (optional)
+try:
+    from src.gateway.providers.gateway_provider_wrapper import GatewayProviderWrapper
+    GATEWAY_AVAILABLE = True
+except ImportError:
+    GATEWAY_AVAILABLE = False
+    GatewayProviderWrapper = None
+
 
 class LLMRouter:
     """
@@ -86,7 +94,33 @@ class LLMRouter:
         Returns:
             True if provider is available, False otherwise
         """
-        return provider_name.lower() in cls._providers
+        provider_name = provider_name.lower()
+        if provider_name == 'gateway':
+            return GATEWAY_AVAILABLE
+        return provider_name in cls._providers
+    
+    @classmethod
+    def get_gateway_provider(cls, model: Optional[str] = None, provider: Optional[str] = None) -> Optional[LLMProvider]:
+        """
+        Get a gateway provider wrapper if gateway is enabled.
+        
+        Args:
+            model: Model name (optional)
+            provider: Provider name (optional)
+            
+        Returns:
+            GatewayProviderWrapper instance or None if gateway not available
+        """
+        if not GATEWAY_AVAILABLE or GatewayProviderWrapper is None:
+            return None
+        
+        try:
+            from config.config import Config
+            if not Config.GATEWAY_ENABLED:
+                return None
+            return GatewayProviderWrapper(model=model, provider=provider)
+        except Exception:
+            return None
 
 
 class LLMProviderManager:

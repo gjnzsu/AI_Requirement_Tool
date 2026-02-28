@@ -3,6 +3,7 @@ Pytest configuration and shared fixtures for all tests.
 """
 
 import sys
+import asyncio
 from pathlib import Path
 
 # Add project root to path for all tests
@@ -13,6 +14,23 @@ if str(project_root) not in sys.path:
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock
 from config.config import Config
+
+
+@pytest.fixture(scope="function")
+def event_loop():
+    """
+    Create a new event loop per test for async tests.
+    Avoids 'Runner.run() cannot be called from a running event loop' when
+    running with pytest-xdist (parallel workers).
+    Do not close the loop in teardown - pytest-asyncio's runner manages
+    lifecycle; closing here causes "Cannot run the event loop while another
+    loop is running" in worker teardown.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    # Intentionally do not loop.close() - let pytest-asyncio clean up
+    # to avoid conflicts when running with pytest-xdist
 
 
 @pytest.fixture(scope="session")

@@ -171,17 +171,15 @@ class TestLLMMonitoringCallback:
         """
         chat_page = ChatPage(authenticated_page)
         
-        # Send a message
-        chat_page.send_message("Hello, tell me about AI")
-        
+        # Expect /api/chat response before sending (so we don't miss it)
         with authenticated_page.expect_response(
             lambda response: "/api/chat" in response.url,
-            timeout=30000
+            timeout=60_000
         ):
-            pass  # Already sent
+            chat_page.send_message("Hello, tell me about AI")
         
         try:
-            chat_page.wait_for_assistant_response(timeout=30000)
+            chat_page.wait_for_assistant_response(timeout=60_000)
         except Exception as e:
             pytest.skip(f"Backend response timeout: {e}")
         

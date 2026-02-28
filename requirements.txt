@@ -45,6 +45,12 @@ mcp>=0.9.0,<1.0.0  # Official MCP Python SDK from modelcontextprotocol/python-sd
 # Coze Platform SDK
 cozepy>=0.1.0,<1.0.0  # Official Coze Python SDK from coze-dev/coze-py
 
+# AI Gateway dependencies
+fastapi>=0.104.0,<1.0.0  # FastAPI framework for gateway
+uvicorn[standard]>=0.24.0,<1.0.0  # ASGI server for gateway
+slowapi>=0.1.9,<1.0.0  # Rate limiting for gateway
+httpx>=0.25.0,<1.0.0  # HTTP client for gateway client
+
 # Protobuf version constraint (required for Google packages compatibility)
 # Note: mem0ai requires protobuf>=5.29.0, but Google packages require <5.0.0
 # mem0ai is optional, so we prioritize Google packages compatibility

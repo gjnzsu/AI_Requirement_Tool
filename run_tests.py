@@ -110,7 +110,9 @@ def main():
             return 1
     else:
         # Run all tests (fast tests only, slow tests skipped by default via pytest.ini)
-        return run_pytest(["tests/", "-v"])
+        # Disable parallel (use_parallel=False) so async tests run in main process and
+        # avoid "Runner.run() cannot be called from a running event loop" with pytest-xdist
+        return run_pytest(["tests/", "-v"], use_parallel=False)
 
 
 if __name__ == "__main__":
