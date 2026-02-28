@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.6.0" pages="10">
   <diagram name="Architecture Diagram" id="architecture-diagram">
-    <mxGraphModel dx="3393" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="3154" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -79,12 +79,12 @@
         <mxCell id="llm-router" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="LLM Router&#xa;(src/llm/router.py)&#xa;&#xa;• Multi-Provider Support&#xa;• Fallback Management&#xa;• Provider Factory" vertex="1">
           <mxGeometry height="100" width="180" x="810" y="520" as="geometry" />
         </mxCell>
-        <mxCell id="YHCqiRh2gld2sc-pwDH6-23" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="openai-api">
+        <mxCell id="YHCqiRh2gld2sc-pwDH6-23" edge="1" parent="1" source="-TXKXCneNXrffcx1r5Ws-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="openai-api">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="730" y="1270" as="sourcePoint" />
+            <mxPoint x="850" y="1090" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="YHCqiRh2gld2sc-pwDH6-25" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="deepseek-api">
+        <mxCell id="YHCqiRh2gld2sc-pwDH6-25" edge="1" parent="1" source="-TXKXCneNXrffcx1r5Ws-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="deepseek-api">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="1050" y="1270" as="sourcePoint" />
           </mxGeometry>
@@ -124,10 +124,10 @@
           <mxGeometry height="100" width="200" x="1250" y="1370" as="geometry" />
         </mxCell>
         <mxCell id="openai-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="OpenAI API" vertex="1">
-          <mxGeometry height="40" width="140" x="660" y="1390" as="geometry" />
+          <mxGeometry height="40" width="140" x="690" y="1300" as="geometry" />
         </mxCell>
         <mxCell id="deepseek-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="DeepSeek API" vertex="1">
-          <mxGeometry height="40" width="140" x="980" y="1390" as="geometry" />
+          <mxGeometry height="40" width="140" x="970" y="1300" as="geometry" />
         </mxCell>
         <mxCell id="vector-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=2;fontSize=12;" value="Vector Database&lt;br&gt;(SQLite + PyNum Embeddings)" vertex="1">
           <mxGeometry height="60" width="180" x="310" y="1200" as="geometry" />
@@ -311,17 +311,30 @@
         <mxCell id="MW-gAs1v7CuEkMY-fqQn-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=2;fontSize=12;" value="Self-Build Coze Agent" vertex="1">
           <mxGeometry height="40" width="200" x="-90" y="1290" as="geometry" />
         </mxCell>
-        <mxCell id="-TXKXCneNXrffcx1r5Ws-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;AI Gateway Service&lt;/span&gt;" vertex="1">
-          <mxGeometry height="80" width="230" x="780" y="1000" as="geometry" />
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;align=left;" value="&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 12px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 12px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;AI Gateway Service&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 12px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;•&amp;nbsp;&lt;/span&gt;Request Validator&lt;br style=&quot;font-size: 11px;&quot;&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;• Rate Limiter&lt;/span&gt;&lt;br style=&quot;font-size: 11px;&quot;&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;• Cache Layer&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 11px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;•&lt;/span&gt;&lt;span style=&quot;font-size: 11px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;Metrics Collector&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 11px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;•&lt;/span&gt;&lt;span style=&quot;font-size: 11px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;Logging&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 11px;&quot;&gt;• Circuit Breaker / Fallback&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="230" x="780" y="1000" as="geometry" />
         </mxCell>
-        <mxCell id="-TXKXCneNXrffcx1r5Ws-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;OpenAI Adapter&lt;/span&gt;" vertex="1">
-          <mxGeometry height="40" width="120" x="780" y="1080" as="geometry" />
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;OpenAI Adapter&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="120" x="780" y="1160" as="geometry" />
         </mxCell>
-        <mxCell id="-TXKXCneNXrffcx1r5Ws-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;DeepSeek Adapter&lt;/span&gt;" vertex="1">
-          <mxGeometry height="40" width="110" x="900" y="1080" as="geometry" />
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;DeepSeek Adapter&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="110" x="900" y="1160" as="geometry" />
         </mxCell>
-        <mxCell id="-TXKXCneNXrffcx1r5Ws-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="Middleware Services" vertex="1">
-          <mxGeometry height="30" width="140" x="280" y="-10" as="geometry" />
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="Middleware Services" vertex="1">
+          <mxGeometry height="30" width="140" x="280" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;Router&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="230" x="780" y="1130" as="geometry" />
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-9" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="1000" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-TXKXCneNXrffcx1r5Ws-10" connectable="0" parent="-TXKXCneNXrffcx1r5Ws-9" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="General Chat" vertex="1">
+          <mxGeometry relative="1" x="-0.0523" y="1" as="geometry">
+            <mxPoint x="-1" y="18" as="offset" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
