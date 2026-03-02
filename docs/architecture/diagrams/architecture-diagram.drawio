@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.6.0" pages="11">
   <diagram name="Architecture Diagram" id="architecture-diagram">
-    <mxGraphModel dx="3154" dy="2023" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="4953" dy="2572" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -13,7 +13,7 @@
         <mxCell id="flask-app" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;" value="Flask Web Server&#xa;(app.py)&#xa;&#xa;• REST API Endpoints&#xa;• Authentication Endpoints&#xa;• Conversation Management&#xa;• Model Switching" vertex="1">
           <mxGeometry height="120" width="200" x="800" y="-110" as="geometry" />
         </mxCell>
-        <mxCell id="auth-middleware" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;" value="Auth Middleware&#xa;(@token_required)&#xa;&#xa;• Token Validation&#xa;• Request Interception&#xa;• User Context" vertex="1">
+        <mxCell id="auth-middleware" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=11;align=left;" value="Authentication Service&lt;br&gt;(@token_required)&lt;br&gt;&lt;br&gt;• Token Validation&lt;br&gt;• Request Interception&lt;br&gt;• User Context" vertex="1">
           <mxGeometry height="100" width="200" x="800" y="30" as="geometry" />
         </mxCell>
         <mxCell id="auth-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;" value="AuthService&#xa;(src/auth/auth_service.py)&#xa;&#xa;• JWT Generation&#xa;• Token Verification&#xa;• Password Hashing" vertex="1">
@@ -67,17 +67,18 @@
         <mxCell id="agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;" value="LangGraph Agent&lt;br&gt;(src/agent/agent_graph.py)&lt;br&gt;&lt;br&gt;• Hybrid Intent Detection&lt;br&gt;  - Keywords (Rule-based) → Cache → LLM (IntentDetector)&lt;br&gt;  - Timeout + Confidence Threshold + Fallback&lt;br&gt;• Tool Orchestration&lt;br&gt;• State Management&lt;br&gt;• Decision Routing&lt;br&gt;• Coze Agent Integration" vertex="1">
           <mxGeometry height="210" width="200" x="800" y="660" as="geometry" />
         </mxCell>
-        <mxCell id="edge-intent-llm2" edge="1" parent="1" source="intent-detector" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;flowAnimation=0;" target="llm-router" value="LLM intent classification">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge-intent-llm2" edge="1" parent="1" source="intent-detector" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;flowAnimation=0;" value="LLM intent classification">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="520" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="intent-detector" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="IntentDetector Service&#xa;(src/services/intent_detector.py)&#xa;&#xa;• JSON intent output (+ reasoning)&#xa;• Uses conversation context (recent msgs)&#xa;• Parses + validates intent/confidence" vertex="1">
           <mxGeometry height="130" width="240" x="780" y="320" as="geometry" />
         </mxCell>
-        <mxCell id="MW-gAs1v7CuEkMY-fqQn-13" edge="1" parent="1" source="llm-router" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="agent">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="llm-router" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;" value="LLM Router&#xa;(src/llm/router.py)&#xa;&#xa;• Multi-Provider Support&#xa;• Fallback Management&#xa;• Provider Factory" vertex="1">
-          <mxGeometry height="100" width="180" x="810" y="520" as="geometry" />
+        <mxCell id="MW-gAs1v7CuEkMY-fqQn-13" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="agent">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="620" as="sourcePoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="YHCqiRh2gld2sc-pwDH6-23" edge="1" parent="1" source="-TXKXCneNXrffcx1r5Ws-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="openai-api">
           <mxGeometry relative="1" as="geometry">
@@ -209,9 +210,6 @@
         <mxCell id="legend-core" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="Core Services" vertex="1">
           <mxGeometry height="30" width="140" x="280" y="-180" as="geometry" />
         </mxCell>
-        <mxCell id="legend-auth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Authentication Layer" vertex="1">
-          <mxGeometry height="30" width="140" x="280" y="-140" as="geometry" />
-        </mxCell>
         <mxCell id="legend-agent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="LangGraph Agentic Framework" vertex="1">
           <mxGeometry height="30" width="140" x="280" y="-100" as="geometry" />
         </mxCell>
@@ -321,7 +319,7 @@
           <mxGeometry height="30" width="110" x="900" y="1160" as="geometry" />
         </mxCell>
         <mxCell id="-TXKXCneNXrffcx1r5Ws-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="Middleware Services" vertex="1">
-          <mxGeometry height="30" width="140" x="280" y="-20" as="geometry" />
+          <mxGeometry height="30" width="140" x="280" y="-140" as="geometry" />
         </mxCell>
         <mxCell id="-TXKXCneNXrffcx1r5Ws-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=10;" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;Router&lt;/span&gt;" vertex="1">
           <mxGeometry height="30" width="230" x="780" y="1130" as="geometry" />
