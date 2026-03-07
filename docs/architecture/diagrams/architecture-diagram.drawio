@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.6.1" pages="11">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="29.6.1" pages="12">
   <diagram name="Architecture Diagram" id="architecture-diagram">
     <mxGraphModel dx="3709" dy="2168" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
       <root>
@@ -3934,6 +3934,173 @@
         </mxCell>
         <mxCell id="fUgwGYFONLuV4hLPRPg7-74" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;" value="Tool execution flow" vertex="1">
           <mxGeometry height="48" width="165" x="1071" y="3349" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="cJT8PFvd5dgojKj2_x0s" name="Banking AI Platform Roadmap ">
+    <mxGraphModel dx="1793" dy="823" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-1" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="AI Capability Layer" vertex="1">
+          <mxGeometry height="377" width="732" x="20" y="893" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-2" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="AI Platform Layer" vertex="1">
+          <mxGeometry height="705" width="1237" x="772" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Application Layer" vertex="1">
+          <mxGeometry height="104" width="1348" x="702" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Employee Copilot" vertex="1">
+          <mxGeometry height="54" width="186" x="737" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Customer Service Bot" vertex="1">
+          <mxGeometry height="54" width="213" x="973" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-6" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Risk Analysis Assistant" vertex="1">
+          <mxGeometry height="54" width="216" x="1236" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-7" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Finance Report Generator" vertex="1">
+          <mxGeometry height="54" width="245" x="1502" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-8" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Developer AI Assistant" vertex="1">
+          <mxGeometry height="54" width="217" x="1798" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-9" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="AI Gateway&#xa;Auth / Rate Limit&#xa;Cost Control" vertex="1">
+          <mxGeometry height="102" width="186" x="1251" y="389" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-10" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Guardrails&#xa;PII Protection&#xa;Prompt Injection Defense&#xa;Compliance Filter" vertex="1">
+          <mxGeometry height="126" width="242" x="1223" y="541" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-11" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Agent Runtime&#xa;Planning&#xa;Reasoning&#xa;Workflow" vertex="1">
+          <mxGeometry height="126" width="165" x="1262" y="717" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-12" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Model Router&#xa;Cost Optimization&#xa;Fallback Strategy&#xa;Model Selection" vertex="1">
+          <mxGeometry height="126" width="188" x="1343" y="918" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Prompt Registry&#xa;Prompt Templates&#xa;Versioning" vertex="1">
+          <mxGeometry height="102" width="189" x="1581" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Observability&#xa;Tracing&#xa;Metrics&#xa;Token Usage" vertex="1">
+          <mxGeometry height="126" width="154" x="1820" y="918" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-15" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="RAG Service&#xa;Document Retrieval" vertex="1">
+          <mxGeometry height="78" width="201" x="55" y="942" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-16" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Vector Database&#xa;Embeddings" vertex="1">
+          <mxGeometry height="78" width="176" x="67" y="1143" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-17" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="MCP Tools&#xa;Enterprise APIs" vertex="1">
+          <mxGeometry height="78" width="167" x="306" y="942" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-18" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Data Systems&#xa;Data Warehouse&#xa;SQL" vertex="1">
+          <mxGeometry height="102" width="175" x="302" y="1131" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-19" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="LLM Models&#xa;OpenAI&#xa;Claude&#xa;Local LLM" vertex="1">
+          <mxGeometry height="126" width="141" x="552" y="1119" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-20" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Memory Service&#xa;Session Memory&#xa;Long Term Memory" vertex="1">
+          <mxGeometry height="102" width="194" x="523" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-21" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-4" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0;entryY=0.37;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-22" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-5" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0;entryY=0.24;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1079" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-23" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-6" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-24" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-7" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=1;entryY=0.25;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1625" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-25" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-8" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=1;entryY=0.38;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1906" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-26" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-9" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-10" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-27" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-10" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-28" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-11" style="curved=1;startArrow=none;endArrow=block;exitX=0.9;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-12" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1437" y="868" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-29" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-12" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-19" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1437" y="1069" />
+              <mxPoint x="622" y="1094" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-30" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-11" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.61;entryX=1;entryY=0.33;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-15" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="840" y="868" />
+              <mxPoint x="840" y="893" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-31" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-15" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-16" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-32" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-11" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.62;entryX=1;entryY=0.3;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-17" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="868" />
+              <mxPoint x="860" y="893" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-33" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-17" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-18" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-34" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-11" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.82;entryX=1;entryY=0.35;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-20" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1165" y="868" />
+              <mxPoint x="1165" y="893" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZazaCCRLW_D08b2ZAFFX-35" edge="1" parent="1" source="ZazaCCRLW_D08b2ZAFFX-11" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.6;entryX=0.5;entryY=0;rounded=0;" target="ZazaCCRLW_D08b2ZAFFX-14" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1897" y="868" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
