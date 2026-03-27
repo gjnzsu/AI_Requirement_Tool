@@ -49,14 +49,16 @@ data:
             {
               "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
-              "queryType": "metrics",
-              "metricKind": "CUMULATIVE",
-              "metricType": "prometheus.googleapis.com/http_requests_total/counter",
-              "crossSeriesReducer": "REDUCE_SUM",
-              "perSeriesAligner": "ALIGN_RATE",
-              "alignmentPeriod": "cloud-monitoring-auto",
-              "filters": [],
-              "groupBys": ["metric.labels.endpoint", "metric.labels.status"]
+              "queryType": "timeSeriesList",
+              "timeSeriesList": {
+                "projectName": "gen-lang-client-0896070179",
+                "metricType": "prometheus.googleapis.com/http_requests_total/counter",
+                "crossSeriesReducer": "REDUCE_SUM",
+                "perSeriesAligner": "ALIGN_RATE",
+                "alignmentPeriod": "cloud-monitoring-auto",
+                "filters": [],
+                "groupBys": ["metric.labels.endpoint", "metric.labels.status"]
+              }
             }
           ],
           "title": "HTTP Request Rate",
@@ -78,14 +80,16 @@ data:
             {
               "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
-              "queryType": "metrics",
-              "metricKind": "CUMULATIVE",
-              "metricType": "prometheus.googleapis.com/llm_tokens_total/counter",
-              "crossSeriesReducer": "REDUCE_SUM",
-              "perSeriesAligner": "ALIGN_RATE",
-              "alignmentPeriod": "cloud-monitoring-auto",
-              "filters": [],
-              "groupBys": ["metric.labels.provider", "metric.labels.model", "metric.labels.type"]
+              "queryType": "timeSeriesList",
+              "timeSeriesList": {
+                "projectName": "gen-lang-client-0896070179",
+                "metricType": "prometheus.googleapis.com/llm_tokens_total/counter",
+                "crossSeriesReducer": "REDUCE_SUM",
+                "perSeriesAligner": "ALIGN_RATE",
+                "alignmentPeriod": "cloud-monitoring-auto",
+                "filters": [],
+                "groupBys": ["metric.labels.provider", "metric.labels.model", "metric.labels.type"]
+              }
             }
           ],
           "title": "LLM Token Rate",
@@ -107,14 +111,16 @@ data:
             {
               "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
-              "queryType": "metrics",
-              "metricKind": "CUMULATIVE",
-              "metricType": "prometheus.googleapis.com/llm_errors_total/counter",
-              "crossSeriesReducer": "REDUCE_SUM",
-              "perSeriesAligner": "ALIGN_RATE",
-              "alignmentPeriod": "cloud-monitoring-auto",
-              "filters": [],
-              "groupBys": ["metric.labels.provider"]
+              "queryType": "timeSeriesList",
+              "timeSeriesList": {
+                "projectName": "gen-lang-client-0896070179",
+                "metricType": "prometheus.googleapis.com/llm_errors_total/counter",
+                "crossSeriesReducer": "REDUCE_SUM",
+                "perSeriesAligner": "ALIGN_RATE",
+                "alignmentPeriod": "cloud-monitoring-auto",
+                "filters": [],
+                "groupBys": ["metric.labels.provider"]
+              }
             }
           ],
           "title": "LLM Error Rate",
@@ -136,14 +142,16 @@ data:
             {
               "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
-              "queryType": "metrics",
-              "metricKind": "CUMULATIVE",
-              "metricType": "prometheus.googleapis.com/llm_token_cost_usd_total/counter",
-              "crossSeriesReducer": "REDUCE_SUM",
-              "perSeriesAligner": "ALIGN_RATE",
-              "alignmentPeriod": "cloud-monitoring-auto",
-              "filters": [],
-              "groupBys": ["metric.labels.provider", "metric.labels.model"]
+              "queryType": "timeSeriesList",
+              "timeSeriesList": {
+                "projectName": "gen-lang-client-0896070179",
+                "metricType": "prometheus.googleapis.com/llm_token_cost_usd_total/counter",
+                "crossSeriesReducer": "REDUCE_SUM",
+                "perSeriesAligner": "ALIGN_RATE",
+                "alignmentPeriod": "cloud-monitoring-auto",
+                "filters": [],
+                "groupBys": ["metric.labels.provider", "metric.labels.model"]
+              }
             }
           ],
           "title": "LLM Cost Rate (USD/s)",
@@ -165,14 +173,16 @@ data:
             {
               "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
-              "queryType": "metrics",
-              "metricKind": "CUMULATIVE",
-              "metricType": "prometheus.googleapis.com/http_request_duration_seconds/histogram",
-              "crossSeriesReducer": "REDUCE_MEAN",
-              "perSeriesAligner": "ALIGN_DELTA",
-              "alignmentPeriod": "cloud-monitoring-auto",
-              "filters": [],
-              "groupBys": ["metric.labels.endpoint"]
+              "queryType": "timeSeriesList",
+              "timeSeriesList": {
+                "projectName": "gen-lang-client-0896070179",
+                "metricType": "prometheus.googleapis.com/http_request_duration_seconds/histogram",
+                "crossSeriesReducer": "REDUCE_MEAN",
+                "perSeriesAligner": "ALIGN_DELTA",
+                "alignmentPeriod": "cloud-monitoring-auto",
+                "filters": [],
+                "groupBys": ["metric.labels.endpoint"]
+              }
             }
           ],
           "title": "HTTP Request Latency (mean)",
@@ -180,3 +190,4 @@ data:
         }
       ]
     }
+
