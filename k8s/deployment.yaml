@@ -47,6 +47,35 @@ spec:
                 secretKeyRef:
                   name: ai-tool-secrets
                   key: JIRA_URL
+            - name: JIRA_PROJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: JIRA_PROJECT_KEY
+            - name: CONFLUENCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: CONFLUENCE_URL
+            - name: CONFLUENCE_SPACE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: CONFLUENCE_SPACE_KEY
+            - name: COZE_ENABLED
+              value: "true"
+            - name: COZE_API_BASE_URL
+              value: "https://api.coze.cn"
+            - name: COZE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: COZE_API_TOKEN
+            - name: COZE_BOT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: COZE_BOT_ID
             - name: JWT_SECRET_KEY
               valueFrom:
                 secretKeyRef:
