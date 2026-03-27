@@ -1,3 +1,6 @@
+# App dependencies (required for test collection)
+-r requirements.txt
+
 # Test dependencies
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
