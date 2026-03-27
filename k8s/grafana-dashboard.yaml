@@ -13,7 +13,7 @@ data:
         disableDeletion: false
         updateIntervalSeconds: 30
         options:
-          path: /etc/grafana/provisioning/dashboards
+          path: /etc/grafana/provisioning/dashboards/json
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -34,7 +34,7 @@ data:
       "version": 1,
       "panels": [
         {
-          "datasource": {"type": "stackdriver"},
+          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"},
             "overrides": []
@@ -47,7 +47,7 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver"},
+              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
               "queryType": "metrics",
               "metricKind": "CUMULATIVE",
@@ -63,7 +63,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver"},
+          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
             "overrides": []
@@ -76,7 +76,7 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver"},
+              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
               "queryType": "metrics",
               "metricKind": "CUMULATIVE",
@@ -92,7 +92,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver"},
+          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
             "overrides": []
@@ -105,7 +105,7 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver"},
+              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
               "queryType": "metrics",
               "metricKind": "CUMULATIVE",
@@ -121,7 +121,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver"},
+          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "currencyUSD"},
             "overrides": []
@@ -134,7 +134,7 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver"},
+              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
               "queryType": "metrics",
               "metricKind": "CUMULATIVE",
@@ -150,7 +150,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver"},
+          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "s"},
             "overrides": []
@@ -163,7 +163,7 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver"},
+              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
               "refId": "A",
               "queryType": "metrics",
               "metricKind": "CUMULATIVE",
