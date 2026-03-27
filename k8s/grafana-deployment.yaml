@@ -10,8 +10,6 @@ data:
     enabled = false
     [security]
     admin_user = admin
-    [plugins]
-    allow_loading_unsigned_plugins = googlecloud-monitoring-datasource
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -21,12 +19,13 @@ data:
   datasource.yaml: |
     apiVersion: 1
     datasources:
-      - name: Google Cloud Monitoring
+      - name: GMP Prometheus
         type: stackdriver
         access: proxy
         isDefault: true
         jsonData:
           authenticationType: gce
+          defaultProject: gen-lang-client-0896070179
         editable: true
 ---
 apiVersion: apps/v1
@@ -43,6 +42,7 @@ spec:
       labels:
         app: grafana
     spec:
+      serviceAccountName: grafana
       containers:
         - name: grafana
           image: grafana/grafana:10.4.0
