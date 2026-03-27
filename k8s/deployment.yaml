@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-tool
+  template:
+    metadata:
+      labels:
+        app: ai-tool
+    spec:
+      containers:
+        - name: ai-tool
+          image: gcr.io/<PROJECT_ID>/ai-requirement-tool:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: LLM_PROVIDER
+              value: "openai"
+            - name: FLASK_ENV
+              value: "production"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: OPENAI_API_KEY
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: DEEPSEEK_API_KEY
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: JIRA_API_TOKEN
+            - name: JIRA_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: JIRA_EMAIL
+            - name: JIRA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: JIRA_URL
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-tool-secrets
+                  key: JWT_SECRET_KEY
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ai-tool-data-pvc

@@ -51,6 +51,9 @@ uvicorn[standard]>=0.24.0,<1.0.0  # ASGI server for gateway
 slowapi>=0.1.9,<1.0.0  # Rate limiting for gateway
 httpx>=0.25.0,<1.0.0  # HTTP client for gateway client
 
+# WSGI server for production
+gunicorn>=21.0.0,<23.0.0
+
 # Protobuf version constraint (required for Google packages compatibility)
 # Note: mem0ai requires protobuf>=5.29.0, but Google packages require <5.0.0
 # mem0ai is optional, so we prioritize Google packages compatibility
