@@ -9,6 +9,7 @@ An advanced AI-powered chatbot with LangGraph agent framework, MCP (Model Contex
 - **MCP Integration** - Model Context Protocol support for Jira and Confluence operations
 - **RAG Service** - Retrieval-Augmented Generation with vector embeddings and caching
 - **Multi-Provider LLM** - OpenAI, Google Gemini, DeepSeek with automatic fallback
+- **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable timeout
 - **Intent Detection** - Automatic detection of user intents (general chat, Jira creation, etc.)
 - **Jira Integration** - Create and manage Jira issues via MCP or custom tools
 - **Conversation Memory** - Persistent conversation history with summarization
@@ -402,6 +403,14 @@ Set `LLM_PROVIDER` in your `.env`:
 - `RAG_ENABLE_CACHE=true` - Enable RAG caching
 - `RAG_CACHE_TTL_HOURS=24` - Cache TTL in hours
 
+### Coze Configuration
+
+- `COZE_ENABLED=true` - Enable Coze platform integration
+- `COZE_API_TOKEN` - Coze API token
+- `COZE_BOT_ID` - Coze bot/agent ID
+- `COZE_API_BASE_URL` - API base URL (`https://api.coze.cn` or `https://api.coze.com`)
+- `COZE_API_TIMEOUT=300` - HTTP timeout in seconds for Coze API calls (default: 300)
+
 ## 🚨 Troubleshooting
 
 ### MCP Not Working
@@ -434,4 +443,4 @@ Set `LLM_PROVIDER` in your `.env`:
 
 ---
 
-**Last Updated:** December 2024
+**Last Updated:** March 2026
