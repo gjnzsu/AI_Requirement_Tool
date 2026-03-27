@@ -411,6 +411,55 @@ Set `LLM_PROVIDER` in your `.env`:
 - `COZE_API_BASE_URL` - API base URL (`https://api.coze.cn` or `https://api.coze.com`)
 - `COZE_API_TIMEOUT=300` - HTTP timeout in seconds for Coze API calls (default: 300)
 
+## 🚀 CI/CD Pipeline
+
+The project uses GitHub Actions for automated build, test, and deployment to Google Kubernetes Engine (GKE).
+
+### Workflows
+
+| Workflow | File | Trigger |
+|---|---|---|
+| CI — Build, Test & Push | `.github/workflows/ci.yml` | Push or PR to `main` |
+| CD — Deploy to GKE | `.github/workflows/cd.yml` | CI workflow completes successfully |
+
+### CI Pipeline (`ci.yml`)
+
+1. **Checkout** source code
+2. **Set up Python 3.11** with pip caching
+3. **Run unit tests** via `pytest tests/unit/`
+4. *(On push to `main` only)*
+5. **Authenticate to GCP** using `GCP_SA_KEY` service account key
+6. **Configure Docker** for Artifact Registry
+7. **Build Docker image** tagged with commit SHA and `latest`
+8. **Push image** to `us-central1-docker.pkg.dev/{GCP_PROJECT_ID}/ai-requirement-tool/ai-requirement-tool`
+
+### CD Pipeline (`cd.yml`)
+
+1. **Authenticate to GCP**
+2. **Get GKE credentials** for cluster `helloworld-cluster` in `us-central1`
+3. **Inject image** (commit SHA tag) into `k8s/deployment.yaml`
+4. **Apply** `k8s/deployment.yaml` and `k8s/service.yaml`
+5. **Wait for rollout** (`kubectl rollout status deployment/ai-tool`)
+6. **Print external IP** of the LoadBalancer service
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `GCP_SA_KEY` | GCP service account key JSON (roles: `artifactregistry.writer`, `container.developer`) |
+| `GCP_PROJECT_ID` | GCP project ID |
+
+> **Security note:** The pipeline currently uses a long-lived service account key (`GCP_SA_KEY`). Migrating to [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) is recommended before production use.
+
+### Infrastructure
+
+- **Registry:** `us-central1-docker.pkg.dev/{GCP_PROJECT_ID}/ai-requirement-tool/ai-requirement-tool`
+- **Cluster:** `helloworld-cluster` (us-central1)
+- **Deployment:** `ai-tool` (1 replica)
+- **Service:** `ai-tool-service` (LoadBalancer)
+
+---
+
 ## 🚨 Troubleshooting
 
 ### MCP Not Working
