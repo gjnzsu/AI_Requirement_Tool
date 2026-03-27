@@ -68,6 +68,7 @@ class CozeClient:
         # Empty strings are treated as explicitly unset (not configured)
         self.api_token = api_token if api_token is not None else Config.COZE_API_TOKEN
         self.bot_id = bot_id if bot_id is not None else Config.COZE_BOT_ID
+        self.timeout = Config.COZE_API_TIMEOUT
         
         # Determine base URL - use SDK constants if available
         if base_url is not None:
@@ -91,11 +92,14 @@ class CozeClient:
         self.coze_client = None
         if self.api_token:
             try:
+                import httpx
+                http_client = httpx.Client(timeout=self.timeout)
                 self.coze_client = Coze(
                     auth=TokenAuth(token=self.api_token),
-                    base_url=self.base_url
+                    base_url=self.base_url,
+                    http_client=http_client
                 )
-                logger.info(f"Coze SDK client initialized with base_url={self.base_url}")
+                logger.info(f"Coze SDK client initialized with base_url={self.base_url}, timeout={self.timeout}s")
             except Exception as e:
                 logger.error(f"Failed to initialize Coze SDK client: {e}")
                 raise
