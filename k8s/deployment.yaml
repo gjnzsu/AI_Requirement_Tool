@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: ai-tool
-          image: gcr.io/<PROJECT_ID>/ai-requirement-tool:latest
+          image: us-central1-docker.pkg.dev/gen-lang-client-0896070179/ai-requirement-tool/ai-requirement-tool:latest
           ports:
             - containerPort: 5000
           env:

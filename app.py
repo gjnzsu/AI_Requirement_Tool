@@ -253,6 +253,11 @@ def generate_conversation_id():
     """Generate a unique conversation ID."""
     return f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
+@app.route('/api/health')
+def health():
+    """Health check endpoint for k8s probes."""
+    return {'status': 'ok'}, 200
+
 @app.route('/')
 def index():
     """Serve the main chat interface."""
