@@ -1,0 +1,62 @@
+name: CI -- Build, Test & Push
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GCP_REGION: us-central1
+  IMAGE_NAME: ai-requirement-tool
+  REGISTRY_REPO: ai-requirement-tool
+
+jobs:
+  build-test-push:
+    name: Build, Test & Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short
+
+      # S-01 (HIGH): Currently using GCP_SA_KEY (long-lived JSON key) stored as a GitHub Secret.
+      # Strictly minimal SA permissions (roles/artifactregistry.writer + roles/container.developer only).
+      # TODO: Migrate to Workload Identity Federation (keyless auth) before production use.
+      - name: Authenticate to GCP
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE_BASE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}
+          docker build \
+            -t ${IMAGE_BASE}:${{ github.sha }} \
+            -t ${IMAGE_BASE}:latest \
+            .
+
+      - name: Push Docker image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE_BASE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}
+          docker push ${IMAGE_BASE}:${{ github.sha }}
+          docker push ${IMAGE_BASE}:latest

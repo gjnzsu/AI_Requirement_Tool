@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: ai-tool
-          image: us-central1-docker.pkg.dev/gen-lang-client-0896070179/ai-requirement-tool/ai-requirement-tool:latest
+          image: IMAGE_PLACEHOLDER
           ports:
             - containerPort: 5000
           env:

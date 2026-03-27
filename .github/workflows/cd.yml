@@ -1,0 +1,67 @@
+name: CD -- Deploy to GKE
+
+on:
+  workflow_run:
+    workflows: ["CI -- Build, Test & Push"]
+    types: [completed]
+    branches: [main]
+
+env:
+  GCP_REGION: us-central1
+  GKE_CLUSTER: helloworld-cluster
+  IMAGE_NAME: ai-requirement-tool
+  REGISTRY_REPO: ai-requirement-tool
+
+jobs:
+  deploy:
+    name: Deploy to GKE
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GCP_REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set image in deployment manifest
+        run: |
+          IMAGE_BASE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}
+          FULL_IMAGE=${IMAGE_BASE}:${{ github.event.workflow_run.head_sha }}
+          sed -i "s|IMAGE_PLACEHOLDER|${FULL_IMAGE}|g" k8s/deployment.yaml
+
+      - name: Apply deployment and service
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/ai-tool --timeout=120s
+
+      - name: Print external IP
+        run: |
+          echo "Waiting for LoadBalancer external IP..."
+          for i in $(seq 1 12); do
+            EXTERNAL_IP=$(kubectl get service ai-tool-service \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -n "$EXTERNAL_IP" ]; then
+              echo "Service is available at: http://${EXTERNAL_IP}/"
+              break
+            fi
+            echo "Attempt $i/12: IP not yet assigned, waiting 10s..."
+            sleep 10
+          done
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "External IP not assigned within timeout. Check: kubectl get svc"
+          fi
