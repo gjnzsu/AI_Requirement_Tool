@@ -54,6 +54,36 @@ except ImportError as e:
 
 from config.config import Config
 
+# Prometheus metrics
+try:
+    from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+    import time as _time
+
+    REQUEST_COUNT = Counter(
+        'http_requests_total', 'Total HTTP requests',
+        ['method', 'endpoint', 'status']
+    )
+    REQUEST_LATENCY = Histogram(
+        'http_request_duration_seconds', 'HTTP request latency',
+        ['endpoint'],
+        buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+    )
+    LLM_TOKEN_COST = Counter(
+        'llm_token_cost_usd_total', 'Estimated LLM cost in USD',
+        ['provider', 'model']
+    )
+    LLM_TOKEN_COUNT = Counter(
+        'llm_tokens_total', 'Total LLM tokens used',
+        ['provider', 'model', 'type']
+    )
+    LLM_ERROR_COUNT = Counter(
+        'llm_errors_total', 'LLM provider errors',
+        ['provider']
+    )
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+
 # Try to import logger
 try:
     from src.utils.logger import get_logger
@@ -78,10 +108,34 @@ except ImportError:
     safe_print("[WARNING] Flasgger not installed. Swagger documentation will not be available.")
     safe_print("   Install with: pip install flasgger")
 
-app = Flask(__name__, 
+app = Flask(__name__,
             template_folder='web/templates',
             static_folder='web/static')
 CORS(app)
+
+# Prometheus request instrumentation
+if PROMETHEUS_AVAILABLE:
+    @app.before_request
+    def _start_timer():
+        from flask import g
+        g._prom_start = _time.time()
+
+    @app.after_request
+    def _record_request(response):
+        from flask import g
+        endpoint = request.endpoint or 'unknown'
+        duration = _time.time() - getattr(g, '_prom_start', _time.time())
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status=response.status_code
+        ).inc()
+        REQUEST_LATENCY.labels(endpoint=endpoint).observe(duration)
+        return response
+
+    @app.route('/metrics')
+    def metrics():
+        return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 # Initialize Swagger if available
 if SWAGGER_AVAILABLE:
@@ -640,8 +694,26 @@ def chat():
             chatbot.load_conversation(conversation_id)
         
         # Get response (this will automatically save to persistent memory)
-        response = chatbot.get_response(message)
-        
+        try:
+            response = chatbot.get_response(message)
+        except Exception as _llm_err:
+            if PROMETHEUS_AVAILABLE:
+                LLM_ERROR_COUNT.labels(provider=Config.LLM_PROVIDER).inc()
+            raise
+
+        # Record token cost metrics if usage info is available on the response
+        if PROMETHEUS_AVAILABLE and hasattr(chatbot, 'last_usage') and chatbot.last_usage:
+            from src.llm.cost_tracker import calculate_cost
+            usage = chatbot.last_usage
+            provider = Config.LLM_PROVIDER
+            model = Config.get_llm_model()
+            prompt_tokens = usage.get('prompt_tokens', 0)
+            completion_tokens = usage.get('completion_tokens', 0)
+            LLM_TOKEN_COUNT.labels(provider=provider, model=model, type='prompt').inc(prompt_tokens)
+            LLM_TOKEN_COUNT.labels(provider=provider, model=model, type='completion').inc(completion_tokens)
+            cost = calculate_cost(provider, model, prompt_tokens, completion_tokens)
+            LLM_TOKEN_COST.labels(provider=provider, model=model).inc(cost)
+
         # Get updated conversation from memory manager
         if memory_manager:
             conversation = memory_manager.get_conversation(conversation_id)

@@ -44,6 +44,9 @@ jobs:
         run: |
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/pod-monitoring.yaml
+          kubectl apply -f k8s/grafana-deployment.yaml
+          kubectl apply -f k8s/grafana-service.yaml
 
       - name: Wait for rollout
         run: |
