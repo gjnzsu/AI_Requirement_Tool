@@ -13,3 +13,9 @@ tests/
 *.ps1
 *.sh
 .claude/
+pdf_folder/
+docs/
+examples/
+scripts/
+*.txt.bak
+node_modules/

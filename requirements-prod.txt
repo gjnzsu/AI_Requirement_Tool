@@ -1,0 +1,53 @@
+# Production-only requirements for Docker/GKE deployment
+# Trimmed from requirements.txt — excludes transformers (never imported),
+# google-generativeai (Gemini optional; LLM_PROVIDER=openai in prod),
+# and dev/test-only packages.
+
+# Web framework
+Flask>=2.0.1,<4.0.0
+flask-cors>=3.1.0,<5.0.0
+gunicorn>=21.0.0,<23.0.0
+
+# Configuration
+python-dotenv>=1.0.0,<2.0.0
+
+# Authentication
+PyJWT>=2.8.0,<3.0.0
+bcrypt>=4.0.0,<5.0.0
+
+# API documentation
+flasgger>=0.9.7,<1.0.0
+
+# LLM providers
+openai>=1.12.0,<2.0.0
+
+# LangChain / agent framework
+langchain>=1.0.0,<2.0.0
+langchain-openai>=1.0.0,<2.0.0
+langchain-core>=1.0.0,<2.0.0
+langgraph>=1.0.2,<1.1.0
+
+# Jira integration
+jira>=3.5.2,<4.0.0
+
+# HTTP / networking
+requests>=2.26.0,<3.0.0
+httpx>=0.25.0,<1.0.0
+
+# AI Gateway (FastAPI-based)
+fastapi>=0.104.0,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+slowapi>=0.1.9,<1.0.0
+
+# RAG
+PyPDF2>=3.0.0,<4.0.0
+numpy>=1.21.2,<3.0.0
+
+# MCP SDK
+mcp>=0.9.0,<1.0.0
+
+# Coze SDK
+cozepy>=0.1.0,<1.0.0
+
+# Pydantic (used throughout)
+pydantic>=2.0.0,<3.0.0
