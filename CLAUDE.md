@@ -53,3 +53,65 @@ No framework, no bundler. Bootstrap 5 + custom CSS + vanilla JS.
 3. Backend builds a detailed system prompt instructing Claude to extract structured requirements, calls the Anthropic API, parses the JSON response.
 4. Frontend receives the JSON and renders each section (actors, use cases, functional/non-functional requirements, constraints, assumptions, risks) as collapsible cards.
 5. User can export the analysis via `/api/export`.
+
+## Post-Deployment Log & Test Checks
+
+When asked to **"triage logs"**, **"check test status"**, **"post deployment check"**, or **"verify deployment"**, run the following checks in order and return a structured report.
+
+### Stack Context
+- Deployments: `ai-tool`, `grafana`, `prometheus`
+- App service: `ai-tool-service` (LoadBalancer, port 80 → pod 5000), external IP `34.133.164.110`
+- Grafana: external IP `136.114.77.0` (port 80)
+- Prometheus: internal `prometheus-service:9090`
+
+### Checklist
+
+1. **Pod & Deployment Health**
+   ```bash
+   kubectl get pods
+   kubectl get deployments
+   ```
+   Flag any pod not `1/1 Running` or with non-zero restarts.
+
+2. **Application Logs** — scan for errors
+   ```bash
+   kubectl logs -l app=ai-tool --tail=50
+   ```
+   Search for: `ERROR`, `Exception`, `Traceback`, `CRITICAL`, `500`. Report exact line and timestamp.
+
+3. **Prometheus Scrape Health**
+   ```bash
+   kubectl exec deploy/prometheus -- wget -qO- http://localhost:9090/api/v1/targets
+   ```
+   Confirm `health: "up"` for `ai-tool` target. Report `lastError` if down.
+
+4. **Live Metric Verification**
+   ```bash
+   kubectl exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/query?query=rate(http_requests_total[2m])'
+   ```
+   Confirm non-empty result. Report current request rate per endpoint.
+
+5. **Grafana Provisioning**
+   ```bash
+   kubectl logs -l app=grafana --tail=30
+   ```
+   Confirm `"provisioned dashboard is up to date"` for `ai-tool.json`. Flag any `level=error`.
+
+6. **Culprit Commit Analysis** (only if errors found in steps 2–5)
+   ```bash
+   git log --oneline -10
+   ```
+   Cross-reference error timestamps against recent commits.
+
+### Report Format
+```
+## Post-Deployment Health Report
+**Pods**: [OK / ISSUES: <details>]
+**App Logs**: [Clean / ERRORS: <file:line> <message>]
+**Prometheus Scrape**: [UP / DOWN: <lastError>]
+**Live Metrics**: [Data present / No data: <reason>]
+**Grafana**: [OK / ISSUES: <details>]
+**Culprit Commit** (if errors): [hash] - <message>
+**Verdict**: HEALTHY / NEEDS ATTENTION
+```
+If all green, a one-liner "All systems healthy" is sufficient.
