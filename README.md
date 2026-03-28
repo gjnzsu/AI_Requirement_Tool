@@ -1,25 +1,44 @@
-# Generative AI Chatbot
+# Enterprise GenAI Assistant
 
-An advanced AI-powered chatbot with LangGraph agent framework, MCP (Model Context Protocol) integration, RAG (Retrieval-Augmented Generation), and Jira/Confluence tools. Supports multiple LLM providers with intelligent intent detection and automated Jira issue creation.
+An enterprise-oriented GenAI assistant combining conversational AI, document Q&A (RAG), and Jira/Confluence workflows via MCP and APIs — with multi-provider LLM routing, an optional centralized gateway for caching and rate-limiting, a responsive web UI, and production-grade observability.
+
+Built for teams that need more than a generic chatbot: structured intent detection routes requests to the right tool automatically, RAG grounds answers in your internal knowledge base, and MCP bridges the assistant directly into your Atlassian toolchain.
 
 ## 🚀 Key Features
 
-### Core Capabilities
-- **LangGraph Agent Framework** - Intelligent agent with intent detection and tool orchestration
-- **MCP Integration** - Model Context Protocol support for Jira and Confluence operations
-- **RAG Service** - Retrieval-Augmented Generation with vector embeddings and caching
-- **Multi-Provider LLM** - OpenAI, Google Gemini, DeepSeek with automatic fallback
-- **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable timeout
-- **Intent Detection** - Automatic detection of user intents (general chat, Jira creation, etc.)
-- **Jira Integration** - Create and manage Jira issues via MCP or custom tools
-- **Conversation Memory** - Persistent conversation history with summarization
-- **Modern Web UI** - Beautiful, responsive chat interface
+### Conversational AI
+- **LangGraph Agent Framework** - Stateful agent graph with intent detection and multi-step tool orchestration
+- **Conversation Memory** - Persistent history with automatic summarization to stay within context limits
+- **Intent Routing** - Automatically distinguishes general chat, document Q&A, and Jira/Confluence actions
+- **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable HTTP timeout
 
-### Advanced Features
-- **Lazy Tool Loading** - Tools initialized only when needed
-- **Error Recovery** - Automatic fallback mechanisms
-- **Comprehensive Logging** - Detailed logging for debugging and monitoring
-- **Integration Tests** - Full test suite for MCP and agent functionality
+### Document Q&A (RAG)
+- **RAG Service** - Retrieval-Augmented Generation over internal documents with vector embeddings
+- **Vector Store & Caching** - Fast similarity search with a TTL-based RAG cache to reduce redundant embedding calls
+- **Document Loader** - Ingest documents from local storage or connected sources
+
+### Jira & Confluence Workflows
+- **MCP Integration** - Model Context Protocol server for Jira and Confluence, enabling natural-language issue creation, search, and page management
+- **Custom Tools** - Direct REST API tools for Jira issue management and Confluence content operations
+- **Jira Maturity Evaluator** - Automated assessment of issue quality and completeness
+
+### Multi-Provider LLM Routing
+- **Provider Support** - OpenAI, Google Gemini, and DeepSeek with a unified interface
+- **Automatic Fallback** - Transparent failover across providers on errors or rate limits
+- **Optional Centralized Gateway** - Layer in a gateway for shared caching, rate-limit enforcement, and cost visibility across teams
+
+### Web UI & Observability
+- **Modern Web UI** - Responsive chat interface served by Flask, no build step required
+- **Prometheus Metrics** - HTTP request counters, latency histograms, and LLM token/cost metrics via `/metrics`
+- **Grafana Dashboards** - Pre-built dashboards for request rate, error rate, and LLM usage
+- **Structured Logging** - Request-level logs for debugging and audit trails
+
+### Production Readiness
+- **GKE Deployment** - Kubernetes manifests with LoadBalancer service and Recreate rollout strategy
+- **CI/CD via GitHub Actions** - Automated test, build, push, and deploy pipeline
+- **Lazy Tool Loading** - Tools initialized on demand to minimize startup overhead
+- **Error Recovery** - Automatic fallback mechanisms at agent and provider level
+- **Integration & E2E Tests** - Full test suite covering MCP, RAG, agent, LLM providers, and memory
 
 ## 📁 Project Structure
 
