@@ -81,17 +81,7 @@ jobs:
             || { echo "FAIL: /api/health did not respond"; exit 1; }
 
           echo "=== 2. Create smoke-test user ==="
-          kubectl exec deploy/ai-tool -- python3 -c "
-import sys; sys.path.insert(0, '/app')
-from src.auth.user_service import UserService
-us = UserService()
-try:
-    us.create_user('smoketest', 'smoketest123', 'smoketest@ci.local')
-except ValueError:
-    u = us.get_user_by_username('smoketest')
-    us.update_password(u['id'], 'smoketest123')
-print('ready')
-"
+          kubectl exec deploy/ai-tool -- python3 -c "import sys; sys.path.insert(0,'/app'); from src.auth.user_service import UserService; us=UserService(); u=us.get_user_by_username('smoketest'); us.update_password(u['id'],'smoketest123') if u else us.create_user('smoketest','smoketest123','smoketest@ci.local'); print('ready')"
 
           echo "=== 3. Login to get JWT token ==="
           TOKEN=$(curl -s -X POST http://${EXTERNAL_IP}/api/auth/login \
