@@ -509,7 +509,17 @@ class Chatbot:
                 
                 # Invoke agent
                 response = self.agent.invoke(user_input, conversation_history)
-                
+
+                # Propagate token usage from agent callback for Prometheus metrics
+                cb = getattr(self.agent, 'llm_callback', None)
+                if cb and (cb.total_prompt_tokens or cb.total_completion_tokens):
+                    self.last_usage = {
+                        'prompt_tokens': cb.total_prompt_tokens,
+                        'completion_tokens': cb.total_completion_tokens,
+                    }
+                else:
+                    self.last_usage = None
+
                 # Save to memory
                 if self.use_persistent_memory and self.memory_manager:
                     if not self.conversation_id:
