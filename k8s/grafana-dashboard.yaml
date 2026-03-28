@@ -28,13 +28,13 @@ data:
       "links": [],
       "schemaVersion": 36,
       "style": "dark",
-      "tags": ["ai-tool", "gmp"],
+      "tags": ["ai-tool", "prometheus"],
       "title": "AI Requirement Tool",
-      "uid": "ai-tool-gmp",
+      "uid": "ai-tool-prometheus",
       "version": 1,
       "panels": [
         {
-          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"},
             "overrides": []
@@ -47,25 +47,17 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
               "refId": "A",
-              "queryType": "timeSeriesList",
-              "timeSeriesList": {
-                "projectName": "gen-lang-client-0896070179",
-                "metricType": "prometheus.googleapis.com/http_requests_total/counter",
-                "crossSeriesReducer": "REDUCE_SUM",
-                "perSeriesAligner": "ALIGN_RATE",
-                "alignmentPeriod": "cloud-monitoring-auto",
-                "filters": [],
-                "groupBys": ["metric.labels.endpoint", "metric.labels.status"]
-              }
+              "expr": "rate(http_requests_total[2m])",
+              "legendFormat": "{{method}} {{endpoint}} {{status}}"
             }
           ],
           "title": "HTTP Request Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
             "overrides": []
@@ -78,25 +70,17 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
               "refId": "A",
-              "queryType": "timeSeriesList",
-              "timeSeriesList": {
-                "projectName": "gen-lang-client-0896070179",
-                "metricType": "prometheus.googleapis.com/llm_tokens_total/counter",
-                "crossSeriesReducer": "REDUCE_SUM",
-                "perSeriesAligner": "ALIGN_RATE",
-                "alignmentPeriod": "cloud-monitoring-auto",
-                "filters": [],
-                "groupBys": ["metric.labels.provider", "metric.labels.model", "metric.labels.type"]
-              }
+              "expr": "rate(llm_tokens_total[2m])",
+              "legendFormat": "{{provider}} {{model}} {{type}}"
             }
           ],
           "title": "LLM Token Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
             "overrides": []
@@ -109,25 +93,17 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
               "refId": "A",
-              "queryType": "timeSeriesList",
-              "timeSeriesList": {
-                "projectName": "gen-lang-client-0896070179",
-                "metricType": "prometheus.googleapis.com/llm_errors_total/counter",
-                "crossSeriesReducer": "REDUCE_SUM",
-                "perSeriesAligner": "ALIGN_RATE",
-                "alignmentPeriod": "cloud-monitoring-auto",
-                "filters": [],
-                "groupBys": ["metric.labels.provider"]
-              }
+              "expr": "rate(llm_errors_total[2m])",
+              "legendFormat": "{{provider}} {{error_type}}"
             }
           ],
           "title": "LLM Error Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "currencyUSD"},
             "overrides": []
@@ -140,25 +116,17 @@ data:
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
               "refId": "A",
-              "queryType": "timeSeriesList",
-              "timeSeriesList": {
-                "projectName": "gen-lang-client-0896070179",
-                "metricType": "prometheus.googleapis.com/llm_token_cost_usd_total/counter",
-                "crossSeriesReducer": "REDUCE_SUM",
-                "perSeriesAligner": "ALIGN_RATE",
-                "alignmentPeriod": "cloud-monitoring-auto",
-                "filters": [],
-                "groupBys": ["metric.labels.provider", "metric.labels.model"]
-              }
+              "expr": "rate(llm_token_cost_usd_total[2m])",
+              "legendFormat": "{{provider}} {{model}}"
             }
           ],
           "title": "LLM Cost Rate (USD/s)",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "unit": "s"},
             "overrides": []
@@ -166,28 +134,25 @@ data:
           "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
           "id": 5,
           "options": {
-            "legend": {"calcs": ["mean", "p95"], "displayMode": "list", "placement": "bottom"},
+            "legend": {"calcs": ["mean"], "displayMode": "list", "placement": "bottom"},
             "tooltip": {"mode": "multi"}
           },
           "targets": [
             {
-              "datasource": {"type": "stackdriver", "uid": "P03A163EE7B02D7B7"},
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
               "refId": "A",
-              "queryType": "timeSeriesList",
-              "timeSeriesList": {
-                "projectName": "gen-lang-client-0896070179",
-                "metricType": "prometheus.googleapis.com/http_request_duration_seconds/histogram",
-                "crossSeriesReducer": "REDUCE_MEAN",
-                "perSeriesAligner": "ALIGN_DELTA",
-                "alignmentPeriod": "cloud-monitoring-auto",
-                "filters": [],
-                "groupBys": ["metric.labels.endpoint"]
-              }
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))",
+              "legendFormat": "p95 {{endpoint}}"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "refId": "B",
+              "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))",
+              "legendFormat": "p50 {{endpoint}}"
             }
           ],
-          "title": "HTTP Request Latency (mean)",
+          "title": "HTTP Request Latency (p50 / p95)",
           "type": "timeseries"
         }
       ]
     }
-

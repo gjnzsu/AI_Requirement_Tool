@@ -19,13 +19,12 @@ data:
   datasource.yaml: |
     apiVersion: 1
     datasources:
-      - name: GMP Prometheus
-        type: stackdriver
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        url: http://prometheus-service:9090
         access: proxy
         isDefault: true
-        jsonData:
-          authenticationType: gce
-          defaultProject: gen-lang-client-0896070179
         editable: true
 ---
 apiVersion: apps/v1
