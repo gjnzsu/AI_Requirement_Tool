@@ -516,6 +516,8 @@ class Chatbot:
                     self.last_usage = {
                         'prompt_tokens': cb.total_prompt_tokens,
                         'completion_tokens': cb.total_completion_tokens,
+                        'provider': self.provider_name,
+                        'model': Config.get_llm_model(),
                     }
                 else:
                     self.last_usage = None
@@ -577,7 +579,11 @@ class Chatbot:
                     json_mode=False
                 )
                 # Propagate token usage from active provider
-                self.last_usage = getattr(self.provider_manager.primary, 'last_usage', None)
+                raw = getattr(self.provider_manager.primary, 'last_usage', None)
+                if raw:
+                    raw['provider'] = self.provider_name
+                    raw['model'] = getattr(self.provider_manager.primary, 'model', Config.get_llm_model())
+                self.last_usage = raw
             else:
                 response = self.llm_provider.generate_response(
                     system_prompt=self.system_prompt,
@@ -585,7 +591,11 @@ class Chatbot:
                     temperature=self.temperature,
                     json_mode=False
                 )
-                self.last_usage = getattr(self.llm_provider, 'last_usage', None)
+                raw = getattr(self.llm_provider, 'last_usage', None)
+                if raw:
+                    raw['provider'] = self.provider_name
+                    raw['model'] = getattr(self.llm_provider, 'model', Config.get_llm_model())
+                self.last_usage = raw
             
             # Save to persistent memory if enabled
             if self.use_persistent_memory and self.memory_manager:

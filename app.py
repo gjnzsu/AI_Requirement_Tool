@@ -705,8 +705,8 @@ def chat():
         if PROMETHEUS_AVAILABLE and hasattr(chatbot, 'last_usage') and chatbot.last_usage:
             from src.llm.cost_tracker import calculate_cost
             usage = chatbot.last_usage
-            provider = Config.LLM_PROVIDER
-            model = Config.get_llm_model()
+            provider = usage.get('provider', Config.LLM_PROVIDER)
+            model = usage.get('model', Config.get_llm_model())
             prompt_tokens = usage.get('prompt_tokens', 0)
             completion_tokens = usage.get('completion_tokens', 0)
             LLM_TOKEN_COUNT.labels(provider=provider, model=model, type='prompt').inc(prompt_tokens)

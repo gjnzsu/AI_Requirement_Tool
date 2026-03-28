@@ -70,6 +70,14 @@ class DeepSeekProvider(LLMProvider):
             response = self.client.with_options(timeout=timeout).chat.completions.create(**params)
         else:
             response = self.client.chat.completions.create(**params)
+        # Capture token usage for Prometheus metrics
+        if hasattr(response, 'usage') and response.usage:
+            self.last_usage = {
+                'prompt_tokens': response.usage.prompt_tokens,
+                'completion_tokens': response.usage.completion_tokens,
+            }
+        else:
+            self.last_usage = None
         return response.choices[0].message.content.strip()
     
     def supports_json_mode(self) -> bool:
