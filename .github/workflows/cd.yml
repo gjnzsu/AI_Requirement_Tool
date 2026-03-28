@@ -69,3 +69,49 @@ jobs:
           if [ -z "$EXTERNAL_IP" ]; then
             echo "External IP not assigned within timeout. Check: kubectl get svc"
           fi
+
+      - name: Smoke test -- verify app and metrics pipeline
+        run: |
+          EXTERNAL_IP=$(kubectl get service ai-tool-service \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          echo "=== 1. Health endpoint ==="
+          curl -sf http://${EXTERNAL_IP}/api/health | grep -q 'ok\|healthy\|status' \
+            && echo "OK: /api/health responded" \
+            || { echo "FAIL: /api/health did not respond"; exit 1; }
+
+          echo "=== 2. Trigger a chat request to exercise LLM metrics ==="
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST http://${EXTERNAL_IP}/api/chat \
+            -H "Content-Type: application/json" \
+            -d '{"message":"ping","conversation_id":"smoke-test-deploy"}')
+          echo "Chat endpoint returned HTTP ${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "FAIL: /api/chat returned ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "=== 3. Wait for Prometheus scrape cycle (35s) ==="
+          sleep 35
+
+          echo "=== 4. Assert http_requests_total is non-zero ==="
+          COUNT=$(kubectl exec deploy/prometheus -- \
+            wget -qO- 'http://localhost:9090/api/v1/query?query=http_requests_total' \
+            | grep -o '"result":\[.' | grep -v '\[\]' | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "FAIL: http_requests_total has no data in Prometheus"
+            exit 1
+          fi
+          echo "OK: http_requests_total is being recorded"
+
+          echo "=== 5. Assert llm_tokens_total is non-zero ==="
+          LLM_COUNT=$(kubectl exec deploy/prometheus -- \
+            wget -qO- 'http://localhost:9090/api/v1/query?query=llm_tokens_total' \
+            | grep -o '"result":\[.' | grep -v '\[\]' | wc -l)
+          if [ "$LLM_COUNT" -eq 0 ]; then
+            echo "FAIL: llm_tokens_total has no data -- LLM metric instrumentation broken"
+            exit 1
+          fi
+          echo "OK: llm_tokens_total is being recorded"
+
+          echo "=== Smoke test PASSED ==="
