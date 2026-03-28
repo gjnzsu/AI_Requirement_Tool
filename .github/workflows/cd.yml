@@ -80,10 +80,35 @@ jobs:
             && echo "OK: /api/health responded" \
             || { echo "FAIL: /api/health did not respond"; exit 1; }
 
-          echo "=== 2. Trigger a chat request to exercise LLM metrics ==="
+          echo "=== 2. Create smoke-test user ==="
+          kubectl exec deploy/ai-tool -- python3 -c "
+import sys; sys.path.insert(0, '/app')
+from src.auth.user_service import UserService
+us = UserService()
+try:
+    us.create_user('smoketest', 'smoketest123', 'smoketest@ci.local')
+except ValueError:
+    u = us.get_user_by_username('smoketest')
+    us.update_password(u['id'], 'smoketest123')
+print('ready')
+"
+
+          echo "=== 3. Login to get JWT token ==="
+          TOKEN=$(curl -s -X POST http://${EXTERNAL_IP}/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"smoketest","password":"smoketest123"}' \
+            | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+          if [ -z "$TOKEN" ]; then
+            echo "FAIL: Could not obtain auth token"
+            exit 1
+          fi
+          echo "OK: Auth token obtained"
+
+          echo "=== 4. Trigger a chat request to exercise LLM metrics ==="
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST http://${EXTERNAL_IP}/api/chat \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${TOKEN}" \
             -d '{"message":"ping","conversation_id":"smoke-test-deploy"}')
           echo "Chat endpoint returned HTTP ${HTTP_STATUS}"
           if [ "$HTTP_STATUS" != "200" ]; then
@@ -91,10 +116,10 @@ jobs:
             exit 1
           fi
 
-          echo "=== 3. Wait for Prometheus scrape cycle (35s) ==="
+          echo "=== 5. Wait for Prometheus scrape cycle (35s) ==="
           sleep 35
 
-          echo "=== 4. Assert http_requests_total is non-zero ==="
+          echo "=== 6. Assert http_requests_total is non-zero ==="
           COUNT=$(kubectl exec deploy/prometheus -- \
             wget -qO- 'http://localhost:9090/api/v1/query?query=http_requests_total' \
             | grep -o '"result":\[.' | grep -v '\[\]' | wc -l)
@@ -104,7 +129,7 @@ jobs:
           fi
           echo "OK: http_requests_total is being recorded"
 
-          echo "=== 5. Assert llm_tokens_total is non-zero ==="
+          echo "=== 7. Assert llm_tokens_total is non-zero ==="
           LLM_COUNT=$(kubectl exec deploy/prometheus -- \
             wget -qO- 'http://localhost:9090/api/v1/query?query=llm_tokens_total' \
             | grep -o '"result":\[.' | grep -v '\[\]' | wc -l)
