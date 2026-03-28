@@ -90,6 +90,7 @@ class Chatbot:
         self.use_mcp = use_mcp
         self._tools_initialized = False
         self.agent = None  # Will be initialized after RAG service
+        self.last_usage = None  # Token usage from last LLM call (for Prometheus metrics)
         
         # Default system prompt
         self.system_prompt = system_prompt or (
@@ -565,6 +566,8 @@ class Chatbot:
                     temperature=self.temperature,
                     json_mode=False
                 )
+                # Propagate token usage from active provider
+                self.last_usage = getattr(self.provider_manager.primary, 'last_usage', None)
             else:
                 response = self.llm_provider.generate_response(
                     system_prompt=self.system_prompt,
@@ -572,6 +575,7 @@ class Chatbot:
                     temperature=self.temperature,
                     json_mode=False
                 )
+                self.last_usage = getattr(self.llm_provider, 'last_usage', None)
             
             # Save to persistent memory if enabled
             if self.use_persistent_memory and self.memory_manager:
