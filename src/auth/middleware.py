@@ -2,9 +2,11 @@
 Authentication middleware for Flask routes.
 """
 
+import sys
 from functools import wraps
-from flask import request, jsonify
+from flask import current_app, has_app_context, request, jsonify
 from typing import Optional, Dict
+from werkzeug.local import LocalProxy
 from src.auth.auth_service import AuthService
 from src.auth.user_service import UserService
 from config.config import Config
@@ -36,6 +38,8 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         try:
+            active_auth_service, active_user_service = _resolve_auth_dependencies()
+
             # Optional: allow explicitly bypassing auth (useful for non-auth API tests)
             # NOTE: We do NOT automatically bypass just because pytest is running, since
             # `tests/integration/api/test_auth_api.py` expects real auth behavior.
@@ -45,7 +49,7 @@ def token_required(f):
                 return f(*args, **kwargs)
             
             # Check if authentication services are available
-            if not auth_service or not user_service:
+            if not active_auth_service or not active_user_service:
                 return jsonify({
                     'error': 'Authentication is not configured. Please set JWT_SECRET_KEY in your .env file.'
                 }), 503
@@ -56,8 +60,8 @@ def token_required(f):
             auth_header = request.headers.get('Authorization')
             # Removed INFO log - only log at DEBUG level for troubleshooting
             
-            if auth_service:
-                token = auth_service.extract_token_from_header(auth_header)
+            if active_auth_service:
+                token = active_auth_service.extract_token_from_header(auth_header)
                 if token:
                     # Changed to DEBUG - only log if needed for troubleshooting
                     logger.debug(f"[AUTH] Token extracted successfully (first 20 chars: {token[:20]}...)")
@@ -77,7 +81,7 @@ def token_required(f):
                 return jsonify({'error': 'Authentication required. Please provide a valid token.'}), 401
             
             # Verify token
-            payload = auth_service.verify_token(token)
+            payload = active_auth_service.verify_token(token)
             if not payload:
                 log_msg = f"[AUTH] Token verification failed for {request.path}"
                 logger.warning(log_msg)
@@ -88,12 +92,12 @@ def token_required(f):
             
             # Get user from database
             user_id = payload.get('user_id')
-            if user_service:
+            if active_user_service:
                 # Changed to DEBUG - removed INFO log
-                db_path = getattr(user_service, 'db_path', 'unknown')
+                db_path = getattr(active_user_service, 'db_path', 'unknown')
                 logger.debug(f"[AUTH] Looking up user_id={user_id} in database: {db_path}")
                 
-                user = user_service.get_user_by_id(user_id)
+                user = active_user_service.get_user_by_id(user_id)
                 if user:
                     # Changed to DEBUG - removed INFO log
                     logger.debug(f"[AUTH] User found: id={user.get('id')}, username={user.get('username')}")
@@ -122,6 +126,23 @@ def token_required(f):
             }), 500
     
     return decorated
+
+
+def _resolve_auth_dependencies():
+    """Return the active auth/user services, honoring runtime state and test patches."""
+    app_module = sys.modules.get('app')
+    if app_module is not None:
+        module_auth_service = app_module.__dict__.get('auth_service')
+        module_user_service = app_module.__dict__.get('user_service')
+        if not isinstance(module_auth_service, LocalProxy) or not isinstance(module_user_service, LocalProxy):
+            return module_auth_service, module_user_service
+
+    if has_app_context():
+        runtime = current_app.extensions.get('chatbot_runtime')
+        if runtime is not None:
+            return runtime.auth_service, runtime.user_service
+
+    return auth_service, user_service
 
 
 def get_current_user() -> Optional[Dict]:

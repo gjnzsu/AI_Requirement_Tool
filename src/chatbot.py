@@ -8,7 +8,7 @@ intelligent conversational responses.
 import sys
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from src.tools.jira_tool import JiraTool
 from src.tools.confluence_tool import ConfluenceTool
 
@@ -56,7 +56,8 @@ class Chatbot:
                  enable_mcp_tools: bool = True,
                  lazy_load_tools: bool = True,
                  use_agent: bool = True,
-                 use_mcp: bool = True):
+                 use_mcp: bool = True,
+                 config: Any = Config):
         """
         Initialize the chatbot.
         
@@ -76,8 +77,10 @@ class Chatbot:
             lazy_load_tools: If True, tools are initialized only when needed (recommended)
             use_agent: Whether to use LangGraph agent for intelligent tool orchestration (recommended)
             use_mcp: Whether to use MCP protocol for tools (default: True, falls back to custom tools if MCP unavailable)
+            config: Configuration object or class used to resolve runtime settings
         """
-        self.provider_name = provider_name or Config.LLM_PROVIDER.lower()
+        self.config = config
+        self.provider_name = provider_name or self.config.LLM_PROVIDER.lower()
         self.use_fallback = use_fallback
         self.temperature = temperature
         self.max_history = max_history
@@ -147,18 +150,18 @@ class Chatbot:
                 logger.info("Initializing RAG Service")
                 logger.info("=" * 70)
                 # Check if OpenAI API key is available (required for embeddings)
-                if Config.OPENAI_API_KEY:
+                if self.config.OPENAI_API_KEY:
                     # Use configured RAG vector store path from Config
-                    vector_store_path = getattr(Config, 'RAG_VECTOR_STORE_PATH', None)
+                    vector_store_path = getattr(self.config, 'RAG_VECTOR_STORE_PATH', None)
                     self.rag_service = RAGService(
-                        chunk_size=getattr(Config, 'RAG_CHUNK_SIZE', 1000),
-                        chunk_overlap=getattr(Config, 'RAG_CHUNK_OVERLAP', 200),
-                        embedding_model=getattr(Config, 'RAG_EMBEDDING_MODEL', 'text-embedding-ada-002'),
+                        chunk_size=getattr(self.config, 'RAG_CHUNK_SIZE', 1000),
+                        chunk_overlap=getattr(self.config, 'RAG_CHUNK_OVERLAP', 200),
+                        embedding_model=getattr(self.config, 'RAG_EMBEDDING_MODEL', 'text-embedding-ada-002'),
                         vector_store_path=vector_store_path,
-                        enable_cache=getattr(Config, 'RAG_ENABLE_CACHE', True),
-                        cache_ttl_hours=getattr(Config, 'RAG_CACHE_TTL_HOURS', 24)
+                        enable_cache=getattr(self.config, 'RAG_ENABLE_CACHE', True),
+                        cache_ttl_hours=getattr(self.config, 'RAG_CACHE_TTL_HOURS', 24)
                     )
-                    cache_status = "with caching" if getattr(Config, 'RAG_ENABLE_CACHE', True) else "without caching"
+                    cache_status = "with caching" if getattr(self.config, 'RAG_ENABLE_CACHE', True) else "without caching"
                     if vector_store_path:
                         logger.info(f"RAG database: {vector_store_path}")
                     logger.info(f"Initialized RAG Service ({cache_status})")
@@ -218,12 +221,12 @@ class Chatbot:
         """Initialize the LLM provider(s) based on configuration."""
         try:
             # Check if gateway should be used
-            use_gateway = getattr(Config, 'USE_GATEWAY', False) and getattr(Config, 'GATEWAY_ENABLED', False)
+            use_gateway = getattr(self.config, 'USE_GATEWAY', False) and getattr(self.config, 'GATEWAY_ENABLED', False)
             
             if use_gateway:
                 # Use gateway provider wrapper
                 gateway_provider = LLMRouter.get_gateway_provider(
-                    model=Config.get_llm_model(),
+                    model=self.config.get_llm_model(),
                     provider=self.provider_name if self.provider_name != 'gateway' else None
                 )
                 
@@ -236,8 +239,8 @@ class Chatbot:
                     logger.warning("Gateway enabled but not available, falling back to direct provider")
             
             # Get API key and model for primary provider
-            api_key = Config.get_llm_api_key()
-            model = Config.get_llm_model()
+            api_key = self.config.get_llm_api_key()
+            model = self.config.get_llm_model()
             
             if not api_key:
                 raise ValueError(
@@ -288,25 +291,25 @@ class Chatbot:
         
         for provider in providers_to_try:
             try:
-                if provider == 'openai' and Config.OPENAI_API_KEY:
+                if provider == 'openai' and self.config.OPENAI_API_KEY:
                     fallback = LLMRouter.get_provider(
                         provider_name='openai',
-                        api_key=Config.OPENAI_API_KEY,
-                        model=Config.OPENAI_MODEL
+                        api_key=self.config.OPENAI_API_KEY,
+                        model=self.config.OPENAI_MODEL
                     )
                     fallbacks.append(fallback)
-                elif provider == 'gemini' and Config.GEMINI_API_KEY:
+                elif provider == 'gemini' and self.config.GEMINI_API_KEY:
                     fallback = LLMRouter.get_provider(
                         provider_name='gemini',
-                        api_key=Config.GEMINI_API_KEY,
-                        model=Config.GEMINI_MODEL
+                        api_key=self.config.GEMINI_API_KEY,
+                        model=self.config.GEMINI_MODEL
                     )
                     fallbacks.append(fallback)
-                elif provider == 'deepseek' and Config.DEEPSEEK_API_KEY:
+                elif provider == 'deepseek' and self.config.DEEPSEEK_API_KEY:
                     fallback = LLMRouter.get_provider(
                         provider_name='deepseek',
-                        api_key=Config.DEEPSEEK_API_KEY,
-                        model=Config.DEEPSEEK_MODEL
+                        api_key=self.config.DEEPSEEK_API_KEY,
+                        model=self.config.DEEPSEEK_MODEL
                     )
                     fallbacks.append(fallback)
             except Exception:
@@ -329,14 +332,14 @@ class Chatbot:
         
         # Get API key and model for the new provider
         if provider_name == 'openai':
-            api_key = Config.OPENAI_API_KEY
-            model = Config.OPENAI_MODEL
+            api_key = self.config.OPENAI_API_KEY
+            model = self.config.OPENAI_MODEL
         elif provider_name == 'gemini':
-            api_key = Config.GEMINI_API_KEY
-            model = Config.GEMINI_MODEL
+            api_key = self.config.GEMINI_API_KEY
+            model = self.config.GEMINI_MODEL
         elif provider_name == 'deepseek':
-            api_key = Config.DEEPSEEK_API_KEY
-            model = Config.DEEPSEEK_MODEL
+            api_key = self.config.DEEPSEEK_API_KEY
+            model = self.config.DEEPSEEK_MODEL
         else:
             raise ValueError(f"Provider '{provider_name}' not configured")
         
@@ -413,10 +416,10 @@ class Chatbot:
                         evaluator_llm = self.llm_provider
                     
                     self.jira_evaluator = JiraMaturityEvaluator(
-                        jira_url=Config.JIRA_URL,
-                        jira_email=Config.JIRA_EMAIL,
-                        jira_api_token=Config.JIRA_API_TOKEN,
-                        project_key=Config.JIRA_PROJECT_KEY,
+                        jira_url=self.config.JIRA_URL,
+                        jira_email=self.config.JIRA_EMAIL,
+                        jira_api_token=self.config.JIRA_API_TOKEN,
+                        project_key=self.config.JIRA_PROJECT_KEY,
                         llm_provider=evaluator_llm
                     )
                     logger.info("Initialized Jira Maturity Evaluator")
@@ -537,7 +540,7 @@ class Chatbot:
                         'prompt_tokens': cb.total_prompt_tokens,
                         'completion_tokens': cb.total_completion_tokens,
                         'provider': self.provider_name,
-                        'model': Config.get_llm_model(),
+                        'model': self.config.get_llm_model(),
                     }
                 else:
                     self.last_usage = None
@@ -602,7 +605,7 @@ class Chatbot:
                 raw = getattr(self.provider_manager.primary, 'last_usage', None)
                 if raw:
                     raw['provider'] = self.provider_name
-                    raw['model'] = getattr(self.provider_manager.primary, 'model', Config.get_llm_model())
+                    raw['model'] = getattr(self.provider_manager.primary, 'model', self.config.get_llm_model())
                 self.last_usage = raw
             else:
                 response = self.llm_provider.generate_response(
@@ -614,7 +617,7 @@ class Chatbot:
                 raw = getattr(self.llm_provider, 'last_usage', None)
                 if raw:
                     raw['provider'] = self.provider_name
-                    raw['model'] = getattr(self.llm_provider, 'model', Config.get_llm_model())
+                    raw['model'] = getattr(self.llm_provider, 'model', self.config.get_llm_model())
                 self.last_usage = raw
             
             # Save to persistent memory if enabled
@@ -1115,7 +1118,7 @@ class Chatbot:
         print("🤖 LLM-Powered Chatbot")
         print("=" * 70)
         print(f"Provider: {self.provider_name}")
-        print(f"Model: {Config.get_llm_model()}")
+        print(f"Model: {self.config.get_llm_model()}")
         print(f"Temperature: {self.temperature}")
         print(f"Max History: {self.max_history} turns")
         print("\nCommands:")
