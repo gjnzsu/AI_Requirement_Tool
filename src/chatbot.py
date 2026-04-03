@@ -20,6 +20,7 @@ from src.llm import LLMRouter, LLMProviderManager
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.services.memory_manager import MemoryManager
 from src.services.memory_summarizer import MemorySummarizer
+from src.services.requirement_workflow_service import RequirementWorkflowService
 from src.rag import RAGService
 from config.config import Config
 from src.agent import ChatbotAgent
@@ -89,6 +90,7 @@ class Chatbot:
         self.use_agent = use_agent
         self.use_mcp = use_mcp
         self._tools_initialized = False
+        self.requirement_workflow_service = None
         self.agent = None  # Will be initialized after RAG service
         self.last_usage = None  # Token usage from last LLM call (for Prometheus metrics)
         
@@ -369,6 +371,15 @@ class Chatbot:
                 # Don't raise - non-agent fallback path will handle the request
         
         logger.info(f"Switched LLM provider to: {provider_name} ({model})")
+
+        if self.requirement_workflow_service:
+            workflow_llm = self.provider_manager or self.llm_provider
+            self.requirement_workflow_service = RequirementWorkflowService(
+                llm_provider=workflow_llm,
+                jira_tool=self.jira_tool,
+                jira_evaluator=self.jira_evaluator,
+                confluence_tool=self.confluence_tool,
+            )
     
     def _initialize_tools(self):
         """Initialize MCP tools (Jira, Confluence) on demand."""
@@ -411,7 +422,16 @@ class Chatbot:
                     logger.info("Initialized Jira Maturity Evaluator")
                 except Exception as e:
                     logger.warning(f"Failed to initialize Jira Evaluator: {e}")
-            
+
+            workflow_llm = self.provider_manager or self.llm_provider
+            if workflow_llm and self.jira_tool:
+                self.requirement_workflow_service = RequirementWorkflowService(
+                    llm_provider=workflow_llm,
+                    jira_tool=self.jira_tool,
+                    jira_evaluator=self.jira_evaluator,
+                    confluence_tool=self.confluence_tool,
+                )
+
             self._tools_initialized = True
         except Exception as e:
             logger.warning(f"Failed to initialize Jira Tool: {e}")
@@ -732,6 +752,23 @@ class Chatbot:
 
     def _handle_jira_creation(self, user_input: str) -> str:
         """Handle the creation of a Jira issue based on conversation context."""
+        if not self.requirement_workflow_service:
+            workflow_llm = self.provider_manager or self.llm_provider
+            if workflow_llm and self.jira_tool:
+                self.requirement_workflow_service = RequirementWorkflowService(
+                    llm_provider=workflow_llm,
+                    jira_tool=self.jira_tool,
+                    jira_evaluator=self.jira_evaluator,
+                    confluence_tool=self.confluence_tool,
+                )
+
+        if self.requirement_workflow_service:
+            result = self.requirement_workflow_service.execute(
+                user_input,
+                self.conversation_history[-self.max_history * 2:],
+            )
+            return result.response_text
+
         if not self.jira_tool:
             return "I apologize, but the Jira tool is not configured correctly. Please check your Jira credentials."
             
