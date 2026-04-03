@@ -36,6 +36,11 @@ from src.services.coze_client import CozeClient
 from src.services.intent_detector import IntentDetector
 from src.mcp.mcp_integration import MCPIntegration
 from src.agent.callbacks import LLMMonitoringCallback
+from src.agent.requirement_workflow import (
+    build_backlog_generation_prompt,
+    build_requirement_context,
+    format_confluence_content,
+)
 from config.config import Config
 from src.utils.logger import get_logger
 
@@ -1442,41 +1447,14 @@ class ChatbotAgent:
         messages = state.get("messages", [])
         conversation_history = state.get("conversation_history", [])
         
-        # Gather context
-        context_str = self._format_messages_for_context(messages[-6:])
-        if conversation_history:
-            context_str += "\n\nConversation History:\n"
-            for msg in conversation_history[-5:]:
-                context_str += f"{msg.get('role', 'user')}: {msg.get('content', '')}\n"
-        
-        # Generate Jira backlog details using LLM
-        generation_prompt = f"""
-        Based on the conversation context below, create a comprehensive Jira backlog item.
-        
-        CONTEXT:
-        {context_str}
-        
-        User request: {user_input}
-        
-        REQUIREMENTS:
-        1. Summary: Concise title
-        2. Business Value: Why this is important
-        3. Acceptance Criteria: List of verifiable criteria
-        4. Priority: High, Medium, or Low (infer from context, default to Medium)
-        5. INVEST Analysis: Brief check against INVEST principles
-        
-        OUTPUT FORMAT (JSON):
-        {{
-            "summary": "...",
-            "business_value": "...",
-            "acceptance_criteria": ["...", "..."],
-            "priority": "...",
-            "invest_analysis": "...",
-            "description": "..."
-        }}
-        
-        The 'description' field should combine Business Value, AC, and INVEST analysis.
-        """
+        context_str = build_requirement_context(
+            messages=messages[-6:],
+            conversation_history=conversation_history[-5:],
+        )
+        generation_prompt = build_backlog_generation_prompt(
+            context_text=context_str,
+            user_input=user_input,
+        )
         
         try:
             # Use LLM to generate backlog data with timeout
@@ -2912,87 +2890,17 @@ Tool Used: {tool_used}
     
     def _format_messages_for_context(self, messages: List[BaseMessage]) -> str:
         """Format messages for context string."""
-        context = ""
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                context += f"User: {msg.content}\n"
-            elif isinstance(msg, AIMessage):
-                context += f"Assistant: {msg.content}\n"
-        return context
+        return build_requirement_context(messages=messages, conversation_history=[])
     
     def _format_confluence_content(self, issue_key: str, backlog_data: Dict, 
                                    evaluation: Dict, jira_link: str) -> str:
         """Format content for Confluence page in HTML format."""
-        # Build HTML content
-        html_parts = []
-        
-        # Title and Jira link
-        html_parts.append(f"<h1>{issue_key}: {backlog_data.get('summary', 'Untitled')}</h1>")
-        html_parts.append(f"<p><strong>Jira Link:</strong> <a href=\"{jira_link}\">{jira_link}</a></p>")
-        
-        # Priority
-        priority = backlog_data.get('priority', 'Not specified')
-        html_parts.append(f"<p><strong>Priority:</strong> {priority}</p>")
-        
-        # Business Value
-        business_value = backlog_data.get('business_value', 'N/A')
-        html_parts.append("<h2>Business Value</h2>")
-        html_parts.append(f"<p>{business_value}</p>")
-        
-        # Acceptance Criteria
-        acceptance_criteria = backlog_data.get('acceptance_criteria', [])
-        if acceptance_criteria:
-            html_parts.append("<h2>Acceptance Criteria</h2>")
-            html_parts.append("<ul>")
-            for ac in acceptance_criteria:
-                html_parts.append(f"<li>{ac}</li>")
-            html_parts.append("</ul>")
-        
-        # INVEST Analysis
-        invest_analysis = backlog_data.get('invest_analysis', '')
-        if invest_analysis:
-            html_parts.append("<h2>INVEST Analysis</h2>")
-            html_parts.append(f"<p>{invest_analysis}</p>")
-        
-        # Maturity Evaluation (if available)
-        if evaluation and 'overall_maturity_score' in evaluation:
-            html_parts.append("<h2>Maturity Evaluation</h2>")
-            html_parts.append(f"<p><strong>Overall Score:</strong> {evaluation['overall_maturity_score']}/100</p>")
-            
-            # Strengths
-            if evaluation.get('strengths'):
-                html_parts.append("<h3>Strengths</h3>")
-                html_parts.append("<ul>")
-                for strength in evaluation['strengths']:
-                    html_parts.append(f"<li>{strength}</li>")
-                html_parts.append("</ul>")
-            
-            # Weaknesses
-            if evaluation.get('weaknesses'):
-                html_parts.append("<h3>Areas for Improvement</h3>")
-                html_parts.append("<ul>")
-                for weakness in evaluation['weaknesses']:
-                    html_parts.append(f"<li>{weakness}</li>")
-                html_parts.append("</ul>")
-            
-            # Recommendations
-            if evaluation.get('recommendations'):
-                html_parts.append("<h3>Recommendations</h3>")
-                html_parts.append("<ul>")
-                for rec in evaluation['recommendations']:
-                    html_parts.append(f"<li>{rec}</li>")
-                html_parts.append("</ul>")
-            
-            # Detailed Scores
-            if evaluation.get('detailed_scores'):
-                html_parts.append("<h3>Detailed Scores</h3>")
-                html_parts.append("<ul>")
-                for criterion, score in evaluation['detailed_scores'].items():
-                    criterion_name = criterion.replace('_', ' ').title()
-                    html_parts.append(f"<li><strong>{criterion_name}:</strong> {score}/100</li>")
-                html_parts.append("</ul>")
-        
-        return "\n".join(html_parts)
+        return format_confluence_content(
+            issue_key=issue_key,
+            backlog_data=backlog_data,
+            evaluation=evaluation,
+            jira_link=jira_link,
+        )
     
     def _html_to_markdown(self, html_content: str) -> str:
         """
