@@ -41,7 +41,26 @@ from src.agent.requirement_workflow import (
     build_requirement_context,
     format_confluence_content,
 )
+from src.agent.coze_nodes import (
+    build_coze_exception_message,
+    build_coze_failure_message,
+    build_coze_timeout_result,
+    extract_previous_coze_conversation_id,
+    resolve_coze_success_message,
+)
+from src.agent.general_chat_nodes import (
+    build_confluence_page_context,
+    build_general_chat_error_message,
+    parse_confluence_page_reference,
+)
 from src.agent.intent_routing import detect_keyword_intent
+from src.agent.rag_nodes import (
+    build_rag_error_message,
+    build_rag_prompt,
+    extract_chunk_contents,
+    extract_jira_key,
+    load_direct_jira_context,
+)
 from config.config import Config
 from src.utils.logger import get_logger
 
@@ -1041,35 +1060,10 @@ class ChatbotAgent:
         """Handle general conversation."""
         messages = state.get("messages", [])
         user_input = state.get("user_input", "")
-        
-        # Check if user is asking about a Confluence page (e.g., "what is the confluence page for PROJ-123")
-        # Extract potential page references from user input
-        import re
-        confluence_page_patterns = [
-            r'confluence page (?:for|about|of) ([A-Z]+-\d+)',  # "confluence page for PROJ-123"
-            r'confluence page (?:with )?(?:id|page[_\s]?id)[\s:=]+(\d+)',  # "confluence page id 12345"
-            r'confluence page (?:titled|title)[\s:]+(.+?)(?:\?|$)',  # "confluence page titled X"
-        ]
-        
-        page_id = None
-        page_title = None
-        
-        for pattern in confluence_page_patterns:
-            match = re.search(pattern, user_input, re.IGNORECASE)
-            if match:
-                if 'id' in pattern.lower():
-                    page_id = match.group(1)
-                elif 'title' in pattern.lower():
-                    page_title = match.group(1).strip()
-                else:
-                    # Could be a Jira issue key, try to get Confluence page from state
-                    issue_key = match.group(1)
-                    # Check if we have confluence_result in state from previous creation
-                    confluence_result = state.get("confluence_result")
-                    if confluence_result and confluence_result.get('success'):
-                        page_id = confluence_result.get('id')
-                        page_title = confluence_result.get('title')
-                break
+        page_id, page_title = parse_confluence_page_reference(
+            user_input,
+            state.get("confluence_result"),
+        )
         
         # If we found a page reference, try to retrieve it using MCP
         if page_id or page_title:
@@ -1077,14 +1071,7 @@ class ChatbotAgent:
             page_info = self._retrieve_confluence_page_info(page_id=page_id, page_title=page_title)
             
             if page_info.get('success'):
-                # Add page info to context
-                page_context = f"\n\nConfluence Page Information (retrieved via MCP Protocol):\n"
-                page_context += f"Title: {page_info.get('title', 'N/A')}\n"
-                page_context += f"Link: {page_info.get('link', 'N/A')}\n"
-                if page_info.get('content'):
-                    content_preview = str(page_info.get('content', ''))[:500]
-                    page_context += f"Content Preview: {content_preview}...\n"
-                user_input = user_input + page_context
+                user_input = user_input + build_confluence_page_context(page_info)
                 logger.info("Retrieved Confluence page info via MCP Protocol")
             else:
                 logger.warning(f"Could not retrieve Confluence page via MCP: {page_info.get('error', 'Unknown error')}")
@@ -1218,6 +1205,10 @@ class ChatbotAgent:
                         import traceback
                         traceback.print_exc()
                     
+                    user_message, _ = build_general_chat_error_message(
+                        executor_error,
+                        self.provider_name,
+                    )
                     error_msg = AIMessage(content=user_message)
                     messages.append(error_msg)
                     state["messages"] = messages
@@ -2484,36 +2475,12 @@ Tool Used: {tool_used}
                 
                 # First, check if user is asking about a specific Jira issue by key
                 # Direct document lookup is more reliable than semantic search for specific tickets
-                import re
-                jira_key_match = re.search(r'\b([A-Z]{2,10}-\d+)\b', user_input)
-                if jira_key_match:
-                    jira_key = jira_key_match.group(1)
+                jira_key = extract_jira_key(user_input)
+                if jira_key:
                     logger.info(f"RAG: Detected Jira key '{jira_key}', attempting direct document lookup...")
-                    
-                    # Try direct document lookup by Jira key
-                    direct_context_parts = []
-                    
-                    # Look up Jira issue document
-                    jira_doc_id = f"jira_issue:{jira_key}"
-                    jira_doc = rag_service.vector_store.get_document(jira_doc_id)
-                    if jira_doc:
-                        direct_context_parts.append(f"=== Jira Issue Content ===\n{jira_doc['content']}")
-                        logger.info(f"RAG: Found Jira document for {jira_key} via direct lookup")
-                    
-                    # Look up related Confluence page (search by pattern since title may vary)
-                    # Try common patterns for confluence page IDs
-                    docs = rag_service.vector_store.list_documents()
-                    for doc in docs:
-                        if doc['id'].startswith('confluence_page:') and jira_key in doc['id']:
-                            confluence_doc = rag_service.vector_store.get_document(doc['id'])
-                            if confluence_doc:
-                                direct_context_parts.append(f"=== Related Confluence Page ===\n{confluence_doc['content']}")
-                                logger.info(f"RAG: Found Confluence document for {jira_key} via direct lookup")
-                            break
-                    
-                    if direct_context_parts:
-                        context_str = "\n\n".join(direct_context_parts)
-                        logger.info(f"RAG: Using direct lookup context ({len(direct_context_parts)} documents found)")
+                    context_str = load_direct_jira_context(rag_service.vector_store, jira_key)
+                    if context_str:
+                        logger.info("RAG: Using direct lookup context for issue-linked documents")
                     else:
                         logger.info(f"RAG: No direct documents found for {jira_key}, falling back to semantic search")
                 
@@ -2529,20 +2496,10 @@ Tool Used: {tool_used}
                             context_str = None
                 
                 if context_str and context_str.strip():
-                    # Add context to prompt
-                    rag_prompt = f"""
-                    {context_str}
-                    
-                    User Question: {user_input}
-                    
-                    Please answer the user's question using the provided context. 
-                    If the context doesn't contain enough information, say so and provide 
-                    a general answer based on your knowledge.
-                    """
-                    
+                    rag_prompt = build_rag_prompt(context_str, user_input)
                     # Store raw chunks for reference
                     chunks = rag_service.retrieve(user_input, top_k=3)
-                    state["rag_context"] = [chunk.get('content', '') for chunk in chunks]
+                    state["rag_context"] = extract_chunk_contents(chunks)
                     messages.append(HumanMessage(content=rag_prompt))
                 else:
                     # No relevant context found, proceed with normal chat
@@ -2567,16 +2524,7 @@ Tool Used: {tool_used}
             messages.append(response)
             state["messages"] = messages
         except Exception as e:
-            error_str = str(e).lower()
-            if 'timeout' in error_str:
-                user_message = "I apologize, but the request timed out. Please try again."
-            elif 'connection' in error_str or 'network' in error_str:
-                user_message = "I apologize, but there was a network connectivity issue. Please check your connection and try again."
-            elif 'auth' in error_str or 'unauthorized' in error_str:
-                user_message = "I apologize, but there was an authentication issue. Please check your API configuration."
-            else:
-                user_message = "I apologize, but I encountered an unexpected error. Please try again or rephrase your question."
-            
+            user_message = build_rag_error_message(str(e))
             error_msg = AIMessage(content=user_message)
             messages.append(error_msg)
             state["messages"] = messages
@@ -2608,9 +2556,7 @@ Tool Used: {tool_used}
             user_id = "default_user"
             
             # Get conversation ID from state if available (for context continuity)
-            conversation_id = None
-            if state.get("coze_result") and isinstance(state["coze_result"], dict):
-                conversation_id = state["coze_result"].get("conversation_id")
+            conversation_id = extract_previous_coze_conversation_id(state.get("coze_result"))
             
             # Call Coze API with timeout
             import concurrent.futures
@@ -2627,33 +2573,22 @@ Tool Used: {tool_used}
                     coze_result = future.result(timeout=coze_timeout)
                 except concurrent.futures.TimeoutError:
                     coze_timeout = float(Config.COZE_API_TIMEOUT) if hasattr(Config, 'COZE_API_TIMEOUT') else 300.0
-                    timeout_minutes = int(coze_timeout / 60)
                     logger.warning(f"Coze API call timed out ({coze_timeout}s)")
-                    error_msg = (
-                        f"I apologize, but the Coze agent request timed out after {timeout_minutes} minutes. "
-                        "The service may be slow or unavailable. Please try again later."
-                    )
-                    state["messages"].append(AIMessage(content=error_msg))
-                    state["coze_result"] = {
-                        "success": False,
-                        "error": "Request timeout",
-                        "error_type": "timeout"
-                    }
+                    timeout_message, timeout_result = build_coze_timeout_result(coze_timeout)
+                    state["messages"].append(AIMessage(content=timeout_message))
+                    state["coze_result"] = timeout_result
                     return state
             
             # Store result in state
             state["coze_result"] = coze_result
             
             if coze_result.get("success"):
-                # Extract agent response
-                agent_response = coze_result.get("response", "")
+                agent_response = resolve_coze_success_message(coze_result)
                 
-                if agent_response:
-                    # Add agent response to messages
+                if coze_result.get("response", ""):
                     state["messages"].append(AIMessage(content=agent_response))
                     logger.info("Coze agent response received successfully")
                 else:
-                    # Empty response - log raw response for debugging
                     raw_response = coze_result.get("raw_response")
                     logger.warning("Coze agent returned empty response")
                     if raw_response:
@@ -2662,67 +2597,12 @@ Tool Used: {tool_used}
                         logger.debug("No raw_response in result, checking conversation_id and token_usage")
                         logger.debug(f"Conversation ID: {coze_result.get('conversation_id')}")
                         logger.debug(f"Token usage: {coze_result.get('token_usage')}")
-                    
-                    error_msg = (
-                        "The Coze agent returned an empty response. "
-                        "This may indicate the response format is not recognized. "
-                        "Please check the logs for details or try again."
-                    )
-                    state["messages"].append(AIMessage(content=error_msg))
+
+                    state["messages"].append(AIMessage(content=agent_response))
             else:
-                # API call failed
                 error_message = coze_result.get("error", "Unknown error occurred")
                 error_type = coze_result.get("error_type", "unknown")
-                
-                # Create user-friendly error message
-                if error_type == "timeout":
-                    user_msg = (
-                        "I apologize, but the Coze agent request timed out. "
-                        "Please try again later."
-                    )
-                elif error_type == "http_error" or error_type == "auth_error":
-                    status_code = coze_result.get("status_code", 0)
-                    coze_error_code = coze_result.get("coze_error_code")
-                    
-                    # Use the error message from Coze API if available (it's more specific)
-                    if error_message and error_message != "Unknown error occurred":
-                        # Coze API provides user-friendly messages, use them directly
-                        user_msg = (
-                            f"I encountered an error with the Coze platform: {error_message}. "
-                            f"Please check your COZE_API_TOKEN and COZE_BOT_ID configuration."
-                        )
-                    elif status_code == 401 or coze_error_code == 4101:
-                        user_msg = (
-                            "Authentication failed with Coze platform. "
-                            "The token you entered is incorrect. Please check your COZE_API_TOKEN "
-                            "and ensure it's valid. For more information, refer to "
-                            "https://coze.com/docs/developer_guides/authentication"
-                        )
-                    elif status_code == 403:
-                        user_msg = (
-                            "Access forbidden. Please check your bot permissions "
-                            "and COZE_BOT_ID configuration."
-                        )
-                    elif status_code == 404 or coze_error_code == 4102:
-                        user_msg = (
-                            "Bot not found. Please verify your COZE_BOT_ID is correct."
-                        )
-                    else:
-                        user_msg = (
-                            f"I encountered an error communicating with the Coze platform "
-                            f"(Error: {error_message}). Please try again later."
-                        )
-                elif error_type == "network_error":
-                    user_msg = (
-                        "I'm having trouble connecting to the Coze platform. "
-                        "Please check your network connection and try again."
-                    )
-                else:
-                    user_msg = (
-                        f"I encountered an error: {error_message}. "
-                        "Please try again or contact support if the issue persists."
-                    )
-                
+                user_msg = build_coze_failure_message(coze_result)
                 state["messages"].append(AIMessage(content=user_msg))
                 logger.error(f"Coze API call failed: {error_message} (type: {error_type})")
                 
@@ -2731,20 +2611,7 @@ Tool Used: {tool_used}
             logger.error(f"Unexpected error in Coze agent handler: {e}")
             logger.debug("Exception details:", exc_info=True)
             
-            # Provide user-friendly error message
-            if 'timeout' in error_str.lower():
-                user_msg = "The Coze agent request timed out. Please try again later."
-            elif 'connection' in error_str.lower() or 'network' in error_str.lower():
-                user_msg = (
-                    "I'm having trouble connecting to the Coze platform. "
-                    "Please check your network connection."
-                )
-            else:
-                user_msg = (
-                    "I encountered an unexpected error while processing your request. "
-                    "Please try again later."
-                )
-            
+            user_msg = build_coze_exception_message(error_str)
             state["messages"].append(AIMessage(content=user_msg))
             state["coze_result"] = {
                 "success": False,
