@@ -54,6 +54,14 @@ from src.agent.general_chat_nodes import (
     parse_confluence_page_reference,
 )
 from src.agent.intent_routing import detect_keyword_intent
+from src.agent.jira_nodes import (
+    build_jira_creation_error_message,
+    build_jira_creation_success_message,
+    build_jira_rag_document,
+    build_jira_rag_metadata,
+    normalize_mcp_jira_result,
+    select_mcp_jira_tool,
+)
 from src.agent.rag_nodes import (
     build_rag_error_message,
     build_rag_prompt,
@@ -1262,38 +1270,12 @@ class ChatbotAgent:
         # IMPORTANT: Only use Jira-specific tools, never Confluence tools for Jira operations
         mcp_jira_tool = None
         if use_mcp:
-            # Try to get Jira tool by exact name first
-            jira_tool_names = ['create_jira_issue', 'createJiraIssue', 'createIssue']
-            for tool_name in jira_tool_names:
-                tool = self.mcp_integration.get_tool(tool_name)
-                if tool:
-                    # Verify it's actually a Jira tool, not a Confluence tool
-                    tool_name_lower = tool.name.lower()
-                    if 'confluence' in tool_name_lower or 'page' in tool_name_lower:
-                        logger.debug(f"Tool '{tool.name}' appears to be a Confluence tool, skipping")
-                        continue
-                    if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
-                        mcp_jira_tool = tool
-                        logger.info(f"Found Jira MCP tool: {tool.name}")
-                        break
-            
+            mcp_jira_tool = select_mcp_jira_tool(self.mcp_integration)
             if not mcp_jira_tool:
-                # Fallback: search all tools but explicitly exclude Confluence tools
-                all_tools = self.mcp_integration.get_tools()
-                for tool in all_tools:
-                    tool_name_lower = tool.name.lower()
-                    # Explicitly exclude Confluence tools
-                    if 'confluence' in tool_name_lower or 'page' in tool_name_lower:
-                        continue
-                    # Only accept tools that are clearly Jira-related
-                    if ('jira' in tool_name_lower or 'issue' in tool_name_lower) and 'create' in tool_name_lower:
-                        mcp_jira_tool = tool
-                        logger.info(f"Found Jira MCP tool by pattern: {tool.name}")
-                        break
-                
-                if not mcp_jira_tool:
-                    logger.warning("MCP tool 'create_jira_issue' not available, using custom tool")
-                    use_mcp = False
+                logger.warning("MCP tool 'create_jira_issue' not available, using custom tool")
+                use_mcp = False
+            else:
+                logger.info(f"Found Jira MCP tool: {mcp_jira_tool.name}")
         
         if not use_mcp and not self.jira_tool:
             error_msg = "Jira tool is not configured. Please check your Jira credentials."
@@ -1400,59 +1382,12 @@ class ChatbotAgent:
                     if mcp_result is not None:
                         # Parse MCP result (should be JSON string from MCP server)
                         try:
-                            mcp_data = None
-                            
-                            # Check if result is an error message first
-                            if isinstance(mcp_result, str):
-                                # Check for timeout or error messages
-                                if 'timed out' in mcp_result.lower() or 'timeout' in mcp_result.lower():
-                                    logger.warning(f"MCP tool returned timeout error: {mcp_result}")
-                                    raise Exception(f"MCP tool timeout: {mcp_result}")
-                                if mcp_result.strip().startswith('Error:'):
-                                    error_msg = mcp_result.replace('Error:', '').strip()
-                                    logger.warning(f"MCP tool returned error: {error_msg}")
-                                    raise Exception(f"MCP tool error: {error_msg}")
-                                
-                                # Try to parse as JSON
-                                cleaned_result = mcp_result.strip()
-                                if cleaned_result.startswith('```'):
-                                    # Extract JSON from code block
-                                    lines = cleaned_result.split('\n')
-                                    json_lines = [line for line in lines if not line.strip().startswith('```')]
-                                    cleaned_result = '\n'.join(json_lines)
-                                mcp_data = json.loads(cleaned_result)
-                            elif isinstance(mcp_result, dict):
-                                # Already a dict
-                                mcp_data = mcp_result
-                            else:
-                                # Try to convert to string first, then parse
-                                str_result = str(mcp_result)
-                                if str_result.startswith('```'):
-                                    lines = str_result.split('\n')
-                                    json_lines = [line for line in lines if not line.strip().startswith('```')]
-                                    str_result = '\n'.join(json_lines)
-                                mcp_data = json.loads(str_result)
-                            
-                            if mcp_data and mcp_data.get('success'):
-                                result = {
-                                    'success': True,
-                                    'key': mcp_data.get('ticket_id') or mcp_data.get('issue_key'),
-                                    'link': mcp_data.get('link', f"{Config.JIRA_URL}/browse/{mcp_data.get('ticket_id', '')}"),
-                                    'created_by': mcp_data.get('created_by', 'MCP_SERVER'),
-                                    'tool_used': mcp_data.get('tool_used', 'custom-jira-mcp-server')
-                                }
-                                logger.info(f"Created issue {result['key']} via MCP tool")
-                            else:
-                                error_msg = mcp_data.get('error', 'Unknown error') if mcp_data else 'Invalid response'
-                                logger.error(f"MCP Tool failed: {error_msg}")
-                                # Fall back to custom tool
-                                tool_used = "Custom Tool (MCP error fallback)"
-                                result = self.jira_tool.create_issue(
-                                    summary=backlog_data.get('summary', 'Untitled Issue'),
-                                    description=backlog_data.get('description', ''),
-                                    priority=backlog_data.get('priority', 'Medium')
-                                )
-                        except json.JSONDecodeError as e:
+                            result = normalize_mcp_jira_result(
+                                mcp_result,
+                                jira_url=Config.JIRA_URL,
+                            )
+                            logger.info(f"Created issue {result['key']} via MCP tool")
+                        except json.JSONDecodeError:
                             # If not JSON, check if it's an error message
                             if isinstance(mcp_result, str) and ('error' in mcp_result.lower() or 'timeout' in mcp_result.lower()):
                                 logger.warning(f"MCP Tool returned error message: {mcp_result[:200]}")
@@ -1466,6 +1401,14 @@ class ChatbotAgent:
                             else:
                                 logger.error("MCP Tool failed: Invalid response format")
                                 result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
+                        except ValueError as e:
+                            logger.error(f"MCP Tool failed: {e}")
+                            tool_used = "Custom Tool (MCP error fallback)"
+                            result = self.jira_tool.create_issue(
+                                summary=backlog_data.get('summary', 'Untitled Issue'),
+                                description=backlog_data.get('description', ''),
+                                priority=backlog_data.get('priority', 'Medium')
+                            )
                 except Exception as e:
                     error_str = str(e).lower()
                     if 'timeout' in error_str or 'timed out' in error_str:
@@ -1510,6 +1453,7 @@ class ChatbotAgent:
                 result = {'success': False, 'error': 'No result from Jira creation attempt'}
             
             if result and result.get('success'):
+                created_at = datetime.datetime.now().isoformat()
                 state["jira_result"] = {
                     "success": True,
                     "key": result['key'],
@@ -1518,97 +1462,38 @@ class ChatbotAgent:
                     "tool_used": tool_used  # Store which tool was used
                 }
                 state["messages"].append(AIMessage(
-                    content=f"✅ Successfully created Jira issue: **{result['key']}**\n"
-                           f"Link: {result['link']}\n\n"
-                           f"_(Created using {tool_used})_"
+                    content=build_jira_creation_success_message(
+                        result['key'],
+                        result['link'],
+                        tool_used,
+                    )
                 ))
                 
                 # Ingest Jira issue into RAG knowledge base for future queries
-                jira_content = f"""Jira Issue: {result['key']}
-Summary: {backlog_data.get('summary', '')}
-Priority: {backlog_data.get('priority', 'Medium')}
-Business Value: {backlog_data.get('business_value', '')}
-Acceptance Criteria: {', '.join(backlog_data.get('acceptance_criteria', [])) if isinstance(backlog_data.get('acceptance_criteria'), list) else backlog_data.get('acceptance_criteria', '')}
-INVEST Analysis: {backlog_data.get('invest_analysis', '')}
-Description: {backlog_data.get('description', '')}
-Link: {result['link']}
-Created: {datetime.datetime.now().isoformat()}
-Tool Used: {tool_used}
-"""
-                jira_metadata = {
-                    'type': 'jira_issue',
-                    'key': result['key'],
-                    'title': backlog_data.get('summary', ''),
-                    'priority': backlog_data.get('priority', 'Medium'),
-                    'link': result['link'],
-                    'created_at': datetime.datetime.now().isoformat()
-                }
+                jira_content = build_jira_rag_document(
+                    jira_result=result,
+                    backlog_data=backlog_data,
+                    tool_used=tool_used,
+                    created_at=created_at,
+                )
+                jira_metadata = build_jira_rag_metadata(
+                    jira_result=result,
+                    backlog_data=backlog_data,
+                    created_at=created_at,
+                )
                 self._ingest_to_rag(jira_content, jira_metadata)
             else:
                 error_msg = result.get('error', 'Unknown error') if result else 'No result returned'
                 state["jira_result"] = {"success": False, "error": error_msg}
-                
-                # Provide user-friendly error message
-                if 'timeout' in error_msg.lower() or 'timed out' in error_msg.lower():
-                    user_message = (
-                        f"❌ **Jira Creation Timeout**\n\n"
-                        f"The request to create a Jira issue timed out. This could be due to:\n"
-                        f"- Network connectivity issues\n"
-                        f"- Jira server being slow or temporarily unavailable\n"
-                        f"- MCP server taking too long to respond\n\n"
-                        f"**What happened:**\n"
-                        f"- Attempted to use MCP protocol first\n"
-                        f"- Request timed out after 60+ seconds\n"
-                        f"- Attempted fallback to direct API\n\n"
-                        f"**Please try:**\n"
-                        f"- Check your network connection\n"
-                        f"- Verify Jira server is accessible\n"
-                        f"- Try again in a few moments"
-                    )
-                else:
-                    # User-friendly error message without raw error details
-                    user_message = (
-                        "⚠ **Failed to create Jira issue:**\n\n"
-                        "The system attempted to create the Jira issue but encountered an issue.\n\n"
-                        "**Please check:**\n"
-                        "- ✅ Your Jira configuration (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)\n"
-                        "- ✅ API token has write permissions\n"
-                        "- ✅ Network connectivity to Jira\n"
-                        "- ✅ Jira project key is correct\n\n"
-                        "Please try again or create the issue manually in Jira."
-                    )
-                
-                state["messages"].append(AIMessage(content=user_message))
+                state["messages"].append(AIMessage(
+                    content=build_jira_creation_error_message(error_msg)
+                ))
         except Exception as e:
             error_msg = f"Error creating Jira issue: {str(e)}"
             state["jira_result"] = {"success": False, "error": error_msg}
-            
-            # Provide user-friendly error message
-            error_str = str(e).lower()
-            if 'timeout' in error_str or 'timed out' in error_str:
-                user_message = (
-                    "⚠ **Jira issue creation failed:**\n\n"
-                    "The request timed out. This may happen when:\n"
-                    "- The Jira server is slow or overloaded\n"
-                    "- There are network connectivity issues\n\n"
-                    "**What you can do:**\n"
-                    "- ✅ Try again in a few moments\n"
-                    "- ✅ Check your network connection\n"
-                    "- ✅ Create the issue manually in Jira if urgent\n"
-                )
-            else:
-                # Generic error message - don't show raw error to user
-                user_message = (
-                    "⚠ **Jira issue creation failed:**\n\n"
-                    "An unexpected error occurred while creating the Jira issue.\n\n"
-                    "**What you can do:**\n"
-                    "- ✅ Try again in a few moments\n"
-                    "- ✅ Check your Jira configuration (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)\n"
-                    "- ✅ Verify your API token has write permissions\n"
-                    "- ✅ Create the issue manually in Jira if needed\n"
-                )
-            
-            state["messages"].append(AIMessage(content=user_message))
+            state["messages"].append(AIMessage(
+                content=build_jira_creation_error_message(error_msg, from_exception=True)
+            ))
             logger.error(f"Error creating Jira issue: {e}")
             logger.debug("Exception details:", exc_info=True)
         

@@ -22,6 +22,14 @@ from .requirement_workflow import (
     format_confluence_content,
 )
 from .intent_routing import detect_keyword_intent
+from .jira_nodes import (
+    build_jira_creation_error_message,
+    build_jira_creation_success_message,
+    build_jira_rag_document,
+    build_jira_rag_metadata,
+    normalize_mcp_jira_result,
+    select_mcp_jira_tool,
+)
 from .rag_nodes import (
     build_rag_error_message,
     build_rag_prompt,
@@ -40,6 +48,10 @@ __all__ = [
     'build_backlog_generation_prompt',
     'build_confluence_page_context',
     'build_general_chat_error_message',
+    'build_jira_creation_error_message',
+    'build_jira_creation_success_message',
+    'build_jira_rag_document',
+    'build_jira_rag_metadata',
     'build_requirement_context',
     'build_rag_error_message',
     'build_rag_prompt',
@@ -49,7 +61,9 @@ __all__ = [
     'extract_previous_coze_conversation_id',
     'format_confluence_content',
     'load_direct_jira_context',
+    'normalize_mcp_jira_result',
     'parse_confluence_page_reference',
     'resolve_coze_success_message',
+    'select_mcp_jira_tool',
 ]
 
