@@ -1,4 +1,4 @@
-"""
+﻿"""
 LangGraph Agent for Chatbot with Tool Orchestration.
 
 This agent uses LangGraph to intelligently route user requests and orchestrate
@@ -1130,93 +1130,32 @@ class ChatbotAgent:
                     error_str = str(executor_error).lower()
                     logger.warning(f"LLM call error after {elapsed:.2f}s: {executor_error}")
                     logger.debug(f"Error type: {error_type}")
-                    
-                    # Check for HTTP status codes in error attributes
-                    http_status_code = None
-                    if hasattr(executor_error, 'status_code'):
-                        http_status_code = executor_error.status_code
-                    elif hasattr(executor_error, 'response') and hasattr(executor_error.response, 'status_code'):
-                        http_status_code = executor_error.response.status_code
-                    elif '429' in error_str or 'status code 429' in error_str:
-                        http_status_code = 429
-                    elif '401' in error_str or 'status code 401' in error_str:
-                        http_status_code = 401
-                    elif '403' in error_str or 'status code 403' in error_str:
-                        http_status_code = 403
-                    
-                    # Detect error category by checking both type name and error message
-                    is_connection_error = (
-                        'Connection' in error_type or 
-                        'connection' in error_str or
-                        'connect' in error_str or
-                        'network' in error_str or
-                        'unreachable' in error_str or
-                        'timeout' in error_str
-                    ) and http_status_code is None
-                    is_auth_error = (
-                        http_status_code in [401, 403] or
-                        'Authentication' in error_type or 
-                        'auth' in error_str or 
-                        'api key' in error_str or
-                        'unauthorized' in error_str or
-                        'invalid' in error_str and 'key' in error_str
-                    )
-                    is_rate_limit_error = (
-                        http_status_code == 429 or
-                        'RateLimit' in error_type or 
-                        'rate limit' in error_str or
-                        'rate_limit' in error_str or
-                        'quota' in error_str or
-                        '429' in error_str
-                    )
-                    
-                    # Provide user-friendly error messages based on error category
-                    if is_connection_error:
-                        user_message = (
-                            "I apologize, but I'm having trouble connecting to the AI service. "
-                            "This could be due to:\n"
-                            "- Network connectivity issues\n"
-                            "- API service temporarily unavailable\n"
-                            "- Firewall or proxy settings\n\n"
-                            "Please check your network connection and try again."
-                        )
-                        # Don't log traceback for connection errors - they're common and expected
-                        logger.debug("Connection error detected, providing user-friendly message")
-                    elif is_auth_error:
-                        user_message = (
-                            "I apologize, but there's an authentication issue. "
-                            "Please check that your API key is correctly configured and has the necessary permissions."
-                        )
-                        logger.debug("Authentication error detected")
-                    elif is_rate_limit_error:
-                        # Provide detailed, user-friendly rate limit message
-                        provider_name = self.provider_name.capitalize() if self.provider_name else "API"
-                        user_message = (
-                            f"⚠️ Rate Limit Exceeded\n\n"
-                            f"I apologize, but the {provider_name} API rate limit has been exceeded. "
-                            f"This means you've made too many requests in a short period.\n\n"
-                            f"**What you can do:**\n"
-                            f"• Wait a few minutes and try again\n"
-                            f"• Switch to a different model (OpenAI, DeepSeek) if available\n"
-                            f"• Check your API quota/usage limits in your {provider_name} account\n\n"
-                            f"Rate limits are temporary and will reset after a short waiting period."
-                        )
-                        logger.warning(f"Rate limit error detected (HTTP {http_status_code or 'N/A'}): {executor_error}")
-                        logger.debug("Rate limit error detected")
-                    else:
-                        # Generic error message for unexpected errors
-                        user_message = (
-                            f"I apologize, but I encountered an error. "
-                            "Please check your API key and network connection, or try again later."
-                        )
-                        # Print traceback for unexpected errors to help with debugging
-                        import traceback
-                        traceback.print_exc()
-                    
-                    user_message, _ = build_general_chat_error_message(
+                    user_message, http_status_code = build_general_chat_error_message(
                         executor_error,
                         self.provider_name,
                     )
+
+                    if (
+                        http_status_code is None
+                        and (
+                            'Connection' in error_type
+                            or 'connection' in error_str
+                            or 'connect' in error_str
+                            or 'network' in error_str
+                            or 'unreachable' in error_str
+                            or 'timeout' in error_str
+                        )
+                    ):
+                        logger.debug("Connection error detected, providing user-friendly message")
+                    elif http_status_code in [401, 403]:
+                        logger.debug("Authentication error detected")
+                    elif http_status_code == 429:
+                        logger.warning(f"Rate limit error detected (HTTP {http_status_code or 'N/A'}): {executor_error}")
+                        logger.debug("Rate limit error detected")
+                    else:
+                        # Print traceback for unexpected errors to help with debugging
+                        import traceback
+                        traceback.print_exc()
                     error_msg = AIMessage(content=user_message)
                     messages.append(error_msg)
                     state["messages"] = messages
@@ -2840,4 +2779,5 @@ class ChatbotAgent:
         
         logger.warning("No response generated")
         return "I apologize, but I couldn't generate a response."
+
 
