@@ -9,6 +9,7 @@ from .requirement_workflow import (
     build_requirement_context,
     format_confluence_content,
 )
+from .intent_routing import detect_keyword_intent
 
 __all__ = [
     'ChatbotAgent',
@@ -16,6 +17,7 @@ __all__ = [
     'LLMMonitoringCallback',
     'build_backlog_generation_prompt',
     'build_requirement_context',
+    'detect_keyword_intent',
     'format_confluence_content',
 ]
 

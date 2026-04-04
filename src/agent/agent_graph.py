@@ -41,6 +41,7 @@ from src.agent.requirement_workflow import (
     build_requirement_context,
     format_confluence_content,
 )
+from src.agent.intent_routing import detect_keyword_intent
 from config.config import Config
 from src.utils.logger import get_logger
 
@@ -791,151 +792,16 @@ class ChatbotAgent:
         user_input = state.get("user_input", "").lower()
         messages = state.get("messages", [])
         logger.debug(f"Detecting intent for input: '{user_input[:50]}...'")
-        
-        # Comprehensive keyword-based detection (avoid LLM call when possible)
-        # Include variations with articles (a, an, the) and common phrases
-        jira_creation_keywords = [
-            'create jira', 'create issue', 'create ticket', 'create backlog',
-            'create a jira', 'create an issue', 'create a ticket', 'create a backlog',
-            'create the jira', 'create the issue', 'create the ticket',
-            'new jira', 'new issue', 'new ticket', 'new backlog',
-            'add jira', 'add issue', 'add ticket',
-            'make jira', 'make issue', 'make ticket',
-            'jira ticket', 'jira issue', 'jira backlog',
-            'open jira', 'open issue', 'open ticket',
-            'generate jira', 'generate issue', 'generate ticket',
-            'submit jira', 'submit issue', 'submit ticket'
-        ]
-        
-        # Expanded RAG keywords for knowledge/documentation queries
-        # These keywords trigger RAG to search through ingested documents
-        rag_keywords = [
-            # Documentation patterns
-            'knowledge base', 'document', 'documentation', 'documents',
-            'guide', 'guides', 'tutorial', 'tutorials',
-            'example', 'examples', 'sample', 'samples',
-            
-            # Jira/Confluence knowledge lookup patterns
-            'what was the', 'show me the', 'find the',
-            'acceptance criteria', 'business value',
-            'details of', 'details for', 'info about', 'information about',
-            'look up', 'lookup', 'search for',
-            'previous ticket', 'previous issue', 'previous jira',
-            'created ticket', 'created issue', 'created jira',
-            'our tickets', 'our issues', 'our jiras',
-            'ticket details', 'issue details', 'jira details',
-            'confluence page', 'wiki page',
-        ]
-        
-        # General chat keywords (simple questions, greetings)
-        general_chat_keywords = ['hello', 'hi', 'hey', 'who are you', 'what are you',
-                                'how are you', 'thanks', 'thank you', 'bye', 'goodbye',
-                                'help', 'assist', 'chat', 'talk']
-        
-        # Confluence tooling background queries - route to general chat
-        confluence_tooling_keywords = ['confluence tool', 'confluence api', 'confluence integration',
-                                      'how does confluence', 'what is confluence tool',
-                                      'confluence background', 'confluence setup', 'confluence config']
-        
-        # Check for Confluence tooling background queries first (route to general chat)
-        if any(keyword in user_input for keyword in confluence_tooling_keywords):
-            state["intent"] = "general_chat"
-            logger.debug("Intent: general_chat (Confluence tooling query)")
-            return state
-        
-        # Check for Coze agent intent keywords (AI daily report, AI news)
-        # Use case-insensitive matching
-        user_input_lower = user_input.lower()
-        coze_keywords = ['ai daily report', 'ai daily news', 'ai news']
-        # Check if any keyword appears in the input, or if both "ai" and "news" appear (for variations like "ai daily news")
-        coze_keyword_found = any(keyword in user_input_lower for keyword in coze_keywords)
-        # Also check for "ai" + "news" pattern (handles "ai daily news", "ai tech news", etc.)
-        if not coze_keyword_found:
-            words = user_input_lower.split()
-            coze_keyword_found = 'ai' in words and 'news' in words
-        if coze_keyword_found:
-            # Check if Coze is enabled and configured
-            if Config.COZE_ENABLED:
-                state["intent"] = "coze_agent"
-                # Find which keywords matched
-                matched_keywords = [k for k in coze_keywords if k in user_input_lower]
-                # If no exact keyword match, it was word-based matching
-                if not matched_keywords:
-                    matched_keywords = ["ai + news (word-based match)"]
-                logger.info(f"Intent: coze_agent (matched keywords: {matched_keywords})")
-                return state
-            else:
-                logger.debug("Coze keyword detected but Coze is disabled - routing to general_chat")
-        
-        # Check for Jira creation intent keywords
-        # Use more flexible matching - check if any keyword appears in the input
-        # Also check for common patterns like "create a jira ticket", "pls create jira", etc.
-        jira_patterns = [
-            r'\b(create|make|add|new|open|generate|submit)\s+(a\s+)?(jira|issue|ticket|backlog)',
-            r'\b(jira|issue|ticket)\s+(create|creation|ticket|issue)',
-            r'pls\s+create\s+(a\s+)?(jira|issue|ticket)',
-            r'please\s+create\s+(a\s+)?(jira|issue|ticket)'
-        ]
-        
-        # First try simple keyword matching (faster)
-        if any(keyword in user_input for keyword in jira_creation_keywords):
-            # Check if we have either custom tool or MCP tool available
-            has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
-            if has_jira_capability:
-                state["intent"] = "jira_creation"
-                logger.debug("Intent: jira_creation (keyword match)")
-                return state
-        
-        # Then try regex patterns for more complex phrases
-        import re
-        for pattern in jira_patterns:
-            if re.search(pattern, user_input, re.IGNORECASE):
-                # Check if we have either custom tool or MCP tool available
-                has_jira_capability = self.jira_tool or (self.use_mcp and self.mcp_integration)
-                if has_jira_capability:
-                    state["intent"] = "jira_creation"
-                    logger.debug(f"Intent: jira_creation (pattern match: {pattern})")
-                    return state
-        
-        # Check for Jira issue key pattern in query (for RAG lookup, not creation)
-        # Pattern matches: PROJ-123, AUTH-001, TEST-9999, etc.
-        jira_key_lookup_pattern = r'\b[A-Z]{2,10}-\d+\b'
-        jira_key_match = re.search(jira_key_lookup_pattern, state.get("user_input", ""))
-        if jira_key_match:
-            # Only route to RAG if NOT a creation request
-            is_creation_request = any(k in user_input for k in jira_creation_keywords)
-            if not is_creation_request:
-                rag_service_available = getattr(self, '_rag_service', None) is not None
-                if rag_service_available:
-                    matched_key = jira_key_match.group(0)
-                    state["intent"] = "rag_query"
-                    logger.info(f"Intent: rag_query (Jira key reference detected: {matched_key})")
-                    return state
-        
-        # Check for RAG intent keywords (knowledge/documentation queries)
-        # Use case-insensitive matching and check if any keyword appears in the input
-        # user_input_lower already defined above for Coze keywords
-        rag_keyword_found = any(keyword in user_input_lower for keyword in rag_keywords)
-        
-        # Also check if RAG service is available (if not, route to general_chat)
-        if rag_keyword_found:
-            # Check if RAG service is available
-            rag_service_available = getattr(self, '_rag_service', None) is not None
-            if rag_service_available:
-                matched_keywords = [k for k in rag_keywords if k in user_input_lower]
-                state["intent"] = "rag_query"
-                logger.info(f"Intent: rag_query (matched keywords: {matched_keywords[:3]})")
-                logger.debug(f"Full user input: {user_input[:100]}")
-                return state
-            else:
-                logger.warning("RAG keyword detected but RAG service not available - RAG may be disabled or not initialized")
-                logger.debug(f"Matched RAG keywords: {[k for k in rag_keywords if k in user_input_lower][:3]}")
-                # Fall through to general_chat
-        
-        # Check for general chat keywords (simple questions, greetings)
-        if any(keyword in user_input for keyword in general_chat_keywords):
-            state["intent"] = "general_chat"
-            logger.debug("Intent: general_chat (keyword match)")
+
+        keyword_intent = detect_keyword_intent(
+            state.get("user_input", ""),
+            rag_service_available=getattr(self, '_rag_service', None) is not None,
+            jira_available=bool(self.jira_tool or (self.use_mcp and self.mcp_integration)),
+            coze_enabled=Config.COZE_ENABLED,
+        )
+        if keyword_intent:
+            state["intent"] = keyword_intent
+            logger.debug(f"Intent: {keyword_intent} (keyword routing)")
             return state
         
         # No clear keyword match found - use LLM-based detection for ambiguous cases
