@@ -1498,7 +1498,7 @@ class ChatbotAgent:
             logger.info(f"Creating Confluence page for {issue_key}...")
             
             # Format Confluence content
-            confluence_content = self._format_confluence_content(
+            confluence_content = format_confluence_content(
                 issue_key=issue_key,
                 backlog_data=backlog_data,
                 evaluation=evaluation_result if evaluation_result else {},
@@ -1827,20 +1827,6 @@ class ChatbotAgent:
             }
         
         return state
-    
-    def _format_messages_for_context(self, messages: List[BaseMessage]) -> str:
-        """Format messages for context string."""
-        return build_requirement_context(messages=messages, conversation_history=[])
-    
-    def _format_confluence_content(self, issue_key: str, backlog_data: Dict, 
-                                   evaluation: Dict, jira_link: str) -> str:
-        """Format content for Confluence page in HTML format."""
-        return format_confluence_content(
-            issue_key=issue_key,
-            backlog_data=backlog_data,
-            evaluation=evaluation,
-            jira_link=jira_link,
-        )
     
     def _html_to_markdown(self, html_content: str) -> str:
         """
