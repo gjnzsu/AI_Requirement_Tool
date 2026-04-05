@@ -8,6 +8,28 @@
 
 **Tech Stack:** Python, pytest, LangGraph, LangChain, Flask, Jira/Confluence tools, MCP integration.
 
+## Status
+Completed through Phase 2 for the requirement workflow path.
+
+## Completion Summary
+- [x] Task 1 completed: shared `RequirementWorkflowService` added and covered by unit tests
+- [x] Task 2 completed: `Chatbot` delegates requirement workflow handling to the shared service
+- [x] Task 3 completed: requirement workflow helpers extracted from `ChatbotAgent`
+- [x] Phase 2 continuation completed beyond the original minimal Task 3 scope:
+  - intent routing extracted
+  - Jira helpers extracted and expanded
+  - Confluence helpers extracted and expanded
+  - RAG helpers extracted
+  - Coze helpers extracted
+  - general-chat helpers extracted
+  - stale inline branches and wrapper methods removed from `agent_graph.py`
+- [x] Task 4 verification completed with passing unit and agent integration coverage
+
+## Latest Verification
+- `pytest tests/unit -q` -> `147 passed`
+- `pytest tests/integration/agent/test_coze_integration.py -q` -> `19 passed, 1 deselected`
+- `pytest tests/integration/agent/test_agent_basic.py -q -m slow` -> `1 passed`
+
 ---
 
 ### Task 1: Add Shared Requirement Workflow Service
@@ -17,7 +39,7 @@
 - Modify: `src/services/__init__.py`
 - Test: `tests/unit/test_requirement_workflow_service.py`
 
-- [ ] **Step 1: Write failing tests for successful workflow and failure cases**
+- [x] **Step 1: Write failing tests for successful workflow and failure cases**
 
 ```python
 from src.services.requirement_workflow_service import RequirementWorkflowService
@@ -36,13 +58,13 @@ def test_execute_returns_failure_when_backlog_json_is_invalid():
     assert "Error processing Jira creation request" in result.response_text
 ```
 
-- [ ] **Step 2: Run service tests and verify they fail because the module does not exist yet**
+- [x] **Step 2: Run service tests and verify they fail because the module does not exist yet**
 
 Run: `pytest tests/unit/test_requirement_workflow_service.py -q`
 
 Expected: FAIL with `ModuleNotFoundError` or import error for `src.services.requirement_workflow_service`.
 
-- [ ] **Step 3: Implement the service with dependency injection and response formatting**
+- [x] **Step 3: Implement the service with dependency injection and response formatting**
 
 ```python
 class RequirementWorkflowService:
@@ -54,7 +76,7 @@ class RequirementWorkflowService:
         return RequirementWorkflowResult(...)
 ```
 
-- [ ] **Step 4: Run service tests and verify they pass**
+- [x] **Step 4: Run service tests and verify they pass**
 
 Run: `pytest tests/unit/test_requirement_workflow_service.py -q`
 
@@ -66,7 +88,7 @@ Expected: PASS.
 - Modify: `src/chatbot.py`
 - Test: `tests/unit/test_chatbot_requirement_workflow.py`
 
-- [ ] **Step 1: Write a failing delegation test for `Chatbot._handle_jira_creation()`**
+- [x] **Step 1: Write a failing delegation test for `Chatbot._handle_jira_creation()`**
 
 ```python
 def test_handle_jira_creation_delegates_to_requirement_workflow_service():
@@ -76,13 +98,13 @@ def test_handle_jira_creation_delegates_to_requirement_workflow_service():
     assert chatbot._handle_jira_creation("create jira") == "ok"
 ```
 
-- [ ] **Step 2: Run the chatbot delegation test and verify it fails**
+- [x] **Step 2: Run the chatbot delegation test and verify it fails**
 
 Run: `pytest tests/unit/test_chatbot_requirement_workflow.py -q`
 
 Expected: FAIL because `Chatbot` does not yet delegate to the new service.
 
-- [ ] **Step 3: Wire `RequirementWorkflowService` into `Chatbot` tool initialization and replace the duplicated Jira workflow implementation with a thin adapter**
+- [x] **Step 3: Wire `RequirementWorkflowService` into `Chatbot` tool initialization and replace the duplicated Jira workflow implementation with a thin adapter**
 
 ```python
 self.requirement_workflow_service = RequirementWorkflowService(...)
@@ -91,7 +113,7 @@ def _handle_jira_creation(self, user_input):
     return self.requirement_workflow_service.execute(user_input, self.conversation_history).response_text
 ```
 
-- [ ] **Step 4: Run targeted chatbot/service tests**
+- [x] **Step 4: Run targeted chatbot/service tests**
 
 Run: `pytest tests/unit/test_requirement_workflow_service.py tests/unit/test_chatbot_requirement_workflow.py -q`
 
@@ -105,7 +127,7 @@ Expected: PASS.
 - Modify: `src/agent/agent_graph.py`
 - Test: `tests/unit/test_agent_requirement_workflow.py`
 
-- [ ] **Step 1: Write failing tests for backlog prompt/context helpers and Confluence content rendering**
+- [x] **Step 1: Write failing tests for backlog prompt/context helpers and Confluence content rendering**
 
 ```python
 from src.agent.requirement_workflow import build_requirement_context
@@ -115,13 +137,13 @@ def test_build_requirement_context_includes_recent_messages_and_history():
     assert "Conversation History" in context
 ```
 
-- [ ] **Step 2: Run the new agent helper tests and verify they fail**
+- [x] **Step 2: Run the new agent helper tests and verify they fail**
 
 Run: `pytest tests/unit/test_agent_requirement_workflow.py -q`
 
 Expected: FAIL because the helper module does not exist yet.
 
-- [ ] **Step 3: Extract context/prompt/confluence formatting helpers from `ChatbotAgent` into the new module and delegate to them**
+- [x] **Step 3: Extract context/prompt/confluence formatting helpers from `ChatbotAgent` into the new module and delegate to them**
 
 ```python
 from src.agent.requirement_workflow import (
@@ -130,7 +152,7 @@ from src.agent.requirement_workflow import (
 )
 ```
 
-- [ ] **Step 4: Run helper tests and existing intent tests**
+- [x] **Step 4: Run helper tests and existing intent tests**
 
 Run: `pytest tests/unit/test_agent_requirement_workflow.py tests/unit/test_agent_intent_keywords.py -q`
 
@@ -141,19 +163,19 @@ Expected: PASS.
 **Files:**
 - Modify only files already touched by Tasks 1-3 if cleanup is needed.
 
-- [ ] **Step 1: Run targeted unit tests**
+- [x] **Step 1: Run targeted unit tests**
 
 Run: `pytest tests/unit/test_requirement_workflow_service.py tests/unit/test_chatbot_requirement_workflow.py tests/unit/test_agent_requirement_workflow.py tests/unit/test_agent_intent_keywords.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run one smoke integration test around agent/chatbot behavior**
+- [x] **Step 2: Run one smoke integration test around agent/chatbot behavior**
 
 Run: `pytest tests/integration/agent/test_agent_basic.py -q`
 
 Expected: PASS or a known environment-skip. Investigate any unexpected failure before completion.
 
-- [ ] **Step 3: Review git diff for unrelated edits and keep only refactor changes**
+- [x] **Step 3: Review git diff for unrelated edits and keep only refactor changes**
 
 Run: `git status --short`
 

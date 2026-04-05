@@ -1,7 +1,24 @@
 # AI Requirement Workflow Refactor Design
 
 ## Status
-Approved for implementation.
+Implemented through Phase 2 for the requirement workflow path.
+
+## Completion Summary
+- Phase 1 completed:
+  - shared workflow service extracted to `src/services/requirement_workflow_service.py`
+  - `Chatbot` delegated requirement workflow handling to the shared service
+- Phase 2 completed for the requirement workflow path:
+  - intent routing extracted
+  - requirement workflow helpers extracted
+  - Jira helper module extracted and expanded to cover MCP init, MCP invocation, direct-tool fallback, and success/failure outcome assembly
+  - Confluence helper module extracted and expanded to cover MCP init, MCP invocation, direct-tool fallback, and success/failure outcome assembly
+  - RAG, Coze, and general-chat helper modules extracted
+  - stale inline branches and low-value wrappers removed from `src/agent/agent_graph.py`
+
+## Latest Verification
+- `pytest tests/unit -q` -> `147 passed`
+- `pytest tests/integration/agent/test_coze_integration.py -q` -> `19 passed, 1 deselected`
+- `pytest tests/integration/agent/test_agent_basic.py -q -m slow` -> `1 passed`
 
 ## Context
 The current AI requirement assistant flow is split across large orchestration classes:
@@ -52,6 +69,10 @@ After Phase 1 reduces duplicated Jira/Confluence logic, split `src/agent/agent_g
 - graph assembly/state module
 
 `agent_graph.py` should mainly define state, wire nodes, and expose `ChatbotAgent.invoke()`.
+
+Result:
+- implemented as focused helper modules for intent routing, requirement workflow, Jira, Confluence, RAG, Coze, and general chat
+- `agent_graph.py` remains the orchestration owner, but no longer owns most Jira/Confluence operational detail
 
 ## Dependency Direction
 - `src/services/requirement_workflow_service.py` should depend on injected tool/evaluator/provider abstractions and plain data, not Flask or route-layer objects.
