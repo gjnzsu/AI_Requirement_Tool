@@ -36,14 +36,19 @@ def select_mcp_confluence_tool(mcp_integration: Any) -> Optional[Any]:
     """Return the best available Confluence MCP tool, excluding Jira tools."""
     for tool_name in CONFLUENCE_TOOL_NAME_PATTERNS:
         tool = mcp_integration.get_tool(tool_name)
-        if tool and _looks_like_confluence_tool(tool.name):
+        if tool and is_confluence_tool_name(tool.name):
             return tool
 
     for tool in mcp_integration.get_tools():
-        if _looks_like_confluence_tool(tool.name):
+        if is_confluence_tool_name(tool.name):
             return tool
 
     return None
+
+
+def is_confluence_tool_name(tool_name: str) -> bool:
+    """Public validation helper for Confluence tool safety checks."""
+    return _looks_like_confluence_tool(tool_name)
 
 
 def is_rovo_confluence_tool(tool_name: str) -> bool:
@@ -97,6 +102,58 @@ def build_confluence_mcp_args(
         confluence_content=confluence_content,
         space_key=space_key,
         cloud_id=cloud_id,
+    )
+
+
+def normalize_mcp_confluence_result(
+    mcp_result: Any,
+    *,
+    page_title: str,
+    confluence_url: str,
+) -> Dict[str, Any]:
+    """Normalize raw MCP results across string/dict payload shapes."""
+    if isinstance(mcp_result, str):
+        cleaned_result = mcp_result.strip()
+        if cleaned_result.startswith("```"):
+            lines = cleaned_result.split("\n")
+            json_lines = [line for line in lines if not line.strip().startswith("```")]
+            cleaned_result = "\n".join(json_lines).strip()
+
+        try:
+            parsed_result = _load_json_with_regex_fallback(cleaned_result)
+        except ValueError:
+            return normalize_mcp_confluence_text_result(
+                cleaned_result,
+                page_title=page_title,
+                confluence_url=confluence_url,
+            )
+
+        if isinstance(parsed_result, dict):
+            return normalize_mcp_confluence_dict_result(
+                parsed_result,
+                page_title=page_title,
+                confluence_url=confluence_url,
+            )
+        raise ValueError(f"Unexpected JSON payload type: {type(parsed_result).__name__}")
+
+    if isinstance(mcp_result, dict):
+        normalized_result = dict(mcp_result)
+        if not normalized_result.get("success") and isinstance(normalized_result.get("error"), bool):
+            normalized_result["error"] = f"Error flag was set to {normalized_result.get('error')}"
+        return normalize_mcp_confluence_dict_result(
+            normalized_result,
+            page_title=page_title,
+            confluence_url=confluence_url,
+        )
+
+    if mcp_result is True or mcp_result is False:
+        raise ValueError(
+            f"MCP tool returned boolean {mcp_result} instead of result dict/string. "
+            "This indicates a bug in the MCP tool wrapper or server."
+        )
+
+    raise ValueError(
+        f"MCP tool returned unsupported type: {type(mcp_result).__name__}"
     )
 
 
@@ -531,3 +588,15 @@ def _looks_like_confluence_tool(tool_name: str) -> bool:
         or ("page" in tool_name_lower and "create" in tool_name_lower and "jira" not in tool_name_lower)
     )
     return is_official_rovo or is_confluence_tool
+
+
+def _load_json_with_regex_fallback(cleaned_result: str) -> Any:
+    import json
+
+    try:
+        return json.loads(cleaned_result)
+    except json.JSONDecodeError:
+        json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", cleaned_result, re.DOTALL)
+        if not json_match:
+            raise ValueError("No JSON object found in MCP result")
+        return json.loads(json_match.group(0))

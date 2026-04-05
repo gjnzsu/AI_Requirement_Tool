@@ -11,7 +11,9 @@ from src.agent.confluence_nodes import (
     build_confluence_success_message,
     detect_confluence_error_code,
     extract_confluence_tool_schema,
+    is_confluence_tool_name,
     is_rovo_confluence_tool,
+    normalize_mcp_confluence_result,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
     select_mcp_confluence_tool,
@@ -253,3 +255,45 @@ def test_build_confluence_mcp_args_falls_back_to_generic_argument_set_without_sc
     assert args["spaceKey"] == "TEAM"
     assert args["contentFormat"] == "markdown"
     assert args["cloudId"] == "cloud-123"
+
+
+@pytest.mark.unit
+def test_is_confluence_tool_name_rejects_jira_tools_and_accepts_confluence_tools():
+    """Public tool-name guard should reject Jira tools while accepting valid Confluence ones."""
+    assert is_confluence_tool_name("createConfluencePage") is True
+    assert is_confluence_tool_name("create_confluence_page") is True
+    assert is_confluence_tool_name("create_jira_issue") is False
+    assert is_confluence_tool_name("createIssue") is False
+
+
+@pytest.mark.unit
+def test_normalize_mcp_confluence_result_handles_json_text_dict_and_invalid_types():
+    """Raw MCP result normalization should collapse type-specific parsing into one helper."""
+    json_result = normalize_mcp_confluence_result(
+        """```json
+        {"id": 123, "title": "Release Plan", "_links": {"webui": "/spaces/TEAM/pages/123/Release-Plan"}}
+        ```""",
+        page_title="Fallback Title",
+        confluence_url="https://example.atlassian.net/wiki",
+    )
+    text_result = normalize_mcp_confluence_result(
+        "created pageId=456 https://example.atlassian.net/wiki/pages/viewpage.action?pageId=456",
+        page_title="Release Plan",
+        confluence_url="https://example.atlassian.net/wiki",
+    )
+    dict_result = normalize_mcp_confluence_result(
+        {"success": True, "pageId": "789", "title": "Runbook"},
+        page_title="Fallback Title",
+        confluence_url="https://example.atlassian.net/wiki",
+    )
+
+    assert json_result["id"] == "123"
+    assert text_result["id"] == "456"
+    assert dict_result["id"] == "789"
+
+    with pytest.raises(ValueError, match="boolean"):
+        normalize_mcp_confluence_result(
+            True,
+            page_title="Release Plan",
+            confluence_url="https://example.atlassian.net/wiki",
+        )

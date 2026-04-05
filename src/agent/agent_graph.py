@@ -56,7 +56,9 @@ from src.agent.confluence_nodes import (
     build_confluence_success_message,
     detect_confluence_error_code,
     extract_confluence_tool_schema,
+    is_confluence_tool_name,
     is_rovo_confluence_tool,
+    normalize_mcp_confluence_result,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
     select_mcp_confluence_tool,
@@ -1621,8 +1623,7 @@ class ChatbotAgent:
                     
                     if mcp_confluence_tool:
                         # VALIDATION: Final safety check to ensure this is actually a Confluence tool
-                        tool_name_lower = mcp_confluence_tool.name.lower()
-                        if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
+                        if not is_confluence_tool_name(mcp_confluence_tool.name):
                             logger.warning(f"SAFETY CHECK FAILED: Tool '{mcp_confluence_tool.name}' appears to be a Jira tool!")
                             logger.info("Falling back to direct Confluence API")
                             mcp_confluence_tool = None
@@ -1699,102 +1700,15 @@ class ChatbotAgent:
                                             logger.debug(f"MCP tool raw result: {repr(mcp_result)[:500]}")
                                         
                                         # Parse MCP result
-                                        mcp_data = None
                                         if mcp_result is None:
                                             # Timeout or no result - skip processing, will fall back to direct API
                                             logger.debug("MCP result is None, skipping processing")
                                             tool_used = None
                                             use_mcp = False
-                                        elif isinstance(mcp_result, str):
-                                            # Try to parse as JSON
-                                            import json
-                                            import re
-                                            
-                                            # Clean the string - remove markdown code blocks, extra whitespace
-                                            cleaned_result = mcp_result.strip()
-                                            if cleaned_result.startswith('```'):
-                                                # Extract JSON from code block
-                                                lines = cleaned_result.split('\n')
-                                                json_lines = [line for line in lines 
-                                                             if not line.strip().startswith('```')]
-                                                cleaned_result = '\n'.join(json_lines).strip()
-                                            
-                                            # Try parsing the full cleaned result directly first
-                                            # The regex extraction can incorrectly match nested objects
-                                            try:
-                                                mcp_data = json.loads(cleaned_result)
-                                                logger.debug("Successfully parsed JSON from MCP result")
-                                                
-                                                # Log the full parsed data structure for debugging
-                                                if isinstance(mcp_data, dict):
-                                                    logger.debug(f"Parsed JSON top-level keys: {list(mcp_data.keys())[:10]}")
-                                                    # Check if we have the expected page structure
-                                                    if 'id' in mcp_data:
-                                                        logger.debug(f"Found page ID in root: {mcp_data.get('id')}")
-                                                    elif 'version' in mcp_data:
-                                                        logger.debug("WARNING: Only found 'version' key - might indicate parsing issue")
-                                            except json.JSONDecodeError as first_parse_err:
-                                                # If direct parse fails, try regex extraction as fallback
-                                                logger.debug(f"Direct JSON parse failed: {first_parse_err}")
-                                                logger.debug("Attempting regex extraction as fallback...")
-                                                
-                                                # Try to extract JSON object from the string (in case it's embedded in text)
-                                                # Use a more robust pattern that matches balanced braces
-                                                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', cleaned_result, re.DOTALL)
-                                                if json_match:
-                                                    try:
-                                                        cleaned_result = json_match.group(0)
-                                                        mcp_data = json.loads(cleaned_result)
-                                                        logger.debug("Successfully parsed JSON using regex extraction")
-                                                    except json.JSONDecodeError:
-                                                        # Regex extraction also failed
-                                                        pass
-                                            except json.JSONDecodeError as json_err:
-                                                # If not JSON, check if it contains success indicators or page info
-                                                logger.debug(f"JSON decode error: {json_err}")
-                                                logger.debug("Attempting to parse as plain text response")
-                                                try:
-                                                    confluence_result = normalize_mcp_confluence_text_result(
-                                                        cleaned_result,
-                                                        page_title=page_title,
-                                                        confluence_url=Config.CONFLUENCE_URL,
-                                                    )
-                                                    logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
-                                                    if confluence_result.get('id'):
-                                                        logger.debug(f"Extracted page ID: {confluence_result.get('id')}")
-                                                    if confluence_result.get('link'):
-                                                        logger.debug(f"Extracted page URL: {confluence_result.get('link')}")
-                                                    mcp_data = None  # Skip dict processing, we already have result
-                                                    tool_used = "MCP Protocol"  # Ensure tool_used is set
-                                                except ValueError as parse_error:
-                                                    raise Exception(str(parse_error))
-                                        elif isinstance(mcp_result, dict):
-                                            mcp_data = mcp_result
-                                            # Additional check: if dict has success=False but error is boolean
-                                            if not mcp_data.get('success') and isinstance(mcp_data.get('error'), bool):
-                                                logger.debug(f"WARNING: mcp_data['error'] is boolean {mcp_data.get('error')}, converting to string")
-                                                mcp_data['error'] = f"Error flag was set to {mcp_data.get('error')}"
-                                        elif mcp_result is True or mcp_result is False:
-                                            # Handle boolean result (unexpected)
-                                            logger.error(f"MCP tool returned boolean {mcp_result} instead of result dict/string")
-                                            raise Exception(f"MCP tool returned boolean {mcp_result} instead of result dict/string. This indicates a bug in the MCP tool wrapper or server.")
                                         else:
-                                            logger.debug(f"Unexpected result type: {type(mcp_result)}, value: {repr(mcp_result)[:200]}")
-                                            mcp_data = {'success': False, 'error': f'Unexpected result type: {type(mcp_result).__name__}', 'error_detail': str(mcp_result)[:200], 'error_type': type(mcp_result).__name__}
-                                        
-                                        # Process mcp_data if we have it (skip if we already created confluence_result from text)
-                                        if mcp_data is not None and isinstance(mcp_data, dict):
-                                            if (
-                                                mcp_data.get('id')
-                                                or mcp_data.get('page_id')
-                                                or mcp_data.get('pageId')
-                                                or (isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'))
-                                            ):
-                                                logger.debug(f"Found page ID indicators in MCP response: {mcp_data}")
-
                                             try:
-                                                confluence_result = normalize_mcp_confluence_dict_result(
-                                                    mcp_data,
+                                                confluence_result = normalize_mcp_confluence_result(
+                                                    mcp_result,
                                                     page_title=page_title,
                                                     confluence_url=Config.CONFLUENCE_URL,
                                                 )
@@ -1802,9 +1716,10 @@ class ChatbotAgent:
                                                     "Confluence page created successfully via MCP Protocol (ID: %s)",
                                                     confluence_result.get('id'),
                                                 )
-                                                logger.debug(f"Extracted page ID: {confluence_result.get('id')}")
+                                                if confluence_result.get('link'):
+                                                    logger.debug(f"Extracted page URL: {confluence_result.get('link')}")
                                             except ValueError as parse_error:
-                                                logger.debug(f"Full mcp_data response: {mcp_data}")
+                                                logger.debug(f"Raw MCP result that failed normalization: {repr(mcp_result)[:500]}")
                                                 raise Exception(str(parse_error))
                                     
                                     except concurrent.futures.TimeoutError:
