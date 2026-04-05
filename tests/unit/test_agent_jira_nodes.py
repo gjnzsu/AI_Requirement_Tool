@@ -5,8 +5,14 @@ import pytest
 from src.agent.jira_nodes import (
     build_jira_creation_error_message,
     build_jira_creation_success_message,
+    build_jira_exception_outcome,
+    build_jira_failure_outcome,
     build_jira_rag_document,
     build_jira_rag_metadata,
+    build_jira_success_outcome,
+    create_jira_issue_via_custom_tool,
+    initialize_jira_mcp_integration,
+    invoke_mcp_jira_tool,
     normalize_mcp_jira_result,
     select_mcp_jira_tool,
 )
@@ -142,3 +148,108 @@ def test_build_jira_rag_payloads_preserve_existing_document_shape():
         "link": "https://jira.example/browse/PROJ-123",
         "created_at": now,
     }
+
+
+@pytest.mark.unit
+def test_initialize_jira_mcp_integration_initializes_uninitialized_integration():
+    """Initialization helper should run the async initialize method and report readiness."""
+
+    class FakeIntegration:
+        def __init__(self):
+            self._initialized = False
+
+        async def initialize(self):
+            self._initialized = True
+
+    integration = FakeIntegration()
+
+    assert initialize_jira_mcp_integration(integration) is True
+    assert integration._initialized is True
+
+
+@pytest.mark.unit
+def test_invoke_mcp_jira_tool_builds_args_and_normalizes_result():
+    """Invocation helper should call the MCP tool and normalize the returned payload."""
+
+    captured = {}
+
+    class FakeTool:
+        name = "create_jira_issue"
+
+        def invoke(self, *, input):
+            captured["input"] = input
+            return {
+                "success": True,
+                "ticket_id": "PROJ-999",
+                "link": "https://jira.example/browse/PROJ-999",
+            }
+
+    result = invoke_mcp_jira_tool(
+        FakeTool(),
+        backlog_data={
+            "summary": "Add login auditing",
+            "description": "Capture login events",
+            "priority": "High",
+            "issue_type": "Story",
+        },
+        jira_url="https://jira.example",
+        timeout_seconds=1.0,
+    )
+
+    assert captured["input"] == {
+        "summary": "Add login auditing",
+        "description": "Capture login events",
+        "priority": "High",
+        "issue_type": "Story",
+    }
+    assert result["key"] == "PROJ-999"
+    assert result["link"] == "https://jira.example/browse/PROJ-999"
+
+
+@pytest.mark.unit
+def test_create_jira_issue_via_custom_tool_returns_direct_tool_result():
+    """Custom Jira helper should pass through the expected fields to the direct tool."""
+
+    class FakeTool:
+        def create_issue(self, *, summary, description, priority):
+            return {
+                "success": True,
+                "key": "PROJ-101",
+                "link": "https://jira.example/browse/PROJ-101",
+                "summary": summary,
+                "description": description,
+                "priority": priority,
+            }
+
+    result = create_jira_issue_via_custom_tool(
+        FakeTool(),
+        backlog_data={
+            "summary": "Add login auditing",
+            "description": "Capture login events",
+            "priority": "High",
+        },
+    )
+
+    assert result["success"] is True
+    assert result["key"] == "PROJ-101"
+    assert result["priority"] == "High"
+
+
+@pytest.mark.unit
+def test_build_jira_success_failure_and_exception_outcomes_preserve_agent_payloads():
+    """Outcome helpers should return the stable agent-facing message/state payloads."""
+    success = build_jira_success_outcome(
+        jira_result={"success": True, "key": "PROJ-123", "link": "https://jira.example/browse/PROJ-123"},
+        backlog_data={"summary": "Add login auditing", "priority": "High"},
+        tool_used="MCP Tool",
+        created_at="2026-04-05T10:11:12",
+    )
+    failure = build_jira_failure_outcome("Permission denied")
+    exception = build_jira_exception_outcome("request timed out")
+
+    assert success["state"]["success"] is True
+    assert success["state"]["tool_used"] == "MCP Tool"
+    assert "Successfully created Jira issue" in success["message"]
+    assert success["metadata"]["key"] == "PROJ-123"
+    assert "Failed to create Jira issue" in failure["message"]
+    assert "Jira issue creation failed" in exception["message"]

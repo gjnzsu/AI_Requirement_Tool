@@ -65,11 +65,12 @@ from src.agent.general_chat_nodes import (
 )
 from src.agent.intent_routing import detect_keyword_intent
 from src.agent.jira_nodes import (
-    build_jira_creation_error_message,
-    build_jira_creation_success_message,
-    build_jira_rag_document,
-    build_jira_rag_metadata,
-    normalize_mcp_jira_result,
+    build_jira_exception_outcome,
+    build_jira_failure_outcome,
+    build_jira_success_outcome,
+    create_jira_issue_via_custom_tool,
+    initialize_jira_mcp_integration,
+    invoke_mcp_jira_tool,
     select_mcp_jira_tool,
 )
 from src.agent.rag_nodes import (
@@ -1206,12 +1207,9 @@ class ChatbotAgent:
         # Initialize MCP if needed (lazy initialization)
         if use_mcp and not self.mcp_integration._initialized:
             logger.info("Initializing MCP integration (lazy initialization)...")
-            try:
-                import asyncio
-                asyncio.run(self.mcp_integration.initialize())
+            if initialize_jira_mcp_integration(self.mcp_integration, timeout_seconds=30.0):
                 logger.info("MCP integration initialized successfully")
-            except Exception as e:
-                logger.warning(f"MCP initialization failed: {e}")
+            else:
                 logger.info("Falling back to custom tools")
                 use_mcp = False
         
@@ -1292,72 +1290,25 @@ class ChatbotAgent:
                 logger.debug(f"Priority: {backlog_data.get('priority', 'Medium')}")
                 
                 try:
-                    # Call MCP tool with additional timeout wrapper for safety
-                    import time
-                    start_time = time.time()
-                    
-                    # Call MCP tool using synchronous invoke method with timeout
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            mcp_jira_tool.invoke,
-                            input={
-                                'summary': backlog_data.get('summary', 'Untitled Issue'),
-                                'description': backlog_data.get('description', ''),
-                                'priority': backlog_data.get('priority', 'Medium'),
-                                'issue_type': backlog_data.get('issue_type', 'Story')
-                            }
+                    result = invoke_mcp_jira_tool(
+                        mcp_jira_tool,
+                        backlog_data=backlog_data,
+                        jira_url=Config.JIRA_URL,
+                        timeout_seconds=75.0,
+                    )
+                    if result is None:
+                        logger.info("Falling back to custom tool")
+                        tool_used = "Custom Tool (MCP timeout fallback)"
+                        result = create_jira_issue_via_custom_tool(
+                            self.jira_tool,
+                            backlog_data=backlog_data,
                         )
-                        try:
-                            mcp_result = future.result(timeout=75.0)  # 75 second timeout (MCP has 60s internal, add buffer)
-                            elapsed = time.time() - start_time
-                            logger.debug(f"MCP tool call completed in {elapsed:.2f}s")
-                        except concurrent.futures.TimeoutError:
-                            elapsed = time.time() - start_time
-                            logger.warning(f"MCP tool call timed out after {elapsed:.2f}s")
-                            logger.info("Falling back to custom tool")
-                            tool_used = "Custom Tool (MCP timeout fallback)"
-                            result = self.jira_tool.create_issue(
-                                summary=backlog_data.get('summary', 'Untitled Issue'),
-                                description=backlog_data.get('description', ''),
-                                priority=backlog_data.get('priority', 'Medium')
-                            )
-                            if result.get('success'):
-                                logger.info(f"Created issue {result.get('key', 'N/A')} via custom tool (MCP timeout)")
-                            else:
-                                result = {'success': False, 'error': 'MCP tool timed out and custom tool also failed'}
-                            # Skip JSON parsing, use the result directly
-                            mcp_result = None
-                    
-                    if mcp_result is not None:
-                        # Parse MCP result (should be JSON string from MCP server)
-                        try:
-                            result = normalize_mcp_jira_result(
-                                mcp_result,
-                                jira_url=Config.JIRA_URL,
-                            )
-                            logger.info(f"Created issue {result['key']} via MCP tool")
-                        except json.JSONDecodeError:
-                            # If not JSON, check if it's an error message
-                            if isinstance(mcp_result, str) and ('error' in mcp_result.lower() or 'timeout' in mcp_result.lower()):
-                                logger.warning(f"MCP Tool returned error message: {mcp_result[:200]}")
-                                # Fall back to custom tool
-                                tool_used = "Custom Tool (MCP parse error fallback)"
-                                result = self.jira_tool.create_issue(
-                                    summary=backlog_data.get('summary', 'Untitled Issue'),
-                                    description=backlog_data.get('description', ''),
-                                    priority=backlog_data.get('priority', 'Medium')
-                                )
-                            else:
-                                logger.error("MCP Tool failed: Invalid response format")
-                                result = {'success': False, 'error': f'Invalid response format: {str(mcp_result)[:200]}'}
-                        except ValueError as e:
-                            logger.error(f"MCP Tool failed: {e}")
-                            tool_used = "Custom Tool (MCP error fallback)"
-                            result = self.jira_tool.create_issue(
-                                summary=backlog_data.get('summary', 'Untitled Issue'),
-                                description=backlog_data.get('description', ''),
-                                priority=backlog_data.get('priority', 'Medium')
-                            )
+                        if result.get('success'):
+                            logger.info(f"Created issue {result.get('key', 'N/A')} via custom tool (MCP timeout)")
+                        else:
+                            result = {'success': False, 'error': 'MCP tool timed out and custom tool also failed'}
+                    else:
+                        logger.info(f"Created issue {result['key']} via MCP tool")
                 except Exception as e:
                     error_str = str(e).lower()
                     if 'timeout' in error_str or 'timed out' in error_str:
@@ -1372,10 +1323,9 @@ class ChatbotAgent:
                     if result is None or not result.get('success'):
                         tool_used = "Custom Tool (MCP fallback)"
                         try:
-                            result = self.jira_tool.create_issue(
-                                summary=backlog_data.get('summary', 'Untitled Issue'),
-                                description=backlog_data.get('description', ''),
-                                priority=backlog_data.get('priority', 'Medium')
+                            result = create_jira_issue_via_custom_tool(
+                                self.jira_tool,
+                                backlog_data=backlog_data,
                             )
                             if result.get('success'):
                                 logger.info(f"Created issue {result.get('key', 'N/A')} via custom tool (fallback)")
@@ -1387,10 +1337,9 @@ class ChatbotAgent:
                 logger.info("Using Custom JiraTool to create Jira issue...")
                 logger.debug(f"Summary: {backlog_data.get('summary', 'Untitled Issue')[:50]}...")
                 logger.debug(f"Priority: {backlog_data.get('priority', 'Medium')}")
-                result = self.jira_tool.create_issue(
-                    summary=backlog_data.get('summary', 'Untitled Issue'),
-                    description=backlog_data.get('description', ''),
-                    priority=backlog_data.get('priority', 'Medium')
+                result = create_jira_issue_via_custom_tool(
+                    self.jira_tool,
+                    backlog_data=backlog_data,
                 )
                 if result.get('success'):
                     logger.info(f"Custom Tool SUCCESS: Created issue {result.get('key', 'N/A')}")
@@ -1403,45 +1352,32 @@ class ChatbotAgent:
             
             if result and result.get('success'):
                 created_at = datetime.datetime.now().isoformat()
-                state["jira_result"] = {
-                    "success": True,
-                    "key": result['key'],
-                    "link": result['link'],
-                    "backlog_data": backlog_data,
-                    "tool_used": tool_used  # Store which tool was used
-                }
-                state["messages"].append(AIMessage(
-                    content=build_jira_creation_success_message(
-                        result['key'],
-                        result['link'],
-                        tool_used,
-                    )
-                ))
-                
-                # Ingest Jira issue into RAG knowledge base for future queries
-                jira_content = build_jira_rag_document(
+                success_outcome = build_jira_success_outcome(
                     jira_result=result,
                     backlog_data=backlog_data,
                     tool_used=tool_used,
                     created_at=created_at,
                 )
-                jira_metadata = build_jira_rag_metadata(
-                    jira_result=result,
-                    backlog_data=backlog_data,
-                    created_at=created_at,
-                )
-                self._ingest_to_rag(jira_content, jira_metadata)
+                state["jira_result"] = success_outcome["state"]
+                state["messages"].append(AIMessage(
+                    content=success_outcome["message"]
+                ))
+                
+                # Ingest Jira issue into RAG knowledge base for future queries
+                self._ingest_to_rag(success_outcome["content"], success_outcome["metadata"])
             else:
                 error_msg = result.get('error', 'Unknown error') if result else 'No result returned'
-                state["jira_result"] = {"success": False, "error": error_msg}
+                failure_outcome = build_jira_failure_outcome(error_msg)
+                state["jira_result"] = failure_outcome["state"]
                 state["messages"].append(AIMessage(
-                    content=build_jira_creation_error_message(error_msg)
+                    content=failure_outcome["message"]
                 ))
         except Exception as e:
             error_msg = f"Error creating Jira issue: {str(e)}"
-            state["jira_result"] = {"success": False, "error": error_msg}
+            exception_outcome = build_jira_exception_outcome(error_msg)
+            state["jira_result"] = exception_outcome["state"]
             state["messages"].append(AIMessage(
-                content=build_jira_creation_error_message(error_msg, from_exception=True)
+                content=exception_outcome["message"]
             ))
             logger.error(f"Error creating Jira issue: {e}")
             logger.debug("Exception details:", exc_info=True)

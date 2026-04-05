@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 from typing import Any, Dict, Optional
+
+from src.utils.logger import get_logger
+
+
+logger = get_logger("chatbot.agent")
 
 
 PREFERRED_JIRA_MCP_TOOL_NAMES = ["create_jira_issue", "createJiraIssue", "createIssue"]
@@ -147,6 +154,122 @@ def build_jira_rag_metadata(
         "priority": backlog_data.get("priority", "Medium"),
         "link": jira_result["link"],
         "created_at": created_at,
+    }
+
+
+def initialize_jira_mcp_integration(
+    mcp_integration: Any,
+    *,
+    timeout_seconds: float = 30.0,
+) -> bool:
+    """Initialize Jira MCP integration with a bounded timeout and report readiness."""
+    if not mcp_integration:
+        return False
+
+    if getattr(mcp_integration, "_initialized", False):
+        return True
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, mcp_integration.initialize())
+            future.result(timeout=timeout_seconds)
+        return bool(getattr(mcp_integration, "_initialized", False))
+    except Exception as exc:
+        logger.warning("MCP initialization failed: %s", exc)
+        return False
+
+
+def invoke_mcp_jira_tool(
+    tool: Any,
+    *,
+    backlog_data: Dict[str, Any],
+    jira_url: str,
+    timeout_seconds: float = 75.0,
+) -> Optional[Dict[str, Any]]:
+    """Invoke a Jira MCP tool and normalize the result payload."""
+    mcp_args = {
+        "summary": backlog_data.get("summary", "Untitled Issue"),
+        "description": backlog_data.get("description", ""),
+        "priority": backlog_data.get("priority", "Medium"),
+        "issue_type": backlog_data.get("issue_type", "Story"),
+    }
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(tool.invoke, input=mcp_args)
+            mcp_result = future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError:
+        logger.warning("MCP tool call timed out after %.1f seconds", timeout_seconds)
+        return None
+
+    return normalize_mcp_jira_result(
+        mcp_result,
+        jira_url=jira_url,
+    )
+
+
+def create_jira_issue_via_custom_tool(
+    jira_tool: Any,
+    *,
+    backlog_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Create a Jira issue via the direct custom tool."""
+    return jira_tool.create_issue(
+        summary=backlog_data.get("summary", "Untitled Issue"),
+        description=backlog_data.get("description", ""),
+        priority=backlog_data.get("priority", "Medium"),
+    )
+
+
+def build_jira_success_outcome(
+    *,
+    jira_result: Dict[str, Any],
+    backlog_data: Dict[str, Any],
+    tool_used: str,
+    created_at: str,
+) -> Dict[str, Any]:
+    """Build the stable success payload consumed by the Jira agent node."""
+    state = {
+        "success": True,
+        "key": jira_result["key"],
+        "link": jira_result["link"],
+        "backlog_data": backlog_data,
+        "tool_used": tool_used,
+    }
+    return {
+        "state": state,
+        "message": build_jira_creation_success_message(
+            jira_result["key"],
+            jira_result["link"],
+            tool_used,
+        ),
+        "content": build_jira_rag_document(
+            jira_result=jira_result,
+            backlog_data=backlog_data,
+            tool_used=tool_used,
+            created_at=created_at,
+        ),
+        "metadata": build_jira_rag_metadata(
+            jira_result=jira_result,
+            backlog_data=backlog_data,
+            created_at=created_at,
+        ),
+    }
+
+
+def build_jira_failure_outcome(error_text: str) -> Dict[str, Any]:
+    """Build the stable failure payload consumed by the Jira agent node."""
+    return {
+        "state": {"success": False, "error": error_text},
+        "message": build_jira_creation_error_message(error_text),
+    }
+
+
+def build_jira_exception_outcome(error_text: str) -> Dict[str, Any]:
+    """Build the stable exception payload consumed by the Jira agent node."""
+    return {
+        "state": {"success": False, "error": error_text},
+        "message": build_jira_creation_error_message(error_text, from_exception=True),
     }
 
 
