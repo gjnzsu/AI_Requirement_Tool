@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import re
 from typing import Any, Callable, Dict, Optional
+
+from src.utils.logger import get_logger
+
+
+logger = get_logger("chatbot.agent")
 
 
 CONFLUENCE_TOOL_NAME_PATTERNS = [
@@ -432,6 +439,121 @@ def build_confluence_error_message(
         f"**Good news:** Your Jira issue was created successfully! ✅\n"
         f"You can create the Confluence page manually if needed."
     )
+
+
+def initialize_confluence_mcp_integration(
+    mcp_integration: Any,
+    *,
+    timeout_seconds: float = 15.0,
+) -> bool:
+    """Initialize MCP integration with a bounded timeout and report readiness."""
+    if not mcp_integration:
+        return False
+
+    if getattr(mcp_integration, "_initialized", False):
+        return True
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, mcp_integration.initialize())
+            future.result(timeout=timeout_seconds)
+        return bool(getattr(mcp_integration, "_initialized", False))
+    except concurrent.futures.TimeoutError:
+        logger.warning("MCP initialization timeout (%.1fs) for Confluence", timeout_seconds)
+        return False
+    except Exception as exc:
+        logger.warning("MCP initialization failed: %s", exc)
+        return False
+
+
+def invoke_mcp_confluence_tool(
+    tool: Any,
+    *,
+    page_title: str,
+    confluence_content: str,
+    confluence_url: str,
+    space_key: str,
+    get_cloud_id: Callable[[], Optional[str]],
+    resolve_space_id: Callable[[str, Optional[str]], Optional[Any]],
+    html_to_markdown: Callable[[str], str],
+    timeout_seconds: float = 60.0,
+) -> Optional[Dict[str, Any]]:
+    """Invoke a Confluence MCP tool and normalize the raw result payload."""
+    tool_schema = extract_confluence_tool_schema(tool)
+    cloud_id = None
+
+    if is_rovo_confluence_tool(tool.name):
+        logger.info("Detected Rovo tool - retrieving cloudId...")
+        cloud_id = get_cloud_id()
+        if cloud_id:
+            logger.info("cloudId successfully retrieved: %s", cloud_id)
+        else:
+            logger.warning("cloudId not available - tool call may fail")
+
+    mcp_args = build_confluence_mcp_args(
+        tool_name=tool.name,
+        tool_schema=tool_schema,
+        page_title=page_title,
+        confluence_content=confluence_content,
+        markdown_content=html_to_markdown(confluence_content),
+        space_key=space_key,
+        cloud_id=cloud_id,
+        resolve_space_id=resolve_space_id,
+    )
+
+    logger.debug("Tool Name: %s", tool.name)
+    if tool_schema:
+        logger.debug("Tool Schema: %s", list(mcp_args.keys()))
+    logger.debug("Calling tool with arguments: %s", list(mcp_args.keys()))
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(tool.invoke, input=mcp_args)
+            mcp_result = future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError:
+        logger.warning("MCP Protocol timeout after %.1f seconds, falling back to direct API", timeout_seconds)
+        return None
+
+    if mcp_result is None:
+        logger.debug("MCP result is None, skipping processing")
+        return None
+
+    logger.debug("MCP tool raw result type: %s", type(mcp_result))
+    if isinstance(mcp_result, str):
+        logger.debug("MCP tool raw result (first 1000 chars): %s", mcp_result[:1000])
+    elif isinstance(mcp_result, dict):
+        logger.debug("MCP tool raw result keys: %s", list(mcp_result.keys()))
+    else:
+        logger.debug("MCP tool raw result: %s", repr(mcp_result)[:500])
+
+    return normalize_mcp_confluence_result(
+        mcp_result,
+        page_title=page_title,
+        confluence_url=confluence_url,
+    )
+
+
+def create_confluence_page_via_direct_api(
+    confluence_tool: Any,
+    *,
+    page_title: str,
+    confluence_content: str,
+) -> Dict[str, Any]:
+    """Create a Confluence page via the direct API with duplicate-page fallback handling."""
+    try:
+        confluence_result = confluence_tool.create_page(
+            title=page_title,
+            content=confluence_content,
+        )
+        if confluence_result.get("success"):
+            confluence_result["tool_used"] = "Direct API"
+        return confluence_result
+    except Exception as direct_api_error:
+        error_str = str(direct_api_error).lower()
+        if "already exists" in error_str or "duplicate" in error_str or "same title" in error_str:
+            logger.warning("Direct API error indicates page may already exist (MCP tool may have succeeded)")
+            return build_confluence_duplicate_result(page_title)
+        raise
 
 
 def _extract_mcp_page_id(mcp_data: Dict[str, Any]) -> Optional[str]:

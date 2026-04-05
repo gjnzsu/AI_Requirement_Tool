@@ -9,10 +9,13 @@ from src.agent.confluence_nodes import (
     build_confluence_page_link,
     build_confluence_rag_metadata,
     build_confluence_success_message,
+    create_confluence_page_via_direct_api,
     detect_confluence_error_code,
     extract_confluence_tool_schema,
+    initialize_confluence_mcp_integration,
     is_confluence_tool_name,
     is_rovo_confluence_tool,
+    invoke_mcp_confluence_tool,
     normalize_mcp_confluence_result,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
@@ -297,3 +300,114 @@ def test_normalize_mcp_confluence_result_handles_json_text_dict_and_invalid_type
             page_title="Release Plan",
             confluence_url="https://example.atlassian.net/wiki",
         )
+
+
+@pytest.mark.unit
+def test_initialize_confluence_mcp_integration_initializes_uninitialized_integration():
+    """Initialization helper should run the async initialize method and report readiness."""
+
+    class FakeIntegration:
+        def __init__(self):
+            self._initialized = False
+
+        async def initialize(self):
+            self._initialized = True
+
+    integration = FakeIntegration()
+
+    assert initialize_confluence_mcp_integration(integration, timeout_seconds=1.0) is True
+    assert integration._initialized is True
+
+
+@pytest.mark.unit
+def test_invoke_mcp_confluence_tool_builds_args_and_normalizes_result():
+    """Invocation helper should build args, call the tool, and normalize the result payload."""
+
+    captured = {}
+
+    class FakeTool:
+        name = "createConfluencePage"
+        _tool_schema = {
+            "inputSchema": {
+                "properties": {
+                    "cloudId": {"type": "string"},
+                    "spaceId": {"type": "string"},
+                    "contentFormat": {"enum": ["markdown", "storage"]},
+                    "title": {"type": "string"},
+                    "body": {"type": "string"},
+                },
+                "required": ["cloudId", "spaceId", "contentFormat", "title", "body"],
+            }
+        }
+
+        def invoke(self, *, input):
+            captured["input"] = input
+            return {
+                "success": True,
+                "pageId": "456",
+                "title": input["title"],
+            }
+
+    result = invoke_mcp_confluence_tool(
+        FakeTool(),
+        page_title="Release Plan",
+        confluence_content="<p>HTML body</p>",
+        confluence_url="https://example.atlassian.net/wiki",
+        space_key="TEAM",
+        get_cloud_id=lambda: "cloud-123",
+        resolve_space_id=lambda _space_key, _cloud_id: 789,
+        html_to_markdown=lambda value: f"md:{value}",
+        timeout_seconds=1.0,
+    )
+
+    assert captured["input"] == {
+        "cloudId": "cloud-123",
+        "spaceId": "789",
+        "contentFormat": "markdown",
+        "title": "Release Plan",
+        "body": "md:<p>HTML body</p>",
+    }
+    assert result == {
+        "success": True,
+        "id": "456",
+        "title": "Release Plan",
+        "link": "https://example.atlassian.net/wiki/pages/viewpage.action?pageId=456",
+        "tool_used": "MCP Protocol",
+    }
+
+
+@pytest.mark.unit
+def test_create_confluence_page_via_direct_api_marks_success_and_duplicate_cases():
+    """Direct API helper should preserve success tagging and duplicate-page fallback behavior."""
+
+    class SuccessfulTool:
+        def create_page(self, *, title, content):
+            return {
+                "success": True,
+                "title": title,
+                "link": f"https://wiki/{title}",
+                "content": content,
+            }
+
+    class DuplicateTool:
+        def create_page(self, *, title, content):
+            raise RuntimeError(f'Page "{title}" already exists')
+
+    success_result = create_confluence_page_via_direct_api(
+        SuccessfulTool(),
+        page_title="Release Plan",
+        confluence_content="<p>HTML body</p>",
+    )
+    duplicate_result = create_confluence_page_via_direct_api(
+        DuplicateTool(),
+        page_title="Release Plan",
+        confluence_content="<p>HTML body</p>",
+    )
+
+    assert success_result["success"] is True
+    assert success_result["tool_used"] == "Direct API"
+    assert duplicate_result == {
+        "success": False,
+        "error": 'Page with title "Release Plan" already exists. The MCP tool may have created it successfully, but we could not verify.',
+        "tool_used": "Direct API (duplicate error)",
+    }

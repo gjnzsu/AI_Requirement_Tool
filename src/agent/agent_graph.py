@@ -49,18 +49,14 @@ from src.agent.coze_nodes import (
     resolve_coze_success_message,
 )
 from src.agent.confluence_nodes import (
-    build_confluence_mcp_args,
-    build_confluence_duplicate_result,
     build_confluence_error_message,
     build_confluence_rag_metadata,
     build_confluence_success_message,
+    create_confluence_page_via_direct_api,
     detect_confluence_error_code,
-    extract_confluence_tool_schema,
+    initialize_confluence_mcp_integration,
     is_confluence_tool_name,
-    is_rovo_confluence_tool,
-    normalize_mcp_confluence_result,
-    normalize_mcp_confluence_dict_result,
-    normalize_mcp_confluence_text_result,
+    invoke_mcp_confluence_tool,
     select_mcp_confluence_tool,
 )
 from src.agent.general_chat_nodes import (
@@ -1585,20 +1581,9 @@ class ChatbotAgent:
                 # Initialize MCP if needed (with timeout to prevent blocking)
                 if not self.mcp_integration._initialized:
                     logger.info("Initializing MCP integration for Confluence...")
-                    try:
-                        import asyncio
-                        import concurrent.futures
-                        # Initialize with timeout to prevent blocking
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(asyncio.run, self.mcp_integration.initialize())
-                            try:
-                                future.result(timeout=15.0)  # 15 second timeout for initialization
-                                logger.info("MCP integration initialized for Confluence")
-                            except concurrent.futures.TimeoutError:
-                                logger.warning("MCP initialization timeout (15s) for Confluence")
-                                use_mcp = False
-                    except Exception as e:
-                        logger.warning(f"MCP initialization failed: {e}")
+                    if initialize_confluence_mcp_integration(self.mcp_integration, timeout_seconds=15.0):
+                        logger.info("MCP integration initialized for Confluence")
+                    else:
                         use_mcp = False
                 
                 # Try to get MCP Confluence tool
@@ -1636,100 +1621,29 @@ class ChatbotAgent:
                             tool_used = "MCP Protocol"
                             
                             try:
-                                # Call MCP tool with timeout
-                                import asyncio
-                                import concurrent.futures
-                                
-                                tool_schema = extract_confluence_tool_schema(mcp_confluence_tool)
-                                is_rovo_tool = is_rovo_confluence_tool(mcp_confluence_tool.name)
-                                
-                                # Get cloudId early if this is a Rovo tool
-                                cloud_id = None
-                                if is_rovo_tool:
-                                    logger.info("Detected Rovo tool - retrieving cloudId...")
-                                    cloud_id = self._get_cloud_id()
-                                    if cloud_id:
-                                        logger.info(f"✓ cloudId successfully retrieved: {cloud_id}")
-                                    else:
-                                        logger.warning("✗ cloudId not available - tool call may fail")
-                                body_content = self._html_to_markdown(confluence_content)
-                                mcp_args = build_confluence_mcp_args(
-                                    tool_name=mcp_confluence_tool.name,
-                                    tool_schema=tool_schema,
+                                confluence_result = invoke_mcp_confluence_tool(
+                                    mcp_confluence_tool,
                                     page_title=page_title,
                                     confluence_content=confluence_content,
-                                    markdown_content=body_content,
+                                    confluence_url=Config.CONFLUENCE_URL,
                                     space_key=Config.CONFLUENCE_SPACE_KEY,
-                                    cloud_id=cloud_id,
+                                    get_cloud_id=self._get_cloud_id,
                                     resolve_space_id=self._get_space_id,
+                                    html_to_markdown=self._html_to_markdown,
+                                    timeout_seconds=60.0,
                                 )
-                                
-                                # Log the tool being used and arguments
-                                logger.debug(f"Tool Name: {mcp_confluence_tool.name}")
-                                if tool_schema:
-                                    logger.debug(f"Tool Schema: {list(mcp_args.keys())}")
-                                logger.debug(f"Arguments: {', '.join([f'{k}=' + (str(v)[:30] + '...' if len(str(v)) > 30 else str(v)) for k, v in list(mcp_args.items())[:3]])}")
-                                
-                                # Try calling MCP tool with timeout
-                                # StructuredTool.invoke expects input as keyword argument
-                                # Using input= explicitly to match BaseTool/StructuredTool signature
-                                logger.debug(f"Calling tool with arguments: {list(mcp_args.keys())}")
-                                logger.debug(f"Tool object type: {type(mcp_confluence_tool)}")
-                                logger.debug(f"Tool has invoke method: {hasattr(mcp_confluence_tool, 'invoke')}")
-                                
-                                with concurrent.futures.ThreadPoolExecutor() as executor:
-                                    try:
-                                        logger.debug("Submitting tool.invoke(...) to executor...")
-                                        # LangChain StructuredTool requires invoke(input={...}) with 'input' keyword
-                                        future = executor.submit(mcp_confluence_tool.invoke, input=mcp_args)
-                                        logger.debug("Waiting for tool result (timeout: 60s)...")
-                                        mcp_result = future.result(timeout=60.0)  # 60 second timeout for Confluence operations
-                                        logger.debug(f"Tool call completed, result type: {type(mcp_result)}")
-                                        
-                                        # Log raw result for debugging
-                                        logger.debug(f"MCP tool raw result type: {type(mcp_result)}")
-                                        if isinstance(mcp_result, str):
-                                            logger.debug(f"MCP tool raw result (full length: {len(mcp_result)} chars)")
-                                            logger.debug(f"First 1000 chars: {mcp_result[:1000]}")
-                                            if len(mcp_result) > 1000:
-                                                logger.debug(f"... (truncated, total {len(mcp_result)} chars)")
-                                        elif isinstance(mcp_result, dict):
-                                            logger.debug(f"MCP tool raw result keys: {list(mcp_result.keys())}")
-                                            logger.debug(f"MCP tool raw result: {mcp_result}")
-                                        else:
-                                            logger.debug(f"MCP tool raw result: {repr(mcp_result)[:500]}")
-                                        
-                                        # Parse MCP result
-                                        if mcp_result is None:
-                                            # Timeout or no result - skip processing, will fall back to direct API
-                                            logger.debug("MCP result is None, skipping processing")
-                                            tool_used = None
-                                            use_mcp = False
-                                        else:
-                                            try:
-                                                confluence_result = normalize_mcp_confluence_result(
-                                                    mcp_result,
-                                                    page_title=page_title,
-                                                    confluence_url=Config.CONFLUENCE_URL,
-                                                )
-                                                logger.info(
-                                                    "Confluence page created successfully via MCP Protocol (ID: %s)",
-                                                    confluence_result.get('id'),
-                                                )
-                                                if confluence_result.get('link'):
-                                                    logger.debug(f"Extracted page URL: {confluence_result.get('link')}")
-                                            except ValueError as parse_error:
-                                                logger.debug(f"Raw MCP result that failed normalization: {repr(mcp_result)[:500]}")
-                                                raise Exception(str(parse_error))
-                                    
-                                    except concurrent.futures.TimeoutError:
-                                        logger.warning("MCP Protocol timeout after 60 seconds, falling back to direct API")
-                                        tool_used = None  # Will trigger fallback
-                                        # Don't raise exception - allow fallback to direct API
-                                        mcp_result = None
-                                        use_mcp = False  # Skip MCP processing, go to fallback
-                                    
-                            except (asyncio.TimeoutError, Exception) as e:
+
+                                if confluence_result is None:
+                                    tool_used = None
+                                    use_mcp = False
+                                else:
+                                    logger.info(
+                                        "Confluence page created successfully via MCP Protocol (ID: %s)",
+                                        confluence_result.get('id'),
+                                    )
+                                    if confluence_result.get('link'):
+                                        logger.debug(f"Extracted page URL: {confluence_result.get('link')}")
+                            except Exception as e:
                                 # Enhanced error logging
                                 error_type = type(e).__name__
                                 error_str = str(e) if str(e) else repr(e)
@@ -1758,23 +1672,11 @@ class ChatbotAgent:
                     logger.debug("MCP not enabled, using direct API")
                 logger.info("Creating Confluence page via direct API call...")
                 tool_used = "Direct API"
-                try:
-                    confluence_result = self.confluence_tool.create_page(
-                        title=page_title,
-                        content=confluence_content
-                    )
-                    if confluence_result.get('success'):
-                        confluence_result['tool_used'] = 'Direct API'
-                except Exception as direct_api_error:
-                    error_str = str(direct_api_error)
-                    # Check if error indicates page already exists (MCP might have succeeded)
-                    if 'already exists' in error_str.lower() or 'duplicate' in error_str.lower() or 'same title' in error_str.lower():
-                        logger.warning("Direct API error indicates page may already exist (MCP tool may have succeeded)")
-                        logger.debug(f"Error: {error_str[:200]}")
-                        confluence_result = build_confluence_duplicate_result(page_title)
-                    else:
-                        # Re-raise other errors
-                        raise
+                confluence_result = create_confluence_page_via_direct_api(
+                    self.confluence_tool,
+                    page_title=page_title,
+                    confluence_content=confluence_content,
+                )
             
             # Handle result
             if confluence_result and confluence_result.get('success'):
