@@ -319,6 +319,26 @@ def build_confluence_rag_metadata(
     }
 
 
+def build_confluence_success_outcome(
+    *,
+    confluence_result: Dict[str, Any],
+    tool_used: Optional[str],
+    page_title: str,
+    issue_key: str,
+    created_at: str,
+) -> Dict[str, Any]:
+    """Build the stable success payload consumed by the Confluence agent node."""
+    return {
+        "message": build_confluence_success_message(confluence_result, tool_used),
+        "metadata": build_confluence_rag_metadata(
+            page_title=page_title,
+            issue_key=issue_key,
+            confluence_result=confluence_result,
+            created_at=created_at,
+        ),
+    }
+
+
 def detect_confluence_error_code(error_text: str) -> Optional[str]:
     """Map exception/error text to the existing Confluence error-code categories."""
     normalized_error = error_text or ""
@@ -439,6 +459,45 @@ def build_confluence_error_message(
         f"**Good news:** Your Jira issue was created successfully! ✅\n"
         f"You can create the Confluence page manually if needed."
     )
+
+
+def build_confluence_failure_outcome(
+    *,
+    confluence_result: Optional[Dict[str, Any]],
+    tool_used: Optional[str],
+    space_key: str,
+) -> Dict[str, Any]:
+    """Build the stable failure payload consumed by the Confluence agent node."""
+    error_code = confluence_result.get("error_code", "UNKNOWN") if confluence_result else None
+    error_msg = confluence_result.get("error", "Unknown error") if confluence_result else "No tool available"
+    return {
+        "error": error_msg,
+        "error_code": error_code,
+        "message": build_confluence_error_message(
+            error_code=error_code,
+            tool_used=tool_used,
+            space_key=space_key,
+        ),
+    }
+
+
+def build_confluence_exception_outcome(
+    *,
+    error_text: str,
+    tool_used: Optional[str],
+    space_key: str,
+) -> Dict[str, Any]:
+    """Build the stable exception payload consumed by the Confluence agent node."""
+    error_code = detect_confluence_error_code(error_text) or "UNKNOWN_ERROR"
+    return {
+        "error": error_text,
+        "error_code": error_code,
+        "message": build_confluence_error_message(
+            error_code=error_code,
+            tool_used=tool_used,
+            space_key=space_key,
+        ),
+    }
 
 
 def initialize_confluence_mcp_integration(

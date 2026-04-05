@@ -3,11 +3,14 @@
 import pytest
 
 from src.agent.confluence_nodes import (
+    build_confluence_exception_outcome,
+    build_confluence_failure_outcome,
     build_confluence_mcp_args,
     build_confluence_duplicate_result,
     build_confluence_error_message,
     build_confluence_page_link,
     build_confluence_rag_metadata,
+    build_confluence_success_outcome,
     build_confluence_success_message,
     create_confluence_page_via_direct_api,
     detect_confluence_error_code,
@@ -130,6 +133,44 @@ def test_build_confluence_messages_and_metadata_preserve_existing_copy():
         "created_at": "2026-04-05T10:11:12",
     }
     assert "Confluence page creation failed (MCP Protocol)" in timeout_message
+
+
+@pytest.mark.unit
+def test_build_confluence_success_and_failure_outcomes_keep_agent_payloads_stable():
+    """Outcome helpers should return the exact message/metadata shape the agent needs."""
+    success = build_confluence_success_outcome(
+        confluence_result={"success": True, "id": "456", "title": "Release Plan", "link": "https://wiki/page"},
+        tool_used="Direct API",
+        page_title="Release Plan",
+        issue_key="PROJ-123",
+        created_at="2026-04-05T10:11:12",
+    )
+    failure = build_confluence_failure_outcome(
+        confluence_result={"success": False, "error": "request timeout", "error_code": "TIMEOUT"},
+        tool_used="MCP Protocol",
+        space_key="TEAM",
+    )
+    exception = build_confluence_exception_outcome(
+        error_text="401 unauthorized",
+        tool_used="Direct API",
+        space_key="TEAM",
+    )
+
+    assert "Confluence Page Created (via Direct API)" in success["message"]
+    assert "Title: Release Plan" in success["message"]
+    assert "Link: https://wiki/page" in success["message"]
+    assert success["metadata"] == {
+        "type": "confluence_page",
+        "title": "Release Plan",
+        "related_jira": "PROJ-123",
+        "link": "https://wiki/page",
+        "page_id": "456",
+        "created_at": "2026-04-05T10:11:12",
+    }
+    assert failure["error_code"] == "TIMEOUT"
+    assert "Confluence page creation failed (MCP Protocol)" in failure["message"]
+    assert exception["error_code"] == "AUTH_ERROR"
+    assert "Confluence page creation failed (Direct API)" in exception["message"]
 
 
 @pytest.mark.unit

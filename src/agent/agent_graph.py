@@ -49,11 +49,10 @@ from src.agent.coze_nodes import (
     resolve_coze_success_message,
 )
 from src.agent.confluence_nodes import (
-    build_confluence_error_message,
-    build_confluence_rag_metadata,
-    build_confluence_success_message,
+    build_confluence_exception_outcome,
+    build_confluence_failure_outcome,
+    build_confluence_success_outcome,
     create_confluence_page_via_direct_api,
-    detect_confluence_error_code,
     initialize_confluence_mcp_integration,
     is_confluence_tool_name,
     invoke_mcp_confluence_tool,
@@ -1680,21 +1679,23 @@ class ChatbotAgent:
             
             # Handle result
             if confluence_result and confluence_result.get('success'):
+                import datetime as dt
+
+                success_outcome = build_confluence_success_outcome(
+                    confluence_result=confluence_result,
+                    tool_used=tool_used,
+                    page_title=page_title,
+                    issue_key=issue_key,
+                    created_at=dt.datetime.now().isoformat(),
+                )
                 state["confluence_result"] = confluence_result
                 state["messages"].append(AIMessage(
-                    content=build_confluence_success_message(confluence_result, tool_used)
+                    content=success_outcome["message"]
                 ))
                 logger.info(f"Confluence page created: {confluence_result['link']}")
                 
                 # Ingest simplified Confluence content into RAG knowledge base
                 # Use compact text version to reduce embedding API calls (1-2 chunks vs 5-10+)
-                import datetime as dt
-                confluence_metadata = build_confluence_rag_metadata(
-                    page_title=page_title,
-                    issue_key=issue_key,
-                    confluence_result=confluence_result,
-                    created_at=dt.datetime.now().isoformat(),
-                )
                 # Create simplified content for RAG (reduces from ~4000 chars to ~800 chars)
                 simplified_content = self._simplify_for_rag(
                     issue_key=issue_key,
@@ -1702,28 +1703,29 @@ class ChatbotAgent:
                     evaluation=evaluation_result if evaluation_result else {},
                     confluence_link=confluence_result.get('link', '')
                 )
-                self._ingest_to_rag(simplified_content, confluence_metadata)
+                self._ingest_to_rag(simplified_content, success_outcome["metadata"])
             else:
-                error_msg = confluence_result.get('error', 'Unknown error') if confluence_result else 'No tool available'
-                error_code = confluence_result.get('error_code', 'UNKNOWN') if confluence_result else None
+                failure_outcome = build_confluence_failure_outcome(
+                    confluence_result=confluence_result,
+                    tool_used=tool_used,
+                    space_key=getattr(Config, 'CONFLUENCE_SPACE_KEY', 'the configured space'),
+                )
                 
-                # Create user-friendly error message based on error code
-                user_friendly_msg = self._format_confluence_error_message(error_msg, error_code, tool_used)
-                
-                state["messages"].append(AIMessage(content=user_friendly_msg))
-                logger.error(f"Confluence page creation failed: {error_msg} (code: {error_code})")
+                state["messages"].append(AIMessage(content=failure_outcome["message"]))
+                logger.error(
+                    "Confluence page creation failed: %s (code: %s)",
+                    failure_outcome["error"],
+                    failure_outcome["error_code"],
+                )
                 
         except Exception as e:
-            error_str = str(e)
-            error_code = detect_confluence_error_code(error_str)
-            
-            user_friendly_msg = self._format_confluence_error_message(
-                f"An unexpected error occurred: {error_str[:100]}",
-                error_code or 'UNKNOWN_ERROR',
-                tool_used
+            exception_outcome = build_confluence_exception_outcome(
+                error_text=str(e),
+                tool_used=tool_used,
+                space_key=getattr(Config, 'CONFLUENCE_SPACE_KEY', 'the configured space'),
             )
             
-            state["messages"].append(AIMessage(content=user_friendly_msg))
+            state["messages"].append(AIMessage(content=exception_outcome["message"]))
             logger.error(f"Error creating Confluence page: {e}")
             logger.debug("Exception details:", exc_info=True)
         
@@ -2010,25 +2012,6 @@ class ChatbotAgent:
         parts.append(f"Keywords: confluence page, {issue_key}, requirements, documentation")
         
         return "\n".join(parts)
-    
-    def _format_confluence_error_message(self, error_msg: str, error_code: Optional[str] = None, tool_used: Optional[str] = None) -> str:
-        """
-        Format a user-friendly error message for Confluence page creation failures.
-        
-        Args:
-            error_msg: Raw error message
-            error_code: Error code (e.g., 'CONNECTION_RESET', 'AUTH_ERROR')
-            tool_used: Which tool was used ('MCP Protocol', 'Direct API', etc.)
-            
-        Returns:
-            User-friendly error message
-        """
-        space_key = getattr(Config, 'CONFLUENCE_SPACE_KEY', 'the configured space')
-        return build_confluence_error_message(
-            error_code=error_code,
-            tool_used=tool_used,
-            space_key=space_key,
-        )
     
     def get_monitoring_stats(self) -> Dict[str, Any]:
         """
