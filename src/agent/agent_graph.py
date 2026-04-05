@@ -48,6 +48,15 @@ from src.agent.coze_nodes import (
     extract_previous_coze_conversation_id,
     resolve_coze_success_message,
 )
+from src.agent.confluence_nodes import (
+    build_confluence_duplicate_result,
+    build_confluence_error_message,
+    build_confluence_rag_metadata,
+    build_confluence_success_message,
+    detect_confluence_error_code,
+    normalize_mcp_confluence_dict_result,
+    normalize_mcp_confluence_text_result,
+)
 from src.agent.general_chat_nodes import (
     build_confluence_page_context,
     build_general_chat_error_message,
@@ -1977,67 +1986,21 @@ class ChatbotAgent:
                                                 # If not JSON, check if it contains success indicators or page info
                                                 logger.debug(f"JSON decode error: {json_err}")
                                                 logger.debug("Attempting to parse as plain text response")
-                                                
-                                                # Check for explicit error indicators first
-                                                # MCPToolWrapper returns "Error: ..." for errors
-                                                if cleaned_result.strip().startswith('Error:'):
-                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                    raise Exception(f"MCP tool returned error: {error_msg}")
-                                                
-                                                # Check for other error indicators
-                                                error_keywords = ['failed', 'invalid', 'unauthorized', 'forbidden', 'not found', '404', '500']
-                                                has_error = any(keyword in cleaned_result.lower() for keyword in error_keywords)
-                                                
-                                                if has_error and 'success' not in cleaned_result.lower() and 'created' not in cleaned_result.lower():
-                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                    raise Exception(f"MCP tool returned error message: {error_msg}")
-                                                
-                                                # If not an error, try to extract success information
-                                                # Try to extract page ID from the text
-                                                page_id_match = re.search(r'(?:page[_\s]?id|pageId|id)[\s:=]+(\d+)', cleaned_result, re.IGNORECASE)
-                                                page_id = page_id_match.group(1) if page_id_match else None
-                                                
-                                                # Try to extract URL (common in Confluence responses)
-                                                url_match = re.search(r'https?://[^\s\)]+', cleaned_result)
-                                                page_url = url_match.group(0) if url_match else None
-                                                
-                                                # If we have success indicators, page ID, or URL, treat as success
-                                                # Also, if the tool completed without error (no "Error:" prefix), 
-                                                # and it's not an obvious error, assume success
-                                                has_success_indicators = (
-                                                    'created' in cleaned_result.lower() or 
-                                                    'success' in cleaned_result.lower() or
-                                                    page_id or
-                                                    page_url or
-                                                    'confluence' in cleaned_result.lower()
-                                                )
-                                                
-                                                if has_success_indicators or (not has_error and len(cleaned_result.strip()) > 0):
-                                                    # Success - create result dict
-                                                    # Construct proper Confluence Cloud URL with /wiki prefix
-                                                    fallback_link = None
-                                                    if not page_url and page_id:
-                                                        fallback_base = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                        fallback_link = f"{fallback_base}/wiki/pages/viewpage.action?pageId={page_id}"
-                                                    
-                                                    confluence_result = {
-                                                        'success': True,
-                                                        'id': page_id,
-                                                        'title': page_title,
-                                                        'link': page_url or fallback_link or f"{Config.CONFLUENCE_URL}/wiki/pages/viewpage.action?pageId={page_id or 'unknown'}",
-                                                        'tool_used': 'MCP Protocol'
-                                                    }
+                                                try:
+                                                    confluence_result = normalize_mcp_confluence_text_result(
+                                                        cleaned_result,
+                                                        page_title=page_title,
+                                                        confluence_url=Config.CONFLUENCE_URL,
+                                                    )
                                                     logger.info("Confluence page created successfully via MCP Protocol (parsed from text)")
-                                                    if page_id:
-                                                        logger.debug(f"Extracted page ID: {page_id}")
-                                                    if page_url:
-                                                        logger.debug(f"Extracted page URL: {page_url}")
+                                                    if confluence_result.get('id'):
+                                                        logger.debug(f"Extracted page ID: {confluence_result.get('id')}")
+                                                    if confluence_result.get('link'):
+                                                        logger.debug(f"Extracted page URL: {confluence_result.get('link')}")
                                                     mcp_data = None  # Skip dict processing, we already have result
                                                     tool_used = "MCP Protocol"  # Ensure tool_used is set
-                                                else:
-                                                    # Check if it's an error message
-                                                    error_msg = cleaned_result[:500] if len(cleaned_result) > 500 else cleaned_result
-                                                    raise Exception(f"MCP tool returned non-JSON format (possibly an error): {error_msg}")
+                                                except ValueError as parse_error:
+                                                    raise Exception(str(parse_error))
                                         elif isinstance(mcp_result, dict):
                                             mcp_data = mcp_result
                                             # Additional check: if dict has success=False but error is boolean
@@ -2054,108 +2017,28 @@ class ChatbotAgent:
                                         
                                         # Process mcp_data if we have it (skip if we already created confluence_result from text)
                                         if mcp_data is not None and isinstance(mcp_data, dict):
-                                            # Rovo MCP Server returns page object directly (no 'success' flag)
-                                            # Check for presence of 'id' field (which indicates successful creation)
-                                            # Also check for explicit success flag (for custom MCP servers)
-                                            has_success_flag = mcp_data.get('success', False)
-                                            
-                                            # Check for page ID in multiple possible locations
-                                            has_page_id = bool(
-                                                mcp_data.get('id') or 
-                                                mcp_data.get('page_id') or 
-                                                mcp_data.get('pageId') or
-                                                # Also check nested structures (version object might have id)
-                                                (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else False)
-                                            )
-                                            
-                                            # Log what we found for debugging
-                                            if has_page_id:
-                                                page_id_locations = []
-                                                if mcp_data.get('id'):
-                                                    page_id_locations.append(f"root.id={mcp_data.get('id')}")
-                                                if mcp_data.get('page_id'):
-                                                    page_id_locations.append(f"root.page_id={mcp_data.get('page_id')}")
-                                                if mcp_data.get('pageId'):
-                                                    page_id_locations.append(f"root.pageId={mcp_data.get('pageId')}")
-                                                if isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'):
-                                                    page_id_locations.append(f"version.id={mcp_data.get('version', {}).get('id')}")
-                                                logger.debug(f"Found page ID indicators: {', '.join(page_id_locations)}")
-                                            
-                                            if has_success_flag or has_page_id:
-                                                # Extract page ID from various possible fields
-                                                # Prioritize root-level 'id' field (Rovo format)
-                                                page_id = (
-                                                    mcp_data.get('id') or 
-                                                    mcp_data.get('page_id') or 
-                                                    mcp_data.get('pageId') or
-                                                    # Extract from _links if available
-                                                    (mcp_data.get('_links', {}).get('webui', '').split('pageId=')[-1].split('&')[0] 
-                                                     if mcp_data.get('_links', {}).get('webui') else None) or
-                                                    # Last resort: check nested version object
-                                                    (mcp_data.get('version', {}).get('id') if isinstance(mcp_data.get('version'), dict) else None)
+                                            if (
+                                                mcp_data.get('id')
+                                                or mcp_data.get('page_id')
+                                                or mcp_data.get('pageId')
+                                                or (isinstance(mcp_data.get('version'), dict) and mcp_data.get('version', {}).get('id'))
+                                            ):
+                                                logger.debug(f"Found page ID indicators in MCP response: {mcp_data}")
+
+                                            try:
+                                                confluence_result = normalize_mcp_confluence_dict_result(
+                                                    mcp_data,
+                                                    page_title=page_title,
+                                                    confluence_url=Config.CONFLUENCE_URL,
                                                 )
-                                                
-                                                # Convert to string if it's a number
-                                                if page_id:
-                                                    page_id = str(page_id)
-                                                    logger.debug(f"Extracted page ID: {page_id} (type: {type(page_id).__name__})")
-                                                
-                                                # Extract link from various possible fields
-                                                page_link = None
-                                                if mcp_data.get('link'):
-                                                    page_link = mcp_data.get('link')
-                                                elif mcp_data.get('_links', {}).get('webui'):
-                                                    webui_path = mcp_data.get('_links', {}).get('webui')
-                                                    if webui_path.startswith('http'):
-                                                        page_link = webui_path
-                                                    else:
-                                                        # Confluence Cloud URLs require /wiki prefix
-                                                        base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                        page_link = f"{base_url}/wiki{webui_path}"
-                                                elif page_id:
-                                                    # Construct proper Confluence Cloud URL with /wiki prefix
-                                                    base_url = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                    page_link = f"{base_url}/wiki/pages/viewpage.action?pageId={page_id}"
-                                                
-                                                # Construct fallback URL with /wiki prefix if page_link not set
-                                                if not page_link and page_id:
-                                                    fallback_base = Config.CONFLUENCE_URL.split('/wiki')[0].rstrip('/')
-                                                    page_link = f"{fallback_base}/wiki/pages/viewpage.action?pageId={page_id}"
-                                                
-                                                confluence_result = {
-                                                    'success': True,
-                                                    'id': page_id,
-                                                    'title': mcp_data.get('title', page_title),
-                                                    'link': page_link or f"{Config.CONFLUENCE_URL}/wiki/pages/viewpage.action?pageId={page_id or 'unknown'}",
-                                                    'tool_used': 'MCP Protocol'
-                                                }
-                                                logger.info(f"Confluence page created successfully via MCP Protocol (ID: {page_id})")
-                                            else:
-                                                # Extract detailed error information
-                                                # Handle case where error might be boolean or other types
-                                                error_raw = mcp_data.get('error', 'Unknown MCP error')
-                                                error_msg = str(error_raw) if not isinstance(error_raw, bool) else f"Error flag: {error_raw}"
-                                                error_detail = str(mcp_data.get('error_detail', ''))
-                                                error_type = str(mcp_data.get('error_type', ''))
-                                                
-                                                # Log full mcp_data for debugging
+                                                logger.info(
+                                                    "Confluence page created successfully via MCP Protocol (ID: %s)",
+                                                    confluence_result.get('id'),
+                                                )
+                                                logger.debug(f"Extracted page ID: {confluence_result.get('id')}")
+                                            except ValueError as parse_error:
                                                 logger.debug(f"Full mcp_data response: {mcp_data}")
-                                                
-                                                # Build comprehensive error message
-                                                error_parts = []
-                                                if error_type and error_type != '':
-                                                    error_parts.append(f"Type: {error_type}")
-                                                if error_detail and error_detail != '':
-                                                    error_parts.append(f"Detail: {error_detail}")
-                                                if error_msg and error_msg != 'Unknown MCP error':
-                                                    error_parts.append(f"Error: {error_msg}")
-                                                
-                                                # If no clear error message, include the full response
-                                                if not error_parts:
-                                                    error_parts.append(f"Full response: {mcp_data}")
-                                                
-                                                full_error = '; '.join(error_parts) if error_parts else f"Unknown error (mcp_data: {mcp_data})"
-                                                raise Exception(f"MCP tool error: {full_error}")
+                                                raise Exception(str(parse_error))
                                     
                                     except concurrent.futures.TimeoutError:
                                         logger.warning("MCP Protocol timeout after 60 seconds, falling back to direct API")
@@ -2206,12 +2089,7 @@ class ChatbotAgent:
                     if 'already exists' in error_str.lower() or 'duplicate' in error_str.lower() or 'same title' in error_str.lower():
                         logger.warning("Direct API error indicates page may already exist (MCP tool may have succeeded)")
                         logger.debug(f"Error: {error_str[:200]}")
-                        # Set a failure result but with a helpful message
-                        confluence_result = {
-                            'success': False,
-                            'error': f'Page with title "{page_title}" already exists. The MCP tool may have created it successfully, but we could not verify.',
-                            'tool_used': 'Direct API (duplicate error)'
-                        }
+                        confluence_result = build_confluence_duplicate_result(page_title)
                     else:
                         # Re-raise other errors
                         raise
@@ -2219,25 +2097,20 @@ class ChatbotAgent:
             # Handle result
             if confluence_result and confluence_result.get('success'):
                 state["confluence_result"] = confluence_result
-                tool_info = f" (via {tool_used})" if tool_used else ""
                 state["messages"].append(AIMessage(
-                    content=f"📄 **Confluence Page Created{tool_info}:**\n"
-                           f"Title: {confluence_result['title']}\n"
-                           f"Link: {confluence_result['link']}"
+                    content=build_confluence_success_message(confluence_result, tool_used)
                 ))
                 logger.info(f"Confluence page created: {confluence_result['link']}")
                 
                 # Ingest simplified Confluence content into RAG knowledge base
                 # Use compact text version to reduce embedding API calls (1-2 chunks vs 5-10+)
                 import datetime as dt
-                confluence_metadata = {
-                    'type': 'confluence_page',
-                    'title': page_title,
-                    'related_jira': issue_key,
-                    'link': confluence_result.get('link', ''),
-                    'page_id': confluence_result.get('id', ''),
-                    'created_at': dt.datetime.now().isoformat()
-                }
+                confluence_metadata = build_confluence_rag_metadata(
+                    page_title=page_title,
+                    issue_key=issue_key,
+                    confluence_result=confluence_result,
+                    created_at=dt.datetime.now().isoformat(),
+                )
                 # Create simplified content for RAG (reduces from ~4000 chars to ~800 chars)
                 simplified_content = self._simplify_for_rag(
                     issue_key=issue_key,
@@ -2258,19 +2131,7 @@ class ChatbotAgent:
                 
         except Exception as e:
             error_str = str(e)
-            error_code = None
-            
-            # Detect error type from exception
-            if 'ConnectionResetError' in error_str or '10054' in error_str or 'connection reset' in error_str.lower():
-                error_code = 'CONNECTION_RESET'
-            elif 'Connection aborted' in error_str or 'connection aborted' in error_str.lower():
-                error_code = 'CONNECTION_ABORTED'
-            elif 'timeout' in error_str.lower():
-                error_code = 'TIMEOUT'
-            elif '401' in error_str or 'unauthorized' in error_str.lower():
-                error_code = 'AUTH_ERROR'
-            elif '403' in error_str or 'forbidden' in error_str.lower():
-                error_code = 'PERMISSION_ERROR'
+            error_code = detect_confluence_error_code(error_str)
             
             user_friendly_msg = self._format_confluence_error_message(
                 f"An unexpected error occurred: {error_str[:100]}",
@@ -2578,109 +2439,12 @@ class ChatbotAgent:
         Returns:
             User-friendly error message
         """
-        tool_info = f" ({tool_used})" if tool_used else ""
-        
-        # Map error codes to user-friendly messages
-        error_messages = {
-            'CONNECTION_RESET': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "The connection to Confluence was reset by the server. This usually happens when:\n"
-                "- The Confluence server is experiencing high load\n"
-                "- There are network connectivity issues\n"
-                "- The connection timed out\n\n"
-                "**What you can do:**\n"
-                "- ✅ Your Jira issue was created successfully\n"
-                "- ✅ You can manually create the Confluence page later\n"
-                "- ✅ Try again in a few minutes if needed\n"
-            ),
-            'CONNECTION_ABORTED': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "The connection to Confluence was interrupted. This may be due to:\n"
-                "- Network connectivity issues\n"
-                "- Firewall or proxy settings blocking the connection\n"
-                "- Confluence server temporarily unavailable\n\n"
-                "**What you can do:**\n"
-                "- ✅ Your Jira issue was created successfully\n"
-                "- ✅ Check your network connection\n"
-                "- ✅ Try creating the page manually in Confluence\n"
-            ),
-            'TIMEOUT': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "The request to Confluence timed out. The server may be slow or overloaded.\n\n"
-                "**What you can do:**\n"
-                "- ✅ Your Jira issue was created successfully\n"
-                "- ✅ Try again later when the server is less busy\n"
-                "- ✅ Create the Confluence page manually if urgent\n"
-            ),
-            'AUTH_ERROR': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "Authentication failed. Please check:\n"
-                "- ✅ Your Confluence credentials (JIRA_EMAIL and JIRA_API_TOKEN)\n"
-                "- ✅ That your API token is valid and not expired\n"
-                "- ✅ That your account has access to the Confluence space\n\n"
-                "**Note:** Your Jira issue was created successfully."
-            ),
-            'PERMISSION_ERROR': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "Permission denied. Your account doesn't have permission to create pages in this space.\n\n"
-                "**Please check:**\n"
-                "- ✅ Your API token has write permissions for Confluence\n"
-                "- ✅ Your account has access to the space: {space_key}\n"
-                "- ✅ Contact your Confluence administrator if needed\n\n"
-                "**Note:** Your Jira issue was created successfully."
-            ),
-            'SPACE_NOT_FOUND': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "The Confluence space was not found. Please verify:\n"
-                "- ✅ CONFLUENCE_SPACE_KEY is set correctly in your .env file\n"
-                "- ✅ The space key exists in your Confluence instance\n"
-                "- ✅ Your account has access to this space\n\n"
-                "**Note:** Your Jira issue was created successfully."
-            ),
-            'CONNECTION_ERROR': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "Unable to connect to Confluence server. Please check:\n"
-                "- ✅ CONFLUENCE_URL is correct in your .env file\n"
-                "- ✅ Your network connection is working\n"
-                "- ✅ Confluence server is accessible\n\n"
-                "**What you can do:**\n"
-                "- ✅ Your Jira issue was created successfully\n"
-                "- ✅ Try again later or create the page manually\n"
-            ),
-            'NETWORK_ERROR': (
-                "⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                "A network error occurred while connecting to Confluence.\n\n"
-                "**What you can do:**\n"
-                "- ✅ Your Jira issue was created successfully\n"
-                "- ✅ Check your network connection\n"
-                "- ✅ Try again in a few moments\n"
-            )
-        }
-        
-        # Get space key for error message
         space_key = getattr(Config, 'CONFLUENCE_SPACE_KEY', 'the configured space')
-        
-        # Use specific error message if available, otherwise use generic
-        if error_code and error_code in error_messages:
-            base_msg = error_messages[error_code]
-            return base_msg.format(tool_info=tool_info, space_key=space_key)
-        else:
-            # Generic error message
-            return (
-                f"⚠ **Confluence page creation failed{tool_info}:**\n\n"
-                f"The system attempted to create the Confluence page but encountered an issue.\n\n"
-                f"**What happened:**\n"
-                f"- Tried to use MCP protocol first\n"
-                f"- Fell back to direct API call\n"
-                f"- Both methods encountered issues\n\n"
-                f"**Please check:**\n"
-                f"- ✅ CONFLUENCE_URL and CONFLUENCE_SPACE_KEY in .env file\n"
-                f"- ✅ API token has Confluence write permissions\n"
-                f"- ✅ Network connectivity to Confluence\n"
-                f"- ✅ Confluence server is accessible\n\n"
-                f"**Good news:** Your Jira issue was created successfully! ✅\n"
-                f"You can create the Confluence page manually if needed."
-            )
+        return build_confluence_error_message(
+            error_code=error_code,
+            tool_used=tool_used,
+            space_key=space_key,
+        )
     
     def get_monitoring_stats(self) -> Dict[str, Any]:
         """
