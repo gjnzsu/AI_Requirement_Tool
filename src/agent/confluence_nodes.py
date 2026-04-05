@@ -3,7 +3,101 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
+
+
+CONFLUENCE_TOOL_NAME_PATTERNS = [
+    "createConfluencePage",
+    "getConfluencePage",
+    "updateConfluencePage",
+    "getConfluenceSpaces",
+    "getPagesInConfluenceSpace",
+    "getConfluencePageAncestors",
+    "getConfluencePageDescendants",
+    "createConfluenceFooterComment",
+    "createConfluenceInlineComment",
+    "getConfluencePageFooterComments",
+    "getConfluencePageInlineComments",
+    "searchConfluenceUsingCql",
+    "create_confluence_page",
+    "confluence_create_page",
+    "create_page",
+    "confluence_page_create",
+    "confluence_create",
+    "create_confluence",
+    "atlassian_confluence_create_page",
+    "atlassian_create_page",
+    "rovo_create_page",
+    "rovo_confluence_create",
+]
+
+
+def select_mcp_confluence_tool(mcp_integration: Any) -> Optional[Any]:
+    """Return the best available Confluence MCP tool, excluding Jira tools."""
+    for tool_name in CONFLUENCE_TOOL_NAME_PATTERNS:
+        tool = mcp_integration.get_tool(tool_name)
+        if tool and _looks_like_confluence_tool(tool.name):
+            return tool
+
+    for tool in mcp_integration.get_tools():
+        if _looks_like_confluence_tool(tool.name):
+            return tool
+
+    return None
+
+
+def is_rovo_confluence_tool(tool_name: str) -> bool:
+    """Return True when the tool name matches official camelCase Rovo Confluence tools."""
+    return any(char.isupper() for char in tool_name or "") and "Confluence" in (tool_name or "")
+
+
+def extract_confluence_tool_schema(tool: Any) -> Optional[Dict[str, Any]]:
+    """Extract a normalized input schema from a tool's private schema or args_schema model."""
+    if hasattr(tool, "_tool_schema") and tool._tool_schema:
+        return tool._tool_schema
+
+    if hasattr(tool, "args_schema") and tool.args_schema and hasattr(tool.args_schema, "model_fields"):
+        properties = {}
+        for field_name, field_info in tool.args_schema.model_fields.items():
+            properties[field_name] = {
+                "type": "string",
+                "description": field_info.description if hasattr(field_info, "description") else "",
+            }
+        return {"inputSchema": {"properties": properties}}
+
+    return None
+
+
+def build_confluence_mcp_args(
+    *,
+    tool_name: str,
+    tool_schema: Optional[Dict[str, Any]],
+    page_title: str,
+    confluence_content: str,
+    markdown_content: str,
+    space_key: str,
+    cloud_id: Optional[str],
+    resolve_space_id: Callable[[str, Optional[str]], Optional[Any]],
+) -> Dict[str, Any]:
+    """Build MCP tool arguments from schema metadata while preserving current fallback behavior."""
+    if tool_schema and "inputSchema" in tool_schema:
+        return _build_schema_driven_mcp_args(
+            tool_name=tool_name,
+            tool_schema=tool_schema,
+            page_title=page_title,
+            confluence_content=confluence_content,
+            markdown_content=markdown_content,
+            space_key=space_key,
+            cloud_id=cloud_id,
+            resolve_space_id=resolve_space_id,
+        )
+
+    return _build_fallback_mcp_args(
+        page_title=page_title,
+        confluence_content=confluence_content,
+        space_key=space_key,
+        cloud_id=cloud_id,
+    )
 
 
 def build_confluence_page_link(
@@ -297,3 +391,143 @@ def _extract_mcp_page_id(mcp_data: Dict[str, Any]) -> Optional[str]:
         or (mcp_data.get("version", {}).get("id") if isinstance(mcp_data.get("version"), dict) else None)
     )
     return str(page_id) if page_id else None
+
+
+def _build_schema_driven_mcp_args(
+    *,
+    tool_name: str,
+    tool_schema: Dict[str, Any],
+    page_title: str,
+    confluence_content: str,
+    markdown_content: str,
+    space_key: str,
+    cloud_id: Optional[str],
+    resolve_space_id: Callable[[str, Optional[str]], Optional[Any]],
+) -> Dict[str, Any]:
+    input_schema = tool_schema["inputSchema"]
+    properties = input_schema.get("properties", {})
+    required = input_schema.get("required", [])
+    mcp_args: Dict[str, Any] = {}
+
+    content_format_enum = None
+    content_format_param = None
+    for param_name, param_def in properties.items():
+        param_lower = param_name.lower()
+        if "contentformat" in param_lower or param_name == "contentFormat":
+            content_format_param = param_name
+            if "enum" in param_def:
+                content_format_enum = param_def["enum"]
+            elif "anyOf" in param_def:
+                for any_of_item in param_def["anyOf"]:
+                    if "enum" in any_of_item:
+                        content_format_enum = any_of_item["enum"]
+                        break
+            break
+
+    for param_name in properties.keys():
+        param_lower = param_name.lower()
+        if "cloudid" in param_lower or param_name == "cloudId":
+            if cloud_id:
+                mcp_args[param_name] = cloud_id
+        elif "contentformat" in param_lower or param_name == "contentFormat":
+            mcp_args[param_name] = content_format_enum[0] if content_format_enum else "markdown"
+        elif any(mapped in param_lower for mapped in ["title", "name", "pagetitle"]):
+            mcp_args[param_name] = page_title
+        elif any(mapped in param_lower for mapped in ["content", "body", "html", "text", "description"]):
+            content_format_value = mcp_args.get(content_format_param or "contentFormat", "")
+            mcp_args[param_name] = markdown_content if content_format_value == "markdown" else confluence_content
+        elif any(mapped in param_lower for mapped in ["space", "spacekey", "spaceid"]):
+            mcp_args[param_name] = _resolve_space_parameter(
+                param_name=param_name,
+                param_lower=param_lower,
+                space_key=space_key,
+                cloud_id=cloud_id,
+                resolve_space_id=resolve_space_id,
+            )
+
+    for req_param in required:
+        if req_param in mcp_args:
+            continue
+
+        req_lower = req_param.lower()
+        if "title" in req_lower or "name" in req_lower:
+            mcp_args[req_param] = page_title
+        elif "content" in req_lower or "body" in req_lower or "description" in req_lower:
+            content_format_value = mcp_args.get(content_format_param or "contentFormat", "")
+            mcp_args[req_param] = markdown_content if content_format_value == "markdown" else confluence_content
+        elif "space" in req_lower:
+            mcp_args[req_param] = _resolve_space_parameter(
+                param_name=req_param,
+                param_lower=req_lower,
+                space_key=space_key,
+                cloud_id=cloud_id,
+                resolve_space_id=resolve_space_id,
+            )
+        elif "cloudid" in req_lower or req_param == "cloudId":
+            if cloud_id:
+                mcp_args[req_param] = cloud_id
+        elif "contentformat" in req_lower or req_param == "contentFormat":
+            mcp_args[req_param] = "markdown"
+
+    return mcp_args
+
+
+def _build_fallback_mcp_args(
+    *,
+    page_title: str,
+    confluence_content: str,
+    space_key: str,
+    cloud_id: Optional[str],
+) -> Dict[str, Any]:
+    args = {
+        "title": page_title,
+        "content": confluence_content,
+        "space_key": space_key,
+        "spaceKey": space_key,
+        "space": space_key,
+        "spaceId": space_key,
+        "body": confluence_content,
+        "html": confluence_content,
+        "text": confluence_content,
+        "summary": page_title,
+        "description": confluence_content,
+        "contentFormat": "markdown",
+    }
+    if cloud_id:
+        args["cloudId"] = cloud_id
+    return args
+
+
+def _resolve_space_parameter(
+    *,
+    param_name: str,
+    param_lower: str,
+    space_key: str,
+    cloud_id: Optional[str],
+    resolve_space_id: Callable[[str, Optional[str]], Optional[Any]],
+) -> str:
+    if "spaceid" in param_lower or param_name == "spaceId":
+        space_id = resolve_space_id(space_key, cloud_id)
+        return str(space_id) if space_id else space_key
+    return space_key
+
+
+def _looks_like_confluence_tool(tool_name: str) -> bool:
+    tool_name_lower = (tool_name or "").lower()
+    if "jira" in tool_name_lower or "issue" in tool_name_lower:
+        return False
+
+    jira_keywords = ["ticket", "bug", "story", "task", "epic", "sprint"]
+    if any(keyword in tool_name_lower for keyword in jira_keywords) and "confluence" not in tool_name_lower:
+        return False
+
+    is_official_rovo = (
+        "Confluence" in (tool_name or "")
+        and any(keyword in (tool_name or "") for keyword in ["create", "get", "update", "search", "page", "space", "comment"])
+    )
+    is_confluence_tool = (
+        "confluence" in tool_name_lower
+        or ("rovo" in tool_name_lower and ("page" in tool_name_lower or "create" in tool_name_lower))
+        or ("page" in tool_name_lower and "create" in tool_name_lower and "jira" not in tool_name_lower)
+    )
+    return is_official_rovo or is_confluence_tool

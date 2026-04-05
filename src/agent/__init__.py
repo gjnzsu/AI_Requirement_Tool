@@ -12,14 +12,18 @@ from .coze_nodes import (
     resolve_coze_success_message,
 )
 from .confluence_nodes import (
+    build_confluence_mcp_args,
     build_confluence_duplicate_result,
     build_confluence_error_message,
     build_confluence_page_link,
     build_confluence_rag_metadata,
     build_confluence_success_message,
     detect_confluence_error_code,
+    extract_confluence_tool_schema,
+    is_rovo_confluence_tool,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
+    select_mcp_confluence_tool,
 )
 from .general_chat_nodes import (
     build_confluence_page_context,
@@ -55,6 +59,7 @@ __all__ = [
     'build_coze_exception_message',
     'build_coze_failure_message',
     'build_coze_timeout_result',
+    'build_confluence_mcp_args',
     'build_confluence_duplicate_result',
     'build_confluence_error_message',
     'build_confluence_page_link',
@@ -72,16 +77,19 @@ __all__ = [
     'build_rag_prompt',
     'detect_keyword_intent',
     'extract_chunk_contents',
+    'extract_confluence_tool_schema',
     'detect_confluence_error_code',
     'extract_jira_key',
     'extract_previous_coze_conversation_id',
     'format_confluence_content',
+    'is_rovo_confluence_tool',
     'load_direct_jira_context',
     'normalize_mcp_confluence_dict_result',
     'normalize_mcp_confluence_text_result',
     'normalize_mcp_jira_result',
     'parse_confluence_page_reference',
     'resolve_coze_success_message',
+    'select_mcp_confluence_tool',
     'select_mcp_jira_tool',
 ]
 

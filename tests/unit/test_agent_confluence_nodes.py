@@ -3,14 +3,18 @@
 import pytest
 
 from src.agent.confluence_nodes import (
+    build_confluence_mcp_args,
     build_confluence_duplicate_result,
     build_confluence_error_message,
     build_confluence_page_link,
     build_confluence_rag_metadata,
     build_confluence_success_message,
     detect_confluence_error_code,
+    extract_confluence_tool_schema,
+    is_rovo_confluence_tool,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
+    select_mcp_confluence_tool,
 )
 
 
@@ -132,3 +136,120 @@ def test_detect_confluence_error_code_maps_known_error_patterns():
     assert detect_confluence_error_code("401 unauthorized") == "AUTH_ERROR"
     assert detect_confluence_error_code("403 forbidden") == "PERMISSION_ERROR"
     assert detect_confluence_error_code("some other error") is None
+
+
+class FakeMcpTool:
+    def __init__(self, name, tool_schema=None, args_schema=None):
+        self.name = name
+        self._tool_schema = tool_schema
+        self.args_schema = args_schema
+
+
+class FakeMcpIntegration:
+    def __init__(self, tools):
+        self._tools_by_name = {tool.name: tool for tool in tools}
+        self._tools = tools
+
+    def get_tool(self, tool_name):
+        return self._tools_by_name.get(tool_name)
+
+    def get_tools(self):
+        return self._tools
+
+
+@pytest.mark.unit
+def test_select_mcp_confluence_tool_prefers_confluence_and_excludes_jira_tools():
+    """Confluence tool selection should ignore Jira/issue tools and prefer known names."""
+    confluence_tool = FakeMcpTool("createConfluencePage")
+    integration = FakeMcpIntegration([
+        FakeMcpTool("create_jira_issue"),
+        FakeMcpTool("createIssue"),
+        confluence_tool,
+    ])
+
+    assert select_mcp_confluence_tool(integration) is confluence_tool
+
+
+@pytest.mark.unit
+def test_is_rovo_confluence_tool_detects_official_camel_case_tools():
+    """Rovo detection should match official camelCase Confluence tools only."""
+    assert is_rovo_confluence_tool("createConfluencePage") is True
+    assert is_rovo_confluence_tool("create_confluence_page") is False
+    assert is_rovo_confluence_tool("createJiraIssue") is False
+
+
+@pytest.mark.unit
+def test_extract_confluence_tool_schema_reads_private_schema_and_args_schema():
+    """Schema extraction should support both _tool_schema and args_schema model_fields."""
+    class FakeField:
+        description = "Page title"
+
+    class FakeArgsSchema:
+        model_fields = {"title": FakeField()}
+
+    private_schema_tool = FakeMcpTool("createConfluencePage", tool_schema={"inputSchema": {"properties": {"title": {"type": "string"}}}})
+    args_schema_tool = FakeMcpTool("createConfluencePage", args_schema=FakeArgsSchema())
+
+    assert extract_confluence_tool_schema(private_schema_tool) == {
+        "inputSchema": {"properties": {"title": {"type": "string"}}}
+    }
+    assert extract_confluence_tool_schema(args_schema_tool) == {
+        "inputSchema": {"properties": {"title": {"type": "string", "description": "Page title"}}}
+    }
+
+
+@pytest.mark.unit
+def test_build_confluence_mcp_args_maps_schema_driven_rovo_parameters():
+    """Schema-driven arg building should prefer markdown, cloudId, and stringified spaceId for Rovo."""
+    tool_schema = {
+        "inputSchema": {
+            "properties": {
+                "cloudId": {"type": "string"},
+                "spaceId": {"type": "string"},
+                "contentFormat": {"enum": ["markdown", "storage"]},
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+            },
+            "required": ["cloudId", "spaceId", "contentFormat", "title", "body"],
+        }
+    }
+
+    args = build_confluence_mcp_args(
+        tool_name="createConfluencePage",
+        tool_schema=tool_schema,
+        page_title="Release Plan",
+        confluence_content="<p>HTML body</p>",
+        markdown_content="Markdown body",
+        space_key="TEAM",
+        cloud_id="cloud-123",
+        resolve_space_id=lambda _space_key, _cloud_id: 456,
+    )
+
+    assert args == {
+        "cloudId": "cloud-123",
+        "spaceId": "456",
+        "contentFormat": "markdown",
+        "title": "Release Plan",
+        "body": "Markdown body",
+    }
+
+
+@pytest.mark.unit
+def test_build_confluence_mcp_args_falls_back_to_generic_argument_set_without_schema():
+    """No-schema tools should still get the broad fallback argument payload."""
+    args = build_confluence_mcp_args(
+        tool_name="create_confluence_page",
+        tool_schema=None,
+        page_title="Release Plan",
+        confluence_content="<p>HTML body</p>",
+        markdown_content="Markdown body",
+        space_key="TEAM",
+        cloud_id="cloud-123",
+        resolve_space_id=lambda _space_key, _cloud_id: None,
+    )
+
+    assert args["title"] == "Release Plan"
+    assert args["content"] == "<p>HTML body</p>"
+    assert args["spaceKey"] == "TEAM"
+    assert args["contentFormat"] == "markdown"
+    assert args["cloudId"] == "cloud-123"

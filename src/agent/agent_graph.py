@@ -49,13 +49,17 @@ from src.agent.coze_nodes import (
     resolve_coze_success_message,
 )
 from src.agent.confluence_nodes import (
+    build_confluence_mcp_args,
     build_confluence_duplicate_result,
     build_confluence_error_message,
     build_confluence_rag_metadata,
     build_confluence_success_message,
     detect_confluence_error_code,
+    extract_confluence_tool_schema,
+    is_rovo_confluence_tool,
     normalize_mcp_confluence_dict_result,
     normalize_mcp_confluence_text_result,
+    select_mcp_confluence_tool,
 )
 from src.agent.general_chat_nodes import (
     build_confluence_page_context,
@@ -1606,83 +1610,14 @@ class ChatbotAgent:
                         all_tools = []
                     
                     # Look for Confluence tools - check both exact names and patterns
-                    mcp_confluence_tool = None
-                    confluence_tool_candidates = []
-                    
-                    # Common MCP tool names for Confluence page creation (including Rovo server names)
-                    # Official Rovo uses camelCase, community packages use snake_case
-                    tool_name_patterns = [
-                        # Official Rovo MCP Server (camelCase)
-                        'createConfluencePage', 'getConfluencePage', 'updateConfluencePage',
-                        'getConfluenceSpaces', 'getPagesInConfluenceSpace',
-                        'getConfluencePageAncestors', 'getConfluencePageDescendants',
-                        'createConfluenceFooterComment', 'createConfluenceInlineComment',
-                        'getConfluencePageFooterComments', 'getConfluencePageInlineComments',
-                        'searchConfluenceUsingCql',
-                        # Community packages (snake_case)
-                        'create_confluence_page', 'confluence_create_page', 
-                        'create_page', 'confluence_page_create',
-                        'confluence_create', 'create_confluence',
-                        'atlassian_confluence_create_page', 'atlassian_create_page',
-                        'rovo_create_page', 'rovo_confluence_create'
-                    ]
-                    
-                    # First try exact name matches
-                    for tool_name in tool_name_patterns:
-                        tool = self.mcp_integration.get_tool(tool_name)
-                        if tool:
-                            confluence_tool_candidates.append((tool_name, tool))
-                            logger.debug(f"Found potential Confluence tool: {tool_name}")
-                    
-                    # If no exact match, search through all tools for Confluence-related ones
-                    if not confluence_tool_candidates:
-                        for tool in all_tools:
-                            tool_name_lower = tool.name.lower()
-                            tool_name = tool.name
-                            
-                            # STRICT EXCLUSION: Explicitly exclude Jira tools
-                            if 'jira' in tool_name_lower or 'issue' in tool_name_lower:
-                                continue
-                            
-                            # Also exclude tools that might be ambiguous
-                            # Check for common Jira-related keywords
-                            jira_keywords = ['ticket', 'bug', 'story', 'task', 'epic', 'sprint']
-                            if any(keyword in tool_name_lower for keyword in jira_keywords):
-                                # Only exclude if it doesn't also contain Confluence keywords
-                                if 'confluence' not in tool_name_lower:
-                                    continue
-                            
-                            # Check if tool name matches Confluence patterns
-                            # Official Rovo tools use camelCase (e.g., createConfluencePage)
-                            is_official_rovo = (
-                                'confluence' in tool_name and 
-                                ('create' in tool_name or 'get' in tool_name or 'update' in tool_name or 
-                                 'search' in tool_name or 'page' in tool_name or 'space' in tool_name or
-                                 'comment' in tool_name)
-                            )
-                            
-                            # Community package tools use snake_case or lowercase
-                            is_confluence_tool = (
-                                'confluence' in tool_name_lower or
-                                ('rovo' in tool_name_lower and ('page' in tool_name_lower or 'create' in tool_name_lower)) or
-                                ('page' in tool_name_lower and 'create' in tool_name_lower and 'jira' not in tool_name_lower)
-                            )
-                            
-                            if is_official_rovo or is_confluence_tool:
-                                # Final validation: ensure it's not a Jira tool
-                                if 'jira' not in tool_name_lower and 'issue' not in tool_name_lower:
-                                    confluence_tool_candidates.append((tool.name, tool))
-                                    logger.debug(f"Found potential Confluence tool by pattern: {tool.name}")
-                    
-                    # Use the first candidate found
-                    if confluence_tool_candidates:
-                        tool_name, mcp_confluence_tool = confluence_tool_candidates[0]
-                        logger.info(f"Selected MCP Confluence tool: {tool_name}")
+                    mcp_confluence_tool = select_mcp_confluence_tool(self.mcp_integration)
+
+                    if mcp_confluence_tool:
+                        logger.info(f"Selected MCP Confluence tool: {mcp_confluence_tool.name}")
                     else:
                         logger.warning("No Confluence MCP tools found")
                         logger.debug(f"Available tools: {[tool.name for tool in all_tools]}")
                         logger.debug("This may indicate the Confluence MCP server timed out or isn't configured")
-                        mcp_confluence_tool = None
                     
                     if mcp_confluence_tool:
                         # VALIDATION: Final safety check to ensure this is actually a Confluence tool
@@ -1704,25 +1639,8 @@ class ChatbotAgent:
                                 import asyncio
                                 import concurrent.futures
                                 
-                                # Get tool schema to determine correct parameter names
-                                tool_schema = None
-                                if hasattr(mcp_confluence_tool, '_tool_schema'):
-                                    tool_schema = mcp_confluence_tool._tool_schema
-                                elif hasattr(mcp_confluence_tool, 'args_schema') and mcp_confluence_tool.args_schema:
-                                    # Extract schema from Pydantic model
-                                    tool_schema = {'inputSchema': {'properties': {}}}
-                                    if hasattr(mcp_confluence_tool.args_schema, 'model_fields'):
-                                        for field_name, field_info in mcp_confluence_tool.args_schema.model_fields.items():
-                                            tool_schema['inputSchema']['properties'][field_name] = {
-                                                'type': 'string',  # Default, could be improved
-                                                'description': field_info.description if hasattr(field_info, 'description') else ''
-                                            }
-                                
-                                # Prepare arguments based on tool schema
-                                mcp_args = {}
-                                
-                                # Check if this is a Rovo tool (camelCase naming) - these require cloudId
-                                is_rovo_tool = any(char.isupper() for char in mcp_confluence_tool.name) and 'Confluence' in mcp_confluence_tool.name
+                                tool_schema = extract_confluence_tool_schema(mcp_confluence_tool)
+                                is_rovo_tool = is_rovo_confluence_tool(mcp_confluence_tool.name)
                                 
                                 # Get cloudId early if this is a Rovo tool
                                 cloud_id = None
@@ -1733,168 +1651,17 @@ class ChatbotAgent:
                                         logger.info(f"✓ cloudId successfully retrieved: {cloud_id}")
                                     else:
                                         logger.warning("✗ cloudId not available - tool call may fail")
-                                
-                                # Check what parameters the tool expects
-                                if tool_schema and 'inputSchema' in tool_schema:
-                                    input_schema = tool_schema['inputSchema']
-                                    properties = input_schema.get('properties', {})
-                                    required = input_schema.get('required', [])
-                                    
-                                    # Map our data to the tool's expected parameters
-                                    # Common parameter name mappings
-                                    param_mapping = {
-                                        'title': ['title', 'name', 'pageTitle', 'page_title'],
-                                        'content': ['content', 'body', 'html', 'text', 'description'],
-                                        'space': ['space', 'spaceKey', 'space_key', 'spaceId', 'space_id']
-                                    }
-                                    
-                                    # Extract contentFormat enum values if available
-                                    content_format_enum = None
-                                    content_format_param = None
-                                    for param_name in properties.keys():
-                                        param_lower = param_name.lower()
-                                        if 'contentformat' in param_lower or param_name == 'contentFormat':
-                                            content_format_param = param_name
-                                            param_def = properties[param_name]
-                                            # Check for enum values
-                                            if 'enum' in param_def:
-                                                content_format_enum = param_def['enum']
-                                            elif 'anyOf' in param_def:
-                                                # Check anyOf for enum
-                                                for any_of_item in param_def['anyOf']:
-                                                    if 'enum' in any_of_item:
-                                                        content_format_enum = any_of_item['enum']
-                                                        break
-                                            break
-                                    
-                                    # Try to match tool parameters to our data
-                                    for param_name in properties.keys():
-                                        param_lower = param_name.lower()
-                                        
-                                        # Map cloudId parameter FIRST (required for Rovo MCP Server)
-                                        if 'cloudid' in param_lower or param_name == 'cloudId':
-                                            if cloud_id:
-                                                mcp_args[param_name] = cloud_id
-                                                logger.info(f"✓ Mapped cloudId to parameter '{param_name}': {cloud_id}")
-                                            # If cloudId is required but not available, we'll handle it in the required params check
-                                        # Map contentFormat parameter BEFORE content (to avoid matching 'content' in 'contentFormat')
-                                        elif 'contentformat' in param_lower or param_name == 'contentFormat':
-                                            # Rovo MCP Server expects contentFormat - check schema for valid enum values
-                                            # Default to "markdown" for Rovo tools if enum not specified
-                                            if content_format_enum:
-                                                # Use first enum value (usually "markdown" for Rovo)
-                                                mcp_args[param_name] = content_format_enum[0]
-                                                logger.debug(f"Using contentFormat from schema enum: {content_format_enum[0]}")
-                                            else:
-                                                # Default to "markdown" for Rovo MCP Server
-                                                mcp_args[param_name] = "markdown"
-                                                logger.debug("Using default contentFormat: markdown")
-                                        # Map title/name parameters
-                                        elif any(mapped in param_lower for mapped in ['title', 'name', 'pagetitle']):
-                                            mcp_args[param_name] = page_title
-                                        # Map content/body/description parameters (check AFTER contentFormat)
-                                        elif any(mapped in param_lower for mapped in ['content', 'body', 'html', 'text', 'description']):
-                                            # If contentFormat is markdown, convert HTML to markdown
-                                            content_format_value = mcp_args.get(content_format_param if content_format_param else 'contentFormat', '')
-                                            if content_format_value == 'markdown':
-                                                # Convert HTML to markdown for Rovo MCP Server
-                                                body_content = self._html_to_markdown(confluence_content)
-                                                mcp_args[param_name] = body_content
-                                                logger.debug(f"Converted HTML content to markdown (length: {len(body_content)} chars)")
-                                            else:
-                                                mcp_args[param_name] = confluence_content
-                                        # Map space parameters
-                                        elif any(mapped in param_lower for mapped in ['space', 'spacekey', 'spaceid']):
-                                            # Check if parameter expects numeric ID (spaceId) vs string key (spaceKey)
-                                            param_def = properties.get(param_name, {})
-                                            param_type = param_def.get('type', '')
-                                            
-                                            # Rovo MCP Server uses spaceId - check schema to see if it expects string or number
-                                            if 'spaceid' in param_lower or param_name == 'spaceId':
-                                                # Check the expected type from schema
-                                                expected_type = param_def.get('type', '')
-                                                # Rovo MCP Server expects spaceId as a string (even though API uses numeric ID)
-                                                space_key = Config.CONFLUENCE_SPACE_KEY
-                                                space_id = self._get_space_id(space_key, cloud_id)
-                                                if space_id:
-                                                    # Convert to string as Pydantic validation expects string type
-                                                    mcp_args[param_name] = str(space_id)
-                                                    logger.debug(f"Converted space key '{space_key}' to space ID (as string): {mcp_args[param_name]}")
-                                                else:
-                                                    # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                    logger.warning(f"Could not get space ID for '{space_key}', using space key as-is (may fail)")
-                                                    mcp_args[param_name] = space_key
-                                            else:
-                                                # Use string space key (spaceKey, space_key, etc.)
-                                                mcp_args[param_name] = Config.CONFLUENCE_SPACE_KEY
-                                    
-                                    # Ensure all required parameters are provided
-                                    for req_param in required:
-                                        if req_param not in mcp_args:
-                                            # Try to provide a default or raise an error
-                                            if 'title' in req_param.lower() or 'name' in req_param.lower():
-                                                mcp_args[req_param] = page_title
-                                            elif 'content' in req_param.lower() or 'body' in req_param.lower() or 'description' in req_param.lower():
-                                                # If contentFormat is markdown, convert HTML to markdown
-                                                content_format_value = mcp_args.get(content_format_param if content_format_param else 'contentFormat', '')
-                                                if content_format_value == 'markdown':
-                                                    body_content = self._html_to_markdown(confluence_content)
-                                                    mcp_args[req_param] = body_content
-                                                    logger.debug(f"Converted HTML content to markdown for required param {req_param}")
-                                                else:
-                                                    mcp_args[req_param] = confluence_content
-                                            elif 'space' in req_param.lower():
-                                                # Check if it's spaceId (string representation of numeric ID) or spaceKey (string)
-                                                if 'spaceid' in req_param.lower() or req_param == 'spaceId':
-                                                    # Rovo MCP Server expects spaceId as a string (even though it represents a numeric ID)
-                                                    space_key = Config.CONFLUENCE_SPACE_KEY
-                                                    space_id = self._get_space_id(space_key, cloud_id)
-                                                    if space_id:
-                                                        # Convert to string as Pydantic validation expects string type
-                                                        mcp_args[req_param] = str(space_id)
-                                                        logger.debug(f"Converted space key '{space_key}' to space ID (as string) for required param {req_param}: {mcp_args[req_param]}")
-                                                    else:
-                                                        # Fallback: try to use space key as-is (might fail, but we'll try)
-                                                        logger.warning(f"Could not get space ID for '{space_key}', using space key as-is for {req_param} (may fail)")
-                                                        mcp_args[req_param] = space_key
-                                                else:
-                                                    # Use string space key
-                                                    mcp_args[req_param] = Config.CONFLUENCE_SPACE_KEY
-                                            elif 'cloudid' in req_param.lower() or req_param == 'cloudId':
-                                                # Use cloudId that was already retrieved (if available)
-                                                if cloud_id:
-                                                    mcp_args[req_param] = cloud_id
-                                                    logger.info(f"✓ Using cloudId in tool parameter '{req_param}': {cloud_id}")
-                                                else:
-                                                    # cloudId is required but not available
-                                                    logger.warning("✗ cloudId required but not available. Tool call will fail, will fallback to direct API.")
-                                                    # Don't add empty cloudId - let it fail and fallback gracefully
-                                                    # This will cause the tool call to fail validation, triggering fallback
-                                            elif 'contentformat' in req_param.lower() or req_param == 'contentFormat':
-                                                # contentFormat is required for Rovo MCP Server
-                                                # Default to "markdown" (Rovo MCP Server expects markdown, not storage)
-                                                mcp_args[req_param] = "markdown"
-                                                logger.debug("Added contentFormat: markdown")
-                                else:
-                                    # Fallback: try common parameter name variations
-                                    mcp_args = {
-                                        'title': page_title,
-                                        'content': confluence_content,
-                                        'space_key': Config.CONFLUENCE_SPACE_KEY,
-                                        'spaceKey': Config.CONFLUENCE_SPACE_KEY,  # camelCase variant
-                                        'space': Config.CONFLUENCE_SPACE_KEY,
-                                        'spaceId': Config.CONFLUENCE_SPACE_KEY,  # Rovo uses spaceId (will be converted to numeric ID if needed)
-                                        'body': confluence_content,  # Some servers use 'body' instead of 'content'
-                                        'html': confluence_content,  # Some servers expect HTML
-                                        'text': confluence_content,  # Some servers expect plain text
-                                        'summary': page_title,  # Some tools use 'summary' instead of 'title'
-                                        'description': confluence_content,  # Some tools use 'description' instead of 'content'
-                                        'contentFormat': 'markdown'  # Rovo MCP Server requires contentFormat (markdown, not storage)
-                                    }
-                                    # Add cloudId if available
-                                    if cloud_id:
-                                        mcp_args['cloudId'] = cloud_id
-                                        logger.info(f"✓ Added cloudId to tool arguments: {cloud_id}")
+                                body_content = self._html_to_markdown(confluence_content)
+                                mcp_args = build_confluence_mcp_args(
+                                    tool_name=mcp_confluence_tool.name,
+                                    tool_schema=tool_schema,
+                                    page_title=page_title,
+                                    confluence_content=confluence_content,
+                                    markdown_content=body_content,
+                                    space_key=Config.CONFLUENCE_SPACE_KEY,
+                                    cloud_id=cloud_id,
+                                    resolve_space_id=self._get_space_id,
+                                )
                                 
                                 # Log the tool being used and arguments
                                 logger.debug(f"Tool Name: {mcp_confluence_tool.name}")
