@@ -8,6 +8,7 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ### Conversational AI
 - **LangGraph Agent Framework** - Stateful agent graph with intent detection and multi-step tool orchestration
+- **Refactored Agent Orchestration** - `src/agent/agent_graph.py` now focuses on orchestration while intent routing, Jira, Confluence, RAG, Coze, and general chat behavior live in focused helper modules
 - **Conversation Memory** - Persistent history with automatic summarization to stay within context limits
 - **Intent Routing** - Automatically distinguishes general chat, document Q&A, and Jira/Confluence actions
 - **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable HTTP timeout
@@ -18,6 +19,7 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **Document Loader** - Ingest documents from local storage or connected sources
 
 ### Jira & Confluence Workflows
+- **Shared Requirement Workflow Service** - Centralized requirement backlog generation, Jira creation, maturity evaluation, and Confluence-page assembly in `src/services/requirement_workflow_service.py`
 - **MCP Integration** - Model Context Protocol server for Jira and Confluence, enabling natural-language issue creation, search, and page management
 - **Custom Tools** - Direct REST API tools for Jira issue management and Confluence content operations
 - **Jira Maturity Evaluator** - Automated assessment of issue quality and completeness
@@ -38,61 +40,60 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **CI/CD via GitHub Actions** - Automated test, build, push, and deploy pipeline
 - **Lazy Tool Loading** - Tools initialized on demand to minimize startup overhead
 - **Error Recovery** - Automatic fallback mechanisms at agent and provider level
-- **Integration & E2E Tests** - Full test suite covering MCP, RAG, agent, LLM providers, and memory
+- **Integration & E2E Tests** - Full test suite covering MCP, RAG, agent, LLM providers, memory, API routes, and gateway components
 
 ## 📁 Project Structure
 
-```
-generative-ai-chatbot
-├── src/
-│   ├── agent/              # LangGraph agent framework
-│   │   └── agent_graph.py  # Agent graph with intent detection
-│   ├── chatbot.py          # Main chatbot class
-│   ├── llm/                # Multi-provider LLM infrastructure
-│   │   ├── base_provider.py
-│   │   ├── openai_provider.py
-│   │   ├── gemini_provider.py
-│   │   ├── deepseek_provider.py
-│   │   └── router.py
-│   ├── mcp/                # MCP integration
-│   │   ├── mcp_client.py   # MCP client and manager
-│   │   ├── mcp_integration.py  # MCP tool integration
-│   │   └── jira_mcp_server.py # Custom Jira MCP server
-│   ├── rag/                # RAG service
-│   │   ├── rag_service.py
-│   │   ├── vector_store.py
-│   │   ├── embedding_generator.py
-│   │   ├── document_loader.py
-│   │   └── rag_cache.py
-│   ├── tools/              # Custom tools
-│   │   ├── jira_tool.py
-│   │   └── confluence_tool.py
-│   ├── services/          # Services
-│   │   ├── jira_maturity_evaluator.py
-│   │   ├── memory_manager.py
-│   │   └── memory_summarizer.py
-│   └── utils/
-│       └── helpers.py
-├── config/
-│   └── config.py          # Configuration management
-├── tests/                 # Test suite
-│   ├── unit/             # Unit tests (isolated components)
-│   ├── integration/     # Integration tests (component interactions)
-│   │   ├── mcp/         # MCP integration tests
-│   │   ├── rag/         # RAG integration tests
-│   │   ├── agent/       # Agent framework tests
-│   │   ├── llm/         # LLM provider tests
-│   │   └── memory/      # Memory system tests
-│   ├── e2e/             # End-to-end tests
-│   └── fixtures/        # Test fixtures and utilities
-├── web/                  # Web UI frontend
-│   ├── templates/
-│   └── static/
-├── app.py                # Flask web server
-├── requirements.txt     # Python dependencies
-├── pytest.ini          # Pytest configuration
-├── run_tests.py         # Test runner script
-└── README.md            # This file
+```text
+AI_Requirement_Tool/
+|-- app.py                          # Flask web server entrypoint
+|-- config/
+|   `-- config.py                  # Centralized configuration
+|-- src/
+|   |-- chatbot.py                 # Main chatbot orchestrator used by Flask
+|   |-- agent/                     # LangGraph orchestration and node helpers
+|   |   |-- agent_graph.py         # Graph assembly and state orchestration
+|   |   |-- intent_routing.py      # Intent routing helpers
+|   |   |-- jira_nodes.py          # Jira execution helpers
+|   |   |-- confluence_nodes.py    # Confluence execution helpers
+|   |   |-- rag_nodes.py           # RAG node helpers
+|   |   |-- coze_nodes.py          # Coze node helpers
+|   |   |-- general_chat_nodes.py  # General chat helpers
+|   |   |-- requirement_workflow.py
+|   |   `-- callbacks.py
+|   |-- services/                  # Application services
+|   |   |-- requirement_workflow_service.py
+|   |   |-- intent_detector.py
+|   |   |-- jira_maturity_evaluator.py
+|   |   |-- memory_manager.py
+|   |   |-- memory_summarizer.py
+|   |   `-- coze_client.py
+|   |-- webapp/                    # Flask runtime container and route blueprints
+|   |   |-- runtime.py
+|   |   `-- routes/
+|   |-- auth/                      # Authentication services and middleware
+|   |-- llm/                       # Multi-provider LLM infrastructure
+|   |-- mcp/                       # MCP client and integration logic
+|   |-- rag/                       # RAG pipeline
+|   |-- tools/                     # Direct Jira and Confluence tools
+|   |-- gateway/                   # Optional FastAPI AI Gateway
+|   |-- models/
+|   `-- utils/
+|-- web/                           # Web UI frontend
+|   |-- templates/
+|   `-- static/
+|-- tests/
+|   |-- unit/
+|   |-- integration/
+|   `-- e2e/
+|-- docs/
+|   |-- architecture/
+|   |-- features/
+|   `-- superpowers/
+|-- requirements.txt
+|-- pytest.ini
+|-- run_tests.py
+`-- README.md
 ```
 
 ## 🛠️ Setup Instructions
@@ -101,7 +102,7 @@ generative-ai-chatbot
 
 ```bash
 git clone <repository-url>
-cd generative-ai-chatbot
+cd AI_Requirement_Tool
 ```
 
 ### 2. Install Dependencies
@@ -153,6 +154,11 @@ Then open `http://localhost:5000` in your browser.
 **Command Line:**
 ```bash
 python src/chatbot.py
+```
+
+**Optional AI Gateway:**
+```bash
+uvicorn src.gateway.gateway_service:create_gateway_app --factory --reload --port 8001
 ```
 
 ## 🎯 Usage Examples
@@ -246,25 +252,35 @@ python ingest_pdf.py
 
 ## 🤖 LangGraph Agent
 
-### Architecture
+### Current Architecture
 
-The chatbot uses LangGraph for agent orchestration:
+The chatbot uses LangGraph for orchestration, but the architecture has been refactored so responsibilities are split across smaller modules.
 
-```
+```text
 User Input
-    ↓
+    ->
+Chatbot
+    ->
+ChatbotAgent / agent_graph.py
+    ->
 Intent Detection
-    ↓
-┌───────────────┬───────────────┬──────────────┐
-│ General Chat  │ Jira Creation │ RAG Query    │
-└───────────────┴───────────────┴──────────────┘
-    ↓
-Tool Execution (if needed)
-    ↓
-Response Generation
-    ↓
+    ->
++-------------------+--------------------+------------------+-----------------+
+| General Chat      | Jira/Requirement   | RAG Query        | Coze Agent      |
++-------------------+--------------------+------------------+-----------------+
+    ->
+Focused helper modules + shared services
+    ->
+Tool / RAG / provider execution
+    ->
 User Response
 ```
+
+### Refactor Status
+
+- **Phase 1 completed** - Shared requirement workflow logic was extracted into `src/services/requirement_workflow_service.py`
+- **Phase 2 completed** - `src/agent/agent_graph.py` now delegates to focused helper modules for intent routing, Jira, Confluence, RAG, Coze, and general chat
+- **Phase 3 planned** - Ports, adapters, and centralized composition are designed but not yet the default runtime architecture
 
 ### Intent Detection
 
@@ -272,10 +288,12 @@ The agent automatically detects user intents:
 - **General Chat** - Conversational queries
 - **Jira Creation** - Requests to create Jira issues
 - **Information Query** - Questions that benefit from RAG
+- **Coze Agent** - Requests routed to the Coze integration when enabled
 
 ### Tool Usage
 
 Tools are automatically selected based on intent:
+- **Requirement Workflow Service** - Used for shared backlog generation, Jira creation, maturity evaluation, and Confluence content assembly
 - **MCP Tools** - Used when MCP is enabled and available
 - **Custom Tools** - Fallback when MCP is unavailable
 - **RAG Service** - Used for context-aware responses
@@ -316,7 +334,9 @@ Tools are automatically selected based on intent:
 - **[docs/features/web-ui/WEB_UI_README.md](docs/features/web-ui/WEB_UI_README.md)** - Web UI documentation
 
 **Architecture:**
-- **[docs/architecture/FUTURE_ARCHITECTURE.md](docs/architecture/FUTURE_ARCHITECTURE.md)** - Future architecture plans
+- **[docs/architecture/README.md](docs/architecture/README.md)** - Current architecture documentation
+- **[docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md](docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md)** - Phase 1 and Phase 2 refactor design and completion notes
+- **[docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md](docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md)** - Planned Phase 3 architecture cleanup
 - **[docs/architecture/diagrams/architecture-diagram.drawio](docs/architecture/diagrams/architecture-diagram.drawio)** - Current architecture diagram
 - **[docs/architecture/diagrams/architecture-diagram-future.drawio](docs/architecture/diagrams/architecture-diagram-future.drawio)** - Future architecture diagram
 
@@ -376,6 +396,7 @@ pytest -v -m mcp                  # Run tests marked with 'mcp'
 - **conftest.py** - Shared fixtures and test configuration
 - **run_tests.py** - Convenient test runner script
 
+```bash
 # Test Jira creation
 python test_mcp_jira_creation.py
 
@@ -511,4 +532,4 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 
 ---
 
-**Last Updated:** March 2026
+**Last Updated:** April 2026
