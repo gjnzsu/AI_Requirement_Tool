@@ -6,7 +6,9 @@
 # Web framework
 Flask>=2.0.1,<4.0.0
 flask-cors>=3.1.0,<5.0.0
-gunicorn>=21.0.0,<23.0.0
+# Gunicorn 22.x can crash a worker while formatting some malformed HTTP parser
+# errors, which surfaces as intermittent 502s on the public service.
+gunicorn>=24.1.1,<25.0.0
 
 # Configuration
 python-dotenv>=1.0.0,<2.0.0
