@@ -39,7 +39,9 @@ class JiraMaturityEvaluator:
         # Initialize Jira client
         self.jira = JIRA(
             server=jira_url,
-            basic_auth=(jira_email, jira_api_token)
+            basic_auth=(jira_email, jira_api_token),
+            validate=False,
+            get_server_info=False,
         )
         
         # Maturity evaluation criteria

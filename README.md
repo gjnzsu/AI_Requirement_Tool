@@ -497,6 +497,10 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 - **Cluster:** `helloworld-cluster` (us-central1)
 - **Deployment:** `ai-tool` (1 replica)
 - **Service:** `ai-tool-service` (LoadBalancer)
+- **Current app URL:** `http://34.133.164.110/`
+- **Health check:** `http://34.133.164.110/api/health`
+
+> Latest known cloud deployment endpoint: `http://34.133.164.110/`. Because the service uses a GKE `LoadBalancer`, this IP can change if the service is reprovisioned; the CD pipeline also prints the currently assigned external IP after deployment.
 
 ---
 

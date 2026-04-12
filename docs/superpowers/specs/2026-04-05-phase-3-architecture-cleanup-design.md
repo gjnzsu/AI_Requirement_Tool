@@ -218,6 +218,36 @@ Success criteria:
 - agent integration verifying orchestration still produces current behavior
 - runtime/route integration verifying request-scoped execution and service resolution
 
+## Future User-Centric Skill Boundary
+Phase 3 should also make room for a future user-facing requirement lifecycle skill.
+
+The intended shape is:
+- the skill is a conversational facade
+- the workflow service is the source of truth for the requirement lifecycle
+- ports and adapters remain the integration boundary for Jira, Confluence, evaluation, and RAG
+
+Skill contract:
+- Input: rough requirement text, optional structured fields, and an execution preference such as draft-only or auto-run
+- Output: progress updates, Jira key, evaluation summary, Confluence link, RAG ingestion result, and any follow-up questions
+
+User flow:
+- detect a requirement lifecycle request
+- extract what is already known from the user message
+- ask only for missing information that blocks execution
+- call the shared workflow service
+- stream or summarize step results back to the user
+
+Design rules:
+- do not duplicate lifecycle logic inside the skill prompt
+- do not reimplement Jira, Confluence, or RAG behavior in a second agent
+- keep the skill thin enough that chatbot, API, or future UI surfaces can reuse the same workflow
+
+This boundary is what makes the refactor useful for future product enhancement:
+- approvals and confirmation checkpoints can be added later
+- retries and partial reruns can be supported without changing the user contract
+- alternate document templates can reuse the same lifecycle output
+- the same workflow can power both conversational and productized experiences
+
 ### Regression Guardrails
 - preserve current agent smoke tests
 - preserve current Coze integration tests

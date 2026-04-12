@@ -7,20 +7,15 @@ intelligent conversational responses.
 
 import sys
 import json
-from pathlib import Path
 from typing import Any, List, Dict, Optional
 from src.tools.jira_tool import JiraTool
 from src.tools.confluence_tool import ConfluenceTool
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
 from src.llm import LLMRouter, LLMProviderManager
+from src.runtime import build_application_services
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.services.memory_manager import MemoryManager
 from src.services.memory_summarizer import MemorySummarizer
-from src.services.requirement_workflow_service import RequirementWorkflowService
 from src.rag import RAGService
 from config.config import Config
 from src.agent import ChatbotAgent
@@ -86,6 +81,7 @@ class Chatbot:
         self.max_history = max_history
         self.use_persistent_memory = use_persistent_memory
         self.conversation_id = conversation_id
+        self.selected_agent_mode = "auto"
         self.use_rag = use_rag
         self.rag_top_k = rag_top_k
         self.enable_mcp_tools = enable_mcp_tools
@@ -94,6 +90,9 @@ class Chatbot:
         self.use_mcp = use_mcp
         self._tools_initialized = False
         self.requirement_workflow_service = None
+        self.jira_issue_port = None
+        self.jira_evaluation_port = None
+        self.confluence_page_port = None
         self.agent = None  # Will be initialized after RAG service
         self.last_usage = None  # Token usage from last LLM call (for Prometheus metrics)
         
@@ -211,6 +210,9 @@ class Chatbot:
                     rag_service=self.rag_service if self.use_rag else None,
                     use_mcp=self.use_mcp  # Use the configured MCP setting
                 )
+                self.agent.set_selected_agent_mode(
+                    getattr(self, "selected_agent_mode", "auto")
+                )
                 logger.info("Initialized LangGraph Agent")
             except Exception as e:
                 logger.warning(f"Failed to initialize LangGraph Agent: {e}")
@@ -243,9 +245,9 @@ class Chatbot:
             model = self.config.get_llm_model()
             
             if not api_key:
-                raise ValueError(
-                    f"No API key found for provider '{self.provider_name}'. "
-                    f"Please set the appropriate API key in your environment variables."
+                logger.warning(
+                    "No API key found for provider '%s' during initialization; attempting provider factory fallback.",
+                    self.provider_name,
                 )
             
             # Create primary provider
@@ -254,6 +256,12 @@ class Chatbot:
                 api_key=api_key,
                 model=model
             )
+
+            if primary_provider is None:
+                raise ValueError(
+                    f"No provider instance available for '{self.provider_name}'. "
+                    f"Please check your configuration and API keys."
+                )
             
             # Create fallback providers if enabled
             fallback_providers = []
@@ -375,14 +383,26 @@ class Chatbot:
         
         logger.info(f"Switched LLM provider to: {provider_name} ({model})")
 
-        if self.requirement_workflow_service:
-            workflow_llm = self.provider_manager or self.llm_provider
-            self.requirement_workflow_service = RequirementWorkflowService(
-                llm_provider=workflow_llm,
-                jira_tool=self.jira_tool,
-                jira_evaluator=self.jira_evaluator,
-                confluence_tool=self.confluence_tool,
-            )
+        if self.requirement_workflow_service or self._tools_initialized:
+            self._compose_application_services()
+
+    def _compose_application_services(self):
+        """Assemble workflow ports and services through the shared composition layer."""
+        workflow_llm = self.provider_manager or self.llm_provider
+        services = build_application_services(
+            config=self.config,
+            llm_provider=workflow_llm,
+            jira_tool=self.jira_tool,
+            confluence_tool=self.confluence_tool,
+            jira_evaluator=self.jira_evaluator,
+            rag_service=self.rag_service if self.use_rag else None,
+            mcp_integration=None,
+            use_mcp=False,
+        )
+        self.requirement_workflow_service = services.workflow_service
+        self.jira_issue_port = services.jira_issue_port
+        self.jira_evaluation_port = services.jira_evaluation_port
+        self.confluence_page_port = services.confluence_page_port
     
     def _initialize_tools(self):
         """Initialize MCP tools (Jira, Confluence) on demand."""
@@ -426,14 +446,7 @@ class Chatbot:
                 except Exception as e:
                     logger.warning(f"Failed to initialize Jira Evaluator: {e}")
 
-            workflow_llm = self.provider_manager or self.llm_provider
-            if workflow_llm and self.jira_tool:
-                self.requirement_workflow_service = RequirementWorkflowService(
-                    llm_provider=workflow_llm,
-                    jira_tool=self.jira_tool,
-                    jira_evaluator=self.jira_evaluator,
-                    confluence_tool=self.confluence_tool,
-                )
+            self._compose_application_services()
 
             self._tools_initialized = True
         except Exception as e:
@@ -531,6 +544,9 @@ class Chatbot:
                     conversation_history = self.conversation_history
                 
                 # Invoke agent
+                self.agent.set_selected_agent_mode(
+                    getattr(self, "selected_agent_mode", "auto")
+                )
                 response = self.agent.invoke(user_input, conversation_history)
 
                 # Propagate token usage from agent callback for Prometheus metrics
@@ -557,6 +573,7 @@ class Chatbot:
                     
                     self.memory_manager.add_message(self.conversation_id, 'user', user_input)
                     self.memory_manager.add_message(self.conversation_id, 'assistant', response)
+                    self._persist_runtime_state()
                 
                 # Also update in-memory history
                 self.conversation_history.append({"role": "user", "content": user_input})
@@ -661,6 +678,7 @@ class Chatbot:
                             self.conversation_id,
                             new_summary
                         )
+                self._persist_runtime_state()
             
             # Also update in-memory history for backward compatibility
             self.conversation_history.append({"role": "user", "content": user_input})
@@ -756,14 +774,7 @@ class Chatbot:
     def _handle_jira_creation(self, user_input: str) -> str:
         """Handle the creation of a Jira issue based on conversation context."""
         if not self.requirement_workflow_service:
-            workflow_llm = self.provider_manager or self.llm_provider
-            if workflow_llm and self.jira_tool:
-                self.requirement_workflow_service = RequirementWorkflowService(
-                    llm_provider=workflow_llm,
-                    jira_tool=self.jira_tool,
-                    jira_evaluator=self.jira_evaluator,
-                    confluence_tool=self.confluence_tool,
-                )
+            self._compose_application_services()
 
         if self.requirement_workflow_service:
             result = self.requirement_workflow_service.execute(
@@ -1098,9 +1109,49 @@ class Chatbot:
             {'role': msg['role'], 'content': msg['content']}
             for msg in conversation.get('messages', [])
         ]
-        
+
+        self.load_runtime_state(conversation.get("metadata", {}))
+
         return True
-    
+
+    def export_runtime_state(self) -> Dict[str, Any]:
+        """Export conversation-scoped runtime state for persistence."""
+        skill_state = None
+        if self.agent and hasattr(self.agent, "export_requirement_sdlc_agent_state"):
+            skill_state = self.agent.export_requirement_sdlc_agent_state()
+
+        return {
+            "agent_mode": getattr(self, "selected_agent_mode", "auto"),
+            "requirement_sdlc_agent_state": skill_state,
+        }
+
+    def load_runtime_state(self, runtime_state: Optional[Dict[str, Any]]) -> None:
+        """Load conversation-scoped runtime state from persistent metadata."""
+        self.set_selected_agent_mode((runtime_state or {}).get("agent_mode", "auto"))
+        if self.agent and hasattr(self.agent, "load_requirement_sdlc_agent_state"):
+            state = (runtime_state or {}).get("requirement_sdlc_agent_state")
+            self.agent.load_requirement_sdlc_agent_state(state)
+
+    def set_selected_agent_mode(self, agent_mode: Optional[str]) -> None:
+        """Set the selected agent mode for the current conversation."""
+        normalized_mode = (agent_mode or "auto").strip().lower()
+        self.selected_agent_mode = (
+            normalized_mode if normalized_mode in {"auto", "requirement_sdlc_agent"} else "auto"
+        )
+        if self.agent and hasattr(self.agent, "set_selected_agent_mode"):
+            self.agent.set_selected_agent_mode(self.selected_agent_mode)
+
+    def _persist_runtime_state(self) -> None:
+        """Persist conversation-scoped runtime state when persistent memory is enabled."""
+        if not (self.use_persistent_memory and self.memory_manager and self.conversation_id):
+            return
+
+        if hasattr(self.memory_manager, "update_conversation_metadata"):
+            self.memory_manager.update_conversation_metadata(
+                self.conversation_id,
+                self.export_runtime_state(),
+            )
+
     def set_conversation_id(self, conversation_id: str):
         """Set the current conversation ID."""
         self.conversation_id = conversation_id

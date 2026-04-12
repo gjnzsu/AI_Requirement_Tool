@@ -3,6 +3,7 @@
 let currentConversationId = null;
 let conversations = [];
 let currentModel = 'openai'; // Default model
+let currentAgentMode = 'auto';
 
 // DOM Elements
 const chatMessages = document.getElementById('chatMessages');
@@ -13,6 +14,7 @@ const conversationsList = document.getElementById('conversationsList');
 const clearAllBtn = document.getElementById('clearAllBtn');
 const searchInput = document.getElementById('searchInput');
 const modelSelect = document.getElementById('modelSelect');
+const agentModeSelect = document.getElementById('agentModeSelect');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -79,6 +81,14 @@ async function loadCurrentModel() {
             }
         }
     }
+
+    const savedAgentMode = localStorage.getItem('selectedAgentMode');
+    if (savedAgentMode && (savedAgentMode === 'auto' || savedAgentMode === 'requirement_sdlc_agent')) {
+        currentAgentMode = savedAgentMode;
+        if (agentModeSelect) {
+            agentModeSelect.value = savedAgentMode;
+        }
+    }
 }
 
 // Event Listeners
@@ -98,6 +108,9 @@ function setupEventListeners() {
     // Model selector change handler
     if (modelSelect) {
         modelSelect.addEventListener('change', handleModelChange);
+    }
+    if (agentModeSelect) {
+        agentModeSelect.addEventListener('change', handleAgentModeChange);
     }
 }
 
@@ -121,13 +134,34 @@ async function handleModelChange(event) {
     }, 2000);
 }
 
+function handleAgentModeChange(event) {
+    const selectedAgentMode = event.target.value;
+    currentAgentMode = selectedAgentMode;
+    localStorage.setItem('selectedAgentMode', selectedAgentMode);
+
+    const notification = document.createElement('div');
+    notification.className = 'model-change-notification';
+    notification.textContent = selectedAgentMode === 'auto'
+        ? 'Agent mode switched to Auto'
+        : 'Agent mode switched to Requirement SDLC Agent';
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 2000);
+}
+
 // Send message
-async function sendMessage() {
-    const message = chatInput.value.trim();
+async function sendMessage(messageOverride = null) {
+    const message = (messageOverride ?? chatInput.value).trim();
     if (!message) return;
     
     // Clear input
-    chatInput.value = '';
+    if (messageOverride === null) {
+        chatInput.value = '';
+    } else {
+        chatInput.value = '';
+    }
     sendBtn.disabled = true;
     
     // Remove welcome message if present
@@ -151,7 +185,8 @@ async function sendMessage() {
             body: {
                 message: message,
                 conversation_id: currentConversationId,
-                model: currentModel
+                model: currentModel,
+                agent_mode: currentAgentMode
             }
         });
         
@@ -170,6 +205,10 @@ async function sendMessage() {
         if (response.ok) {
             // Update current conversation ID
             currentConversationId = data.conversation_id;
+            currentAgentMode = data.agent_mode || currentAgentMode;
+            if (agentModeSelect) {
+                agentModeSelect.value = currentAgentMode;
+            }
             
             // Remove loading indicator
             const loadingElement = document.getElementById(loadingId);
@@ -178,7 +217,10 @@ async function sendMessage() {
             }
             
             // Add assistant response
-            addMessageToUI('assistant', data.response);
+            addMessageToUI('assistant', data.response, false, {
+                uiActions: data.ui_actions || [],
+                workflowProgress: data.workflow_progress || []
+            });
             
             // Reload conversations list to update titles
             loadConversations();
@@ -207,7 +249,7 @@ async function sendMessage() {
 }
 
 // Add message to UI
-function addMessageToUI(role, content, isLoading = false) {
+function addMessageToUI(role, content, isLoading = false, options = {}) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
     
@@ -233,6 +275,60 @@ function addMessageToUI(role, content, isLoading = false) {
         const formattedContent = formatMessageContent(content);
         contentDiv.innerHTML = formattedContent;
         
+        if (role === 'assistant' && Array.isArray(options.uiActions) && options.uiActions.length > 0) {
+            const quickActionsDiv = document.createElement('div');
+            quickActionsDiv.className = 'message-quick-actions';
+
+            options.uiActions.forEach((action) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `quick-action-btn ${action.kind || 'secondary'}`;
+                button.textContent = action.label;
+                button.dataset.actionValue = action.value;
+                button.addEventListener('click', () => submitQuickAction(quickActionsDiv, action.value));
+                quickActionsDiv.appendChild(button);
+            });
+
+            contentDiv.appendChild(quickActionsDiv);
+        }
+
+        if (role === 'assistant' && Array.isArray(options.workflowProgress) && options.workflowProgress.length > 0) {
+            const workflowProgressDiv = document.createElement('div');
+            workflowProgressDiv.className = 'workflow-progress';
+
+            const workflowTitle = document.createElement('div');
+            workflowTitle.className = 'workflow-progress-title';
+            workflowTitle.textContent = 'Requirement SDLC Progress';
+            workflowProgressDiv.appendChild(workflowTitle);
+
+            options.workflowProgress.forEach((step) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = `workflow-progress-item ${step.status || 'unknown'}`;
+
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'workflow-step-label';
+                labelSpan.textContent = step.label || step.step || 'Unknown step';
+
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'workflow-step-status';
+                statusSpan.textContent = formatWorkflowStatus(step.status);
+
+                stepDiv.appendChild(labelSpan);
+                stepDiv.appendChild(statusSpan);
+
+                if (step.detail || step.link) {
+                    const detailDiv = document.createElement('div');
+                    detailDiv.className = 'workflow-step-detail';
+                    detailDiv.textContent = step.detail || step.link;
+                    stepDiv.appendChild(detailDiv);
+                }
+
+                workflowProgressDiv.appendChild(stepDiv);
+            });
+
+            contentDiv.appendChild(workflowProgressDiv);
+        }
+
         // Add actions for assistant messages
         if (role === 'assistant') {
             const actionsDiv = document.createElement('div');
@@ -524,7 +620,8 @@ async function regenerateMessage(messageId) {
                 body: {
                     message: userMessage,
                     conversation_id: currentConversationId,
-                    model: currentModel
+                    model: currentModel,
+                    agent_mode: currentAgentMode
                 }
             });
             
@@ -543,7 +640,10 @@ async function regenerateMessage(messageId) {
                 if (loadingElement) {
                     loadingElement.remove();
                 }
-                addMessageToUI('assistant', data.response);
+                addMessageToUI('assistant', data.response, false, {
+                    uiActions: data.ui_actions || [],
+                    workflowProgress: data.workflow_progress || []
+                });
             }
         } catch (error) {
             console.error('Error regenerating:', error);
@@ -553,6 +653,27 @@ async function regenerateMessage(messageId) {
             }
             addMessageToUI('assistant', `Error: ${error.message}`);
         }
+    }
+}
+
+function submitQuickAction(actionsContainer, actionValue) {
+    const buttons = actionsContainer.querySelectorAll('.quick-action-btn');
+    buttons.forEach((button) => {
+        button.disabled = true;
+    });
+    sendMessage(actionValue);
+}
+
+function formatWorkflowStatus(status) {
+    switch ((status || '').toLowerCase()) {
+        case 'completed':
+            return 'Completed';
+        case 'failed':
+            return 'Failed';
+        case 'skipped':
+            return 'Skipped';
+        default:
+            return status || 'Unknown';
     }
 }
 

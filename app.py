@@ -5,13 +5,11 @@ This provides a REST API and serves the web interface for the chatbot.
 """
 
 import sys
-import os
 from pathlib import Path
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 import json
 from datetime import datetime
-from typing import Dict, List
 from werkzeug.local import LocalProxy
 
 from config.config import Config
@@ -303,6 +301,7 @@ def chat():
         message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model = data.get('model', 'openai').lower()  # Get model from request, default to openai
+        agent_mode = data.get('agent_mode', 'auto').lower()
         
         if not message:
             return jsonify({'error': 'Message is required'}), 400
@@ -310,56 +309,50 @@ def chat():
         # Validate model
         if model not in ['openai', 'gemini', 'deepseek']:
             return jsonify({'error': f'Invalid model: {model}. Supported models: openai, gemini, deepseek'}), 400
-        
-        # Get or create conversation
-        if not conversation_id or (memory_manager and not memory_manager.get_conversation(conversation_id)):
-            conversation_id = generate_conversation_id()
-            title = message[:50] + ('...' if len(message) > 50 else '')
-            
-            if memory_manager:
-                memory_manager.create_conversation(conversation_id, title=title)
+        if agent_mode not in ['auto', 'requirement_sdlc_agent']:
+            return jsonify({'error': f'Invalid agent mode: {agent_mode}. Supported agent modes: auto, requirement_sdlc_agent'}), 400
         
         runtime = get_app_runtime(app_runtime)
-        with runtime.chatbot_request_lock:
-            # Get chatbot response
-            chatbot = get_chatbot()
+        title = message[:50] + ('...' if len(message) > 50 else '')
+        conversation_id = runtime.ensure_conversation(
+            conversation_id=conversation_id,
+            title=title,
+            generator=generate_conversation_id,
+            memory_manager=memory_manager,
+        )
+        
+        # Get chatbot response through request-scoped runtime execution
+        chatbot = get_chatbot()
+        try:
+            execution_result = runtime.execute_chat_request(
+                message=message,
+                conversation_id=conversation_id,
+                model=model,
+                agent_mode=agent_mode,
+                chatbot=chatbot,
+                memory_manager=memory_manager,
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as _llm_err:
+            if PROMETHEUS_AVAILABLE:
+                LLM_ERROR_COUNT.labels(provider=Config.LLM_PROVIDER).inc()
+            raise
 
-            # Switch provider if different from current (case-insensitive comparison)
-            if chatbot.provider_name.lower() != model.lower():
-                try:
-                    chatbot.switch_provider(model)
-                except ValueError as e:
-                    return jsonify({'error': str(e)}), 400
-                except Exception as e:
-                    return jsonify({'error': f'Failed to switch model: {str(e)}'}), 500
+        response = execution_result.response
 
-            # Set conversation ID for persistent memory
-            chatbot.set_conversation_id(conversation_id)
-
-            # Load conversation history if using persistent memory
-            if memory_manager:
-                chatbot.load_conversation(conversation_id)
-
-            # Get response (this will automatically save to persistent memory)
-            try:
-                response = chatbot.get_response(message)
-            except Exception as _llm_err:
-                if PROMETHEUS_AVAILABLE:
-                    LLM_ERROR_COUNT.labels(provider=Config.LLM_PROVIDER).inc()
-                raise
-
-            # Record token cost metrics if usage info is available on the response
-            if PROMETHEUS_AVAILABLE and hasattr(chatbot, 'last_usage') and chatbot.last_usage:
-                from src.llm.cost_tracker import calculate_cost
-                usage = chatbot.last_usage
-                provider = usage.get('provider', Config.LLM_PROVIDER)
-                model = usage.get('model', Config.get_llm_model())
-                prompt_tokens = usage.get('prompt_tokens', 0)
-                completion_tokens = usage.get('completion_tokens', 0)
-                LLM_TOKEN_COUNT.labels(provider=provider, model=model, type='prompt').inc(prompt_tokens)
-                LLM_TOKEN_COUNT.labels(provider=provider, model=model, type='completion').inc(completion_tokens)
-                cost = calculate_cost(provider, model, prompt_tokens, completion_tokens)
-                LLM_TOKEN_COST.labels(provider=provider, model=model).inc(cost)
+        # Record token cost metrics if usage info is available on the response
+        if PROMETHEUS_AVAILABLE and execution_result.usage_info:
+            from src.llm.cost_tracker import calculate_cost
+            usage = execution_result.usage_info
+            provider = usage.get('provider', Config.LLM_PROVIDER)
+            usage_model = usage.get('model', Config.get_llm_model())
+            prompt_tokens = usage.get('prompt_tokens', 0)
+            completion_tokens = usage.get('completion_tokens', 0)
+            LLM_TOKEN_COUNT.labels(provider=provider, model=usage_model, type='prompt').inc(prompt_tokens)
+            LLM_TOKEN_COUNT.labels(provider=provider, model=usage_model, type='completion').inc(completion_tokens)
+            cost = calculate_cost(provider, usage_model, prompt_tokens, completion_tokens)
+            LLM_TOKEN_COST.labels(provider=provider, model=usage_model).inc(cost)
 
         # Get updated conversation from memory manager
         if memory_manager:
@@ -371,10 +364,17 @@ def chat():
                         conversation_id,
                         message[:50] + ('...' if len(message) > 50 else '')
                     )
+        elif conversation_id in runtime.conversations:
+            conversation = runtime.conversations[conversation_id]
+            if len(conversation.get('messages', [])) == 2:
+                conversation['title'] = title
         
         return jsonify({
             'response': response,
             'conversation_id': conversation_id,
+            'agent_mode': agent_mode,
+            'ui_actions': execution_result.ui_actions,
+            'workflow_progress': execution_result.workflow_progress,
             'timestamp': datetime.now().isoformat()
         })
         

@@ -116,6 +116,15 @@ CONFLUENCE_TOOLING_KEYWORDS = [
     "confluence config",
 ]
 
+REQUIREMENT_SKILL_KEYWORDS = [
+    "requirement lifecycle",
+    "turn this into a requirement",
+    "help me turn this into a requirement",
+    "draft a ticket and docs",
+    "draft requirement",
+    "requirement analysis",
+]
+
 COZE_KEYWORDS = ["ai daily report", "ai daily news", "ai news"]
 JIRA_KEY_LOOKUP_PATTERN = r"\b[A-Z]{2,10}-\d+\b"
 
@@ -135,6 +144,9 @@ def detect_keyword_intent(
 
     if _matches_coze_intent(normalized_input) and coze_enabled:
         return "coze_agent"
+
+    if any(keyword in normalized_input for keyword in REQUIREMENT_SKILL_KEYWORDS):
+        return "requirement_sdlc_agent"
 
     if jira_available and _matches_jira_creation_intent(normalized_input):
         return "jira_creation"

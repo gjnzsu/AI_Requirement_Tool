@@ -332,6 +332,18 @@ class MemoryManager:
             """, (summary, datetime.now().isoformat(), conversation_id))
         
         return True
+
+    def update_conversation_metadata(self, conversation_id: str, metadata: Optional[Dict] = None) -> bool:
+        """Update conversation metadata."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE conversations
+                SET metadata = ?, updated_at = ?
+                WHERE id = ?
+            """, (json.dumps(metadata or {}), datetime.now().isoformat(), conversation_id))
+
+        return True
     
     def list_conversations(self, limit: Optional[int] = None, 
                           order_by: str = 'updated_at') -> List[Dict]:

@@ -2,7 +2,6 @@
 LangGraph Agent for intelligent tool orchestration.
 """
 
-from .agent_graph import ChatbotAgent, AgentState
 from .callbacks import LLMMonitoringCallback
 from .coze_nodes import (
     build_coze_exception_message,
@@ -96,4 +95,17 @@ __all__ = [
     'select_mcp_confluence_tool',
     'select_mcp_jira_tool',
 ]
+
+
+def __getattr__(name):
+    """Lazily import graph types to avoid circular imports during composition."""
+    if name in {"ChatbotAgent", "AgentState"}:
+        from .agent_graph import ChatbotAgent, AgentState
+
+        mapping = {
+            "ChatbotAgent": ChatbotAgent,
+            "AgentState": AgentState,
+        }
+        return mapping[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

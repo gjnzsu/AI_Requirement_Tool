@@ -39,3 +39,43 @@ def test_handle_jira_creation_delegates_to_requirement_workflow_service():
         "create the jira",
         chatbot.conversation_history,
     )
+
+
+def test_get_response_persists_requirement_sdlc_agent_state_with_persistent_memory():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.use_agent = True
+    chatbot.agent = Mock()
+    chatbot.agent.invoke.return_value = "preview ready"
+    chatbot.agent.llm_callback = None
+    chatbot.agent.export_requirement_sdlc_agent_state = Mock(
+        return_value={"stage": "confirmation", "awaiting_confirmation": True}
+    )
+    chatbot.provider_name = "openai"
+    chatbot.conversation_id = "conv-123"
+    chatbot.use_persistent_memory = True
+    chatbot.memory_manager = Mock()
+    chatbot.memory_manager.get_conversation_messages.return_value = [
+        {"role": "user", "content": "turn this into a requirement"}
+    ]
+    chatbot.memory_manager.add_message = Mock()
+    chatbot.memory_manager.update_conversation_metadata = Mock()
+    chatbot.conversation_history = []
+    chatbot.max_history = 10
+    chatbot.config = Mock()
+    chatbot.config.get_llm_model = Mock(return_value="gpt-4")
+
+    response = chatbot.get_response("approve")
+
+    assert response == "preview ready"
+    chatbot.memory_manager.add_message.assert_any_call("conv-123", "user", "approve")
+    chatbot.memory_manager.add_message.assert_any_call("conv-123", "assistant", "preview ready")
+    chatbot.memory_manager.update_conversation_metadata.assert_called_once_with(
+        "conv-123",
+        {
+            "agent_mode": "auto",
+            "requirement_sdlc_agent_state": {
+                "stage": "confirmation",
+                "awaiting_confirmation": True,
+            },
+        },
+    )
