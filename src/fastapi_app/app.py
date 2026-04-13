@@ -4,12 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
 
 from config.config import Config
 from src.fastapi_app.routes.chat import router as chat_router
 from src.fastapi_app.routes.conversations import router as conversations_router
 from src.fastapi_app.routes.auth import router as auth_router
+from src.fastapi_app.routes.system import PROMETHEUS_AVAILABLE, register_error_handlers, router as system_router
 from src.webapp import create_app_runtime, safe_print
 
 try:
@@ -31,14 +31,6 @@ except ImportError as error:
     safe_print("  Authentication features will be disabled.")
     AuthService = None
     UserService = None
-
-try:
-    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-
-    PROMETHEUS_AVAILABLE = True
-except ImportError:
-    PROMETHEUS_AVAILABLE = False
-
 
 def create_fastapi_app() -> FastAPI:
     """Create the FastAPI application and initialize shared runtime once."""
@@ -72,16 +64,7 @@ def create_fastapi_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(chat_router)
     app.include_router(conversations_router)
-
-    @app.get("/api/health")
-    async def health():
-        """Health check endpoint for probes and uptime checks."""
-        return {"status": "ok"}
-
-    if PROMETHEUS_AVAILABLE:
-        @app.get("/metrics")
-        async def metrics():
-            """Expose Prometheus metrics when prometheus_client is installed."""
-            return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    app.include_router(system_router)
+    register_error_handlers(app)
 
     return app
