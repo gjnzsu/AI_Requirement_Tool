@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.config import Config
+from src.fastapi_app.routes.chat import router as chat_router
+from src.fastapi_app.routes.conversations import router as conversations_router
 from src.fastapi_app.routes.auth import router as auth_router
 from src.webapp import create_app_runtime, safe_print
 
@@ -60,6 +62,8 @@ def create_fastapi_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(auth_router)
+    app.include_router(chat_router)
+    app.include_router(conversations_router)
 
     @app.get("/api/health")
     async def health():

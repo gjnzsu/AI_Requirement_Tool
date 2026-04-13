@@ -158,3 +158,39 @@ def test_auth_errors_match_flask_payload_shape(fastapi_client):
     data = response.json()
     assert "error" in data
     assert "message" not in data
+
+
+def test_auth_bypass_matches_flask_behavior(fastapi_client, monkeypatch):
+    client, _, _ = fastapi_client
+    monkeypatch.setenv("BYPASS_AUTH", "1")
+
+    me_response = client.get("/api/auth/me")
+    logout_response = client.post("/api/auth/logout")
+
+    assert me_response.status_code == 200
+    assert me_response.json() == {
+        "user": {"id": 1, "username": "test_user", "email": "test@example.com"}
+    }
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {"success": True, "message": "Logged out successfully"}
+
+
+def test_me_returns_structured_json_error_on_auth_dependency_failure(fastapi_client):
+    client, runtime, test_user = fastapi_client
+    token = runtime.auth_service.generate_token(test_user["id"], test_user["username"])
+
+    def explode(_):
+        raise RuntimeError("db temporarily unavailable")
+
+    runtime.user_service.get_user_by_id = explode
+
+    response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Authentication error",
+        "message": "db temporarily unavailable",
+    }
