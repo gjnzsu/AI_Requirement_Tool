@@ -3,7 +3,7 @@
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from src.fastapi_app.app import create_fastapi_app
+from src.fastapi_app.app import PROMETHEUS_AVAILABLE, create_fastapi_app
 from src.fastapi_app.dependencies import get_runtime
 
 
@@ -54,3 +54,16 @@ def test_get_runtime_returns_app_state_runtime():
     request = Request({"type": "http", "app": app})
 
     assert get_runtime(request) is runtime
+
+
+def test_fastapi_metrics_endpoint_matches_optional_contract():
+    """GET /metrics should mirror Flask optional Prometheus behavior."""
+    app = create_fastapi_app()
+
+    with TestClient(app) as client:
+        response = client.get("/metrics")
+
+    if PROMETHEUS_AVAILABLE:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 404

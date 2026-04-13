@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from config.config import Config
 from src.fastapi_app.routes.chat import router as chat_router
@@ -30,6 +31,13 @@ except ImportError as error:
     safe_print("  Authentication features will be disabled.")
     AuthService = None
     UserService = None
+
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
 
 
 def create_fastapi_app() -> FastAPI:
@@ -69,5 +77,11 @@ def create_fastapi_app() -> FastAPI:
     async def health():
         """Health check endpoint for probes and uptime checks."""
         return {"status": "ok"}
+
+    if PROMETHEUS_AVAILABLE:
+        @app.get("/metrics")
+        async def metrics():
+            """Expose Prometheus metrics when prometheus_client is installed."""
+            return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     return app
