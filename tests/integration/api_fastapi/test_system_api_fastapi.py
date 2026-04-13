@@ -1,8 +1,10 @@
 ﻿"""System tests for the FastAPI application skeleton."""
 
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 from src.fastapi_app.app import create_fastapi_app
+from src.fastapi_app.dependencies import get_runtime
 
 
 def test_fastapi_health_endpoint_returns_ok():
@@ -42,3 +44,13 @@ def test_fastapi_app_boot_initializes_runtime_once(monkeypatch):
     assert second_response.json() == {"status": "ok"}
     assert len(created_runtimes) == 1
     assert app.state.runtime is created_runtimes[0]
+
+
+def test_get_runtime_returns_app_state_runtime():
+    """The runtime dependency should return the app-state runtime object."""
+    app = create_fastapi_app()
+    runtime = object()
+    app.state.runtime = runtime
+    request = Request({"type": "http", "app": app})
+
+    assert get_runtime(request) is runtime
