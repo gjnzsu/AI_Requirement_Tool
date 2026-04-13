@@ -1,14 +1,25 @@
 # Enterprise GenAI Assistant
 
-An enterprise-oriented GenAI assistant combining conversational AI, document Q&A (RAG), and Jira/Confluence workflows via MCP and APIs — with multi-provider LLM routing, an optional centralized gateway for caching and rate-limiting, a responsive web UI, and production-grade observability.
+An enterprise-oriented GenAI assistant combining conversational AI, document Q&A (RAG), and Jira/Confluence workflows via MCP and APIs with multi-provider LLM routing, an optional centralized gateway for caching and rate-limiting, a responsive web UI, and production-grade observability.
 
 Built for teams that need more than a generic chatbot: structured intent detection routes requests to the right tool automatically, RAG grounds answers in your internal knowledge base, and MCP bridges the assistant directly into your Atlassian toolchain.
 
-## 🚀 Key Features
+## Key Features
+
+### Latest Change Highlights (2026-04-13)
+
+- Product agent flow redesigned for clearer end-to-end user progression
+- Internal orchestration refactored to improve maintainability and extension safety
+- UX behavior improved across chat validation, error handling, and workflow response consistency
+- Final polish package added:
+ - `docs/release/2026-04-13-final-polish/QA_SIGNOFF_CHECKLIST.md`
+ - `docs/release/2026-04-13-final-polish/METRICS_INSTRUMENTATION_REVIEW.md`
+ - `docs/release/2026-04-13-final-polish/RELEASE_NOTES_DRAFT.md`
 
 ### Conversational AI
 - **LangGraph Agent Framework** - Stateful agent graph with intent detection and multi-step tool orchestration
 - **Refactored Agent Orchestration** - `src/agent/agent_graph.py` now focuses on orchestration while intent routing, Jira, Confluence, RAG, Coze, and general chat behavior live in focused helper modules
+- **Requirement SDLC Agent Mode** - Staged BA-guided requirement drafting with explicit approval before durable Jira/Confluence/RAG lifecycle execution
 - **Conversation Memory** - Persistent history with automatic summarization to stay within context limits
 - **Intent Routing** - Automatically distinguishes general chat, document Q&A, and Jira/Confluence actions
 - **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable HTTP timeout
@@ -42,61 +53,70 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **Error Recovery** - Automatic fallback mechanisms at agent and provider level
 - **Integration & E2E Tests** - Full test suite covering MCP, RAG, agent, LLM providers, memory, API routes, and gateway components
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 AI_Requirement_Tool/
-|-- app.py                          # Flask web server entrypoint
+|-- app.py # Flask web server entrypoint
 |-- config/
-|   `-- config.py                  # Centralized configuration
+| `-- config.py # Centralized configuration
 |-- src/
-|   |-- chatbot.py                 # Main chatbot orchestrator used by Flask
-|   |-- agent/                     # LangGraph orchestration and node helpers
-|   |   |-- agent_graph.py         # Graph assembly and state orchestration
-|   |   |-- intent_routing.py      # Intent routing helpers
-|   |   |-- jira_nodes.py          # Jira execution helpers
-|   |   |-- confluence_nodes.py    # Confluence execution helpers
-|   |   |-- rag_nodes.py           # RAG node helpers
-|   |   |-- coze_nodes.py          # Coze node helpers
-|   |   |-- general_chat_nodes.py  # General chat helpers
-|   |   |-- requirement_workflow.py
-|   |   `-- callbacks.py
-|   |-- services/                  # Application services
-|   |   |-- requirement_workflow_service.py
-|   |   |-- intent_detector.py
-|   |   |-- jira_maturity_evaluator.py
-|   |   |-- memory_manager.py
-|   |   |-- memory_summarizer.py
-|   |   `-- coze_client.py
-|   |-- webapp/                    # Flask runtime container and route blueprints
-|   |   |-- runtime.py
-|   |   `-- routes/
-|   |-- auth/                      # Authentication services and middleware
-|   |-- llm/                       # Multi-provider LLM infrastructure
-|   |-- mcp/                       # MCP client and integration logic
-|   |-- rag/                       # RAG pipeline
-|   |-- tools/                     # Direct Jira and Confluence tools
-|   |-- gateway/                   # Optional FastAPI AI Gateway
-|   |-- models/
-|   `-- utils/
-|-- web/                           # Web UI frontend
-|   |-- templates/
-|   `-- static/
+| |-- chatbot.py # Main chatbot orchestrator used by Flask
+| |-- agent/ # LangGraph orchestration and node helpers
+| | |-- agent_graph.py # Graph assembly and state orchestration
+| | |-- intent_routing.py # Intent routing helpers
+| | |-- jira_nodes.py # Jira execution helpers
+| | |-- confluence_nodes.py # Confluence execution helpers
+| | |-- rag_nodes.py # RAG node helpers
+| | |-- coze_nodes.py # Coze node helpers
+| | |-- general_chat_nodes.py # General chat helpers
+| | |-- requirement_workflow.py
+| | `-- callbacks.py
+| |-- services/ # Application services
+| | |-- requirement_workflow_service.py
+| | |-- requirement_sdlc_agent_service.py
+| | |-- intent_detector.py
+| | |-- jira_maturity_evaluator.py
+| | |-- memory_manager.py
+| | |-- memory_summarizer.py
+| | `-- coze_client.py
+| |-- application/ # Phase 3 application ports and contracts
+| | `-- ports/
+| |-- adapters/ # Fallback/direct adapters behind ports
+| | |-- jira/
+| | |-- confluence/
+| | `-- evaluation/
+| |-- runtime/ # Centralized dependency composition
+| | `-- composition.py
+| |-- webapp/ # Flask runtime container and route blueprints
+| | |-- runtime.py
+| | `-- routes/
+| |-- auth/ # Authentication services and middleware
+| |-- llm/ # Multi-provider LLM infrastructure
+| |-- mcp/ # MCP client and integration logic
+| |-- rag/ # RAG pipeline
+| |-- tools/ # Direct Jira and Confluence tools
+| |-- gateway/ # Optional FastAPI AI Gateway
+| |-- models/
+| `-- utils/
+|-- web/ # Web UI frontend
+| |-- templates/
+| `-- static/
 |-- tests/
-|   |-- unit/
-|   |-- integration/
-|   `-- e2e/
+| |-- unit/
+| |-- integration/
+| `-- e2e/
 |-- docs/
-|   |-- architecture/
-|   |-- features/
-|   `-- superpowers/
+| |-- architecture/
+| |-- features/
+| `-- superpowers/
 |-- requirements.txt
 |-- pytest.ini
 |-- run_tests.py
 `-- README.md
 ```
 
-## 🛠️ Setup Instructions
+## Setup Instructions
 
 ### 1. Clone the Repository
 
@@ -117,7 +137,7 @@ Create a `.env` file in the project root or set environment variables:
 
 ```bash
 # LLM Provider Configuration
-LLM_PROVIDER=openai  # Options: 'openai', 'gemini', 'deepseek'
+LLM_PROVIDER=openai # Options: 'openai', 'gemini', 'deepseek'
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4
 GEMINI_API_KEY=your-gemini-api-key
@@ -131,17 +151,14 @@ JIRA_API_TOKEN=your-jira-api-token
 JIRA_PROJECT_KEY=PROJ
 
 # MCP Configuration
-USE_MCP=true  # Enable MCP integration
+USE_MCP=true # Enable MCP integration
 
 # RAG Configuration (optional)
 RAG_ENABLE_CACHE=true
 RAG_CACHE_TTL_HOURS=24
 ```
 
-**Windows PowerShell:**
-```powershell
-.\set-env.ps1
-```
+See [docs/getting-started/SETUP_ENV.md](docs/getting-started/SETUP_ENV.md) for environment setup examples across operating systems.
 
 ### 4. Run the Application
 
@@ -161,11 +178,11 @@ python src/chatbot.py
 uvicorn src.gateway.gateway_service:create_gateway_app --factory --reload --port 8001
 ```
 
-## 🎯 Usage Examples
+## Usage Examples
 
 ### General Chat
 ```
-You: What is Python?
+You: What is Python##
 Chatbot: Python is a high-level programming language...
 ```
 
@@ -173,7 +190,7 @@ Chatbot: Python is a high-level programming language...
 ```
 You: Create a new Jira issue about "Add Redis cache for RAG service"
 Chatbot: I'll create a Jira issue for you...
-✅ Created issue SCRUM-123 via MCP tool
+ Created issue SCRUM-123 via MCP tool
 Link: https://yourcompany.atlassian.net/browse/SCRUM-123
 ```
 
@@ -183,7 +200,7 @@ The agent automatically detects user intents:
 - **Jira Creation** - Creating Jira issues
 - **Question Answering** - Using RAG for context-aware responses
 
-## 🔧 MCP Integration
+## MCP Integration
 
 ### Overview
 
@@ -211,16 +228,16 @@ The MCP integration will automatically:
 
 ```bash
 # Test MCP configuration
-python test_mcp_enabled.py
+pytest tests/integration/mcp/test_mcp_enabled.py -v
 
 # Test full MCP integration
-python test_mcp_integration_full.py
+pytest tests/integration/mcp/test_mcp_integration_full.py -v
 
 # Test Jira creation via MCP
-python test_mcp_jira_creation.py
+pytest tests/integration/mcp/test_mcp_jira_creation.py -v
 ```
 
-## 📚 RAG (Retrieval-Augmented Generation)
+## RAG (Retrieval-Augmented Generation)
 
 ### Overview
 
@@ -250,7 +267,7 @@ python ingest_pdf.py
 # Documents are stored in data/ directory
 ```
 
-## 🤖 LangGraph Agent
+## LangGraph Agent
 
 ### Current Architecture
 
@@ -258,21 +275,21 @@ The chatbot uses LangGraph for orchestration, but the architecture has been refa
 
 ```text
 User Input
-    ->
+ ->
 Chatbot
-    ->
+ ->
 ChatbotAgent / agent_graph.py
-    ->
+ ->
 Intent Detection
-    ->
+ ->
 +-------------------+--------------------+------------------+-----------------+
-| General Chat      | Jira/Requirement   | RAG Query        | Coze Agent      |
+| General Chat | Jira/Requirement | RAG Query | Coze Agent |
 +-------------------+--------------------+------------------+-----------------+
-    ->
+ ->
 Focused helper modules + shared services
-    ->
+ ->
 Tool / RAG / provider execution
-    ->
+ ->
 User Response
 ```
 
@@ -280,7 +297,7 @@ User Response
 
 - **Phase 1 completed** - Shared requirement workflow logic was extracted into `src/services/requirement_workflow_service.py`
 - **Phase 2 completed** - `src/agent/agent_graph.py` now delegates to focused helper modules for intent routing, Jira, Confluence, RAG, Coze, and general chat
-- **Phase 3 planned** - Ports, adapters, and centralized composition are designed but not yet the default runtime architecture
+- **Phase 3 foundations implemented (ongoing cleanup)** - Ports/adapters and centralized composition are present in `src/application`, `src/adapters`, and `src/runtime`; runtime and request-safety hardening continues incrementally
 
 ### Intent Detection
 
@@ -298,7 +315,7 @@ Tools are automatically selected based on intent:
 - **Custom Tools** - Fallback when MCP is unavailable
 - **RAG Service** - Used for context-aware responses
 
-## 🌐 Web UI
+## Web UI
 
 ### Features
 
@@ -317,9 +334,9 @@ Tools are automatically selected based on intent:
 - `POST /api/new-chat` - Create new conversation
 - `PUT /api/conversations/<id>/title` - Update conversation title
 
-## 📖 Documentation
+## Documentation
 
-> **📚 [Complete Documentation Index](docs/README.md)** - Browse all documentation organized by category
+> ** [Complete Documentation Index](docs/README.md)** - Browse all documentation organized by category
 
 ### Quick Links
 
@@ -336,7 +353,7 @@ Tools are automatically selected based on intent:
 **Architecture:**
 - **[docs/architecture/README.md](docs/architecture/README.md)** - Current architecture documentation
 - **[docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md](docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md)** - Phase 1 and Phase 2 refactor design and completion notes
-- **[docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md](docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md)** - Planned Phase 3 architecture cleanup
+- **[docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md](docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md)** - Phase 3 architecture cleanup design and migration direction
 - **[docs/architecture/diagrams/architecture-diagram.drawio](docs/architecture/diagrams/architecture-diagram.drawio)** - Current architecture diagram
 - **[docs/architecture/diagrams/architecture-diagram-future.drawio](docs/architecture/diagrams/architecture-diagram-future.drawio)** - Future architecture diagram
 
@@ -346,24 +363,20 @@ Tools are automatically selected based on intent:
 
 For a complete list of all documentation, see the **[Documentation Index](docs/README.md)**.
 
-## 🧪 Testing
+## Testing
 
 ### Test Structure
 
 Tests are organized in the `tests/` directory:
-
-```
-tests/
-├── unit/              # Unit tests (isolated components)
-├── integration/       # Integration tests (component interactions)
-│   ├── mcp/          # MCP integration tests
-│   ├── rag/          # RAG integration tests
-│   ├── agent/        # Agent framework tests
-│   ├── llm/          # LLM provider tests
-│   └── memory/       # Memory system tests
-├── e2e/              # End-to-end tests
-└── fixtures/         # Test fixtures and utilities
-```
+- `tests/unit/` - Unit tests (isolated components)
+- `tests/integration/` - Integration tests (component interactions)
+- `tests/integration/mcp/` - MCP integration tests
+- `tests/integration/rag/` - RAG integration tests
+- `tests/integration/agent/` - Agent integration tests
+- `tests/integration/llm/` - LLM provider tests
+- `tests/integration/memory/` - Memory integration tests
+- `tests/e2e/` - End-to-end UI and full-stack tests
+- `tests/fixtures/` - Shared test helpers and fixture data
 
 ### Running Tests
 
@@ -372,22 +385,22 @@ tests/
 python run_tests.py
 
 # Run specific test categories
-python run_tests.py --unit          # Unit tests only
-python run_tests.py --integration   # Integration tests only
-python run_tests.py --e2e          # End-to-end tests only
+python run_tests.py --unit # Unit tests only
+python run_tests.py --integration # Integration tests only
+python run_tests.py --e2e # End-to-end tests only
 
 # Run tests by feature
-python run_tests.py --mcp          # MCP tests
-python run_tests.py --rag          # RAG tests
-python run_tests.py --agent        # Agent tests
-python run_tests.py --llm          # LLM provider tests
-python run_tests.py --memory       # Memory tests
+python run_tests.py --mcp # MCP tests
+python run_tests.py --rag # RAG tests
+python run_tests.py --agent # Agent tests
+python run_tests.py --llm # LLM provider tests
+python run_tests.py --memory # Memory tests
 
 # Using pytest directly
-pytest tests/                       # Run all tests
-pytest tests/unit/                 # Run unit tests
-pytest tests/integration/mcp/      # Run MCP tests
-pytest -v -m mcp                  # Run tests marked with 'mcp'
+pytest tests/ # Run all tests
+pytest tests/unit/ # Run unit tests
+pytest tests/integration/mcp/ # Run MCP tests
+pytest -v -m mcp # Run tests marked with 'mcp'
 ```
 
 ### Test Configuration
@@ -397,17 +410,13 @@ pytest -v -m mcp                  # Run tests marked with 'mcp'
 - **run_tests.py** - Convenient test runner script
 
 ```bash
-# Test Jira creation
-python test_mcp_jira_creation.py
-
-# Test agent
-python test_agent.py
-
-# Test RAG
-python test_rag.py
+# Focused integration runs
+pytest tests/integration/mcp/test_mcp_jira_creation.py -v
+pytest tests/integration/agent/ -v -m agent
+pytest tests/integration/rag/ -v -m rag
 ```
 
-## 🔑 Getting API Keys
+## Getting API Keys
 
 ### OpenAI
 1. Go to https://platform.openai.com/api-keys
@@ -424,7 +433,7 @@ python test_rag.py
 2. Click "Create API token"
 3. Copy the token to your `.env` file
 
-## 🎨 Configuration Options
+## Configuration Options
 
 ### LLM Provider Selection
 
@@ -451,7 +460,7 @@ Set `LLM_PROVIDER` in your `.env`:
 - `COZE_API_BASE_URL` - API base URL (`https://api.coze.cn` or `https://api.coze.com`)
 - `COZE_API_TIMEOUT=300` - HTTP timeout in seconds for Coze API calls (default: 300)
 
-## 🚀 CI/CD Pipeline
+## CI/CD Pipeline
 
 The project uses GitHub Actions for automated build, test, and deployment to Google Kubernetes Engine (GKE).
 
@@ -459,8 +468,8 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 
 | Workflow | File | Trigger |
 |---|---|---|
-| CI — Build, Test & Push | `.github/workflows/ci.yml` | Push or PR to `main` |
-| CD — Deploy to GKE | `.github/workflows/cd.yml` | CI workflow completes successfully |
+| CI Build, Test & Push | `.github/workflows/ci.yml` | Push or PR to `main` |
+| CD Deploy to GKE | `.github/workflows/cd.yml` | CI workflow completes successfully |
 
 ### CI Pipeline (`ci.yml`)
 
@@ -497,19 +506,19 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 - **Cluster:** `helloworld-cluster` (us-central1)
 - **Deployment:** `ai-tool` (1 replica)
 - **Service:** `ai-tool-service` (LoadBalancer)
-- **Current app URL:** `http://34.133.164.110/`
-- **Health check:** `http://34.133.164.110/api/health`
+- **Endpoint discovery:** CD workflow prints the current external IP after deployment
+- **Health check pattern:** `http://<external-ip>/api/health`
 
-> Latest known cloud deployment endpoint: `http://34.133.164.110/`. Because the service uses a GKE `LoadBalancer`, this IP can change if the service is reprovisioned; the CD pipeline also prints the currently assigned external IP after deployment.
+> The GKE LoadBalancer IP is dynamic. Use the CD workflow output or `kubectl get svc ai-tool-service` to retrieve the current endpoint.
 
 ---
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### MCP Not Working
 1. Check `USE_MCP=true` in `.env`
 2. Verify Jira credentials are correct
-3. Run `python test_mcp_enabled.py` to diagnose
+3. Run `pytest tests/integration/mcp/test_mcp_enabled.py -v` to diagnose
 4. Check logs for MCP initialization errors
 
 ### RAG Not Working
@@ -522,15 +531,15 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 2. Verify API keys are valid
 3. Review agent logs for specific errors
 
-## 📝 License
+## License
 
 [Add your license information here]
 
-## 🤝 Contributing
+## Contributing
 
 [Add contribution guidelines here]
 
-## 📧 Support
+## Support
 
 [Add support contact information here]
 

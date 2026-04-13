@@ -1,0 +1,84 @@
+flowchart TB
+  %% Request Path
+  subgraph RP[Request Path]
+    U[User]
+    W[Web UI\nweb/templates + web/static]
+    F[Flask App\napp.py\nRoutes + metrics + auth endpoints]
+    R[AppRuntime\nsrc/webapp/runtime.py\nrequest-scoped snapshot/restore]
+    C[Chatbot\nsrc/chatbot.py\nprovider switching, memory, RAG wiring]
+    A[ChatbotAgent / LangGraph\nsrc/agent/agent_graph.py]
+    S[RequirementSdlcAgentService\nBA draft -> confirmation -> execution handoff]
+  end
+
+  %% Application Core
+  subgraph AC[Application Core]
+    BC[build_application_services()\nsrc/runtime/composition.py]
+    WF[RequirementWorkflowService\nlifecycle source of truth]
+    P[Application Ports\nsrc/application/ports\nJiraIssuePort / ConfluencePagePort / JiraEvaluationPort]
+    AD[Fallback Adapters\nsrc/adapters/*\nMCP-first + Direct fallback + DTO normalization]
+  end
+
+  %% Capabilities
+  subgraph CAP[Capabilities]
+    MM[MemoryManager + MemorySummarizer]
+    RG[RAG Service]
+    CZ[Coze Client]
+    MCP[MCP Integration]
+    DT[Direct Tools\nJiraTool + ConfluenceTool]
+    LR[LLM Router + ProviderManager\nsrc/llm/router.py]
+    GW[Optional FastAPI AI Gateway\nsrc/gateway/gateway_service.py\nrate limit / cache / metrics / fallback]
+  end
+
+  %% External / Storage
+  subgraph EXT[External / Storage]
+    ATL[Atlassian APIs\nJira + Confluence]
+    COZEAPI[Coze Platform API]
+    LLMAPI[LLM Provider APIs\nOpenAI / Gemini / DeepSeek]
+    MEMDB[Memory DB\nSQLite]
+    VECDB[Vector DB\nChromaDB]
+    AUTHDB[Auth DB\nSQLite]
+  end
+
+  %% Main request flow
+  U --> W --> F --> R --> C --> A
+  A -->|agent_mode=requirement_sdlc_agent| S
+
+  %% Composition and lifecycle flow
+  C -. compose .-> BC
+  A -. compose .-> BC
+  BC --> WF --> P --> AD
+  S -->|execution handoff| WF
+
+  %% Capabilities
+  C --> MM
+  A --> RG
+  A --> CZ
+  C --> LR
+  AD --> MCP
+  AD --> DT
+
+  %% External integration
+  F --> AUTHDB
+  MM --> MEMDB
+  RG --> VECDB
+  CZ --> COZEAPI
+  LR --> LLMAPI
+  MCP -. MCP path .-> ATL
+  DT -. direct fallback .-> ATL
+
+  %% Optional gateway sidecar
+  C -. optional USE_GATEWAY .-> GW
+  GW -.-> LLMAPI
+
+  %% Styling
+  classDef req fill:#e8f1ff,stroke:#5b8bd9,stroke-width:1px,color:#111;
+  classDef core fill:#dff3f5,stroke:#1f7a8c,stroke-width:1px,color:#111;
+  classDef cap fill:#fff0dc,stroke:#d98b00,stroke-width:1px,color:#111;
+  classDef ext fill:#f3f3f3,stroke:#7a7a7a,stroke-width:1px,color:#111;
+  classDef optional fill:#fafafa,stroke:#7a7a7a,stroke-width:1px,stroke-dasharray: 5 3,color:#111;
+
+  class U,W,F,R,C,A,S req;
+  class BC,WF,P,AD core;
+  class MM,RG,CZ,MCP,DT,LR cap;
+  class ATL,COZEAPI,LLMAPI,MEMDB,VECDB,AUTHDB ext;
+  class GW optional;
