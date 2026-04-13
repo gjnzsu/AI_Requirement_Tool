@@ -73,3 +73,35 @@ The table below captures the current Flask contract as implemented today.
 - `/api/auth/*`, `/api/chat`, `/api/current-model`, `/api/conversations*`, `/api/new-chat`, and `/api/search` are all protected by the current Flask auth decorator where applicable.
 - The two baseline failures above are part of the current snapshot and should be treated as pre-migration defects unless fixed in a separate change.
 - Any FastAPI replacement should preserve these statuses and JSON field names unless a dedicated contract change is planned and tested separately.
+
+## Task 8 Cutover Checklist And Rollback Rules
+
+### Pre-cutover gates
+
+- Parity suites are green in CI:
+  - `pytest tests/integration/api/ -v`
+  - `pytest tests/integration/api_fastapi/ -v`
+- Smoke checks pass in staging:
+  - `GET /api/health`
+  - `POST /api/auth/login`
+  - `POST /api/chat`
+  - `GET /api/conversations`
+  - `GET /metrics` (when Prometheus client is available)
+- Compare error-rate and latency SLOs for Flask vs FastAPI in a fixed observation window before promotion.
+
+### Staging rollout procedure
+
+- Deploy with `USE_FASTAPI_BACKEND=false` first to verify image/runtime stability.
+- Flip to `USE_FASTAPI_BACKEND=true` in staging and re-run parity smoke checks.
+- Validate auth semantics, chat response payload fields (`ui_actions`, `workflow_progress`), and conversation persistence behavior.
+
+### Controlled production cutover
+
+- Start production with `USE_FASTAPI_BACKEND=false` and enable FastAPI only after staging signoff.
+- Use a canary release window with monitored request success rate, p95 latency, and auth/chat endpoint error trends.
+- Keep deployment command dual-path (Flask/FastAPI) to allow same-release fallback.
+
+### Rollback rule
+
+- If any P1 regression appears in auth/chat/conversations/metrics, revert `USE_FASTAPI_BACKEND` to `false` and redeploy in the same release cycle.
+- Preserve rollback evidence in release notes: failing endpoint, timestamp, impacted traffic window, and verification after rollback.
