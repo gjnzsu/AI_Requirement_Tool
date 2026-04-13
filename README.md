@@ -41,7 +41,7 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **Optional Centralized Gateway** - Layer in a gateway for shared caching, rate-limit enforcement, and cost visibility across teams
 
 ### Web UI & Observability
-- **Modern Web UI** - Responsive chat interface served by Flask, no build step required
+- **Modern Web UI** - Responsive chat interface with Flask as the stable backend and FastAPI parity path for migration
 - **Prometheus Metrics** - HTTP request counters, latency histograms, and LLM token/cost metrics via `/metrics`
 - **Grafana Dashboards** - Pre-built dashboards for request rate, error rate, and LLM usage
 - **Structured Logging** - Request-level logs for debugging and audit trails
@@ -91,6 +91,7 @@ AI_Requirement_Tool/
 | |-- webapp/ # Flask runtime container and route blueprints
 | | |-- runtime.py
 | | `-- routes/
+| |-- fastapi_app/ # FastAPI parity app and migrated routes
 | |-- auth/ # Authentication services and middleware
 | |-- llm/ # Multi-provider LLM infrastructure
 | |-- mcp/ # MCP client and integration logic
@@ -153,6 +154,10 @@ JIRA_PROJECT_KEY=PROJ
 # MCP Configuration
 USE_MCP=true # Enable MCP integration
 
+# Backend Migration Flags
+USE_FASTAPI_BACKEND=false # Flask stable path; set true to run FastAPI backend
+FASTAPI_PARITY_STRICT=true # Enforce FastAPI parity suite in CI
+
 # RAG Configuration (optional)
 RAG_ENABLE_CACHE=true
 RAG_CACHE_TTL_HOURS=24
@@ -165,6 +170,12 @@ See [docs/getting-started/SETUP_ENV.md](docs/getting-started/SETUP_ENV.md) for e
 **Web UI (Recommended):**
 ```bash
 python app.py
+```
+Then open `http://localhost:5000` in your browser.
+
+**FastAPI Backend (Migration Path):**
+```bash
+uvicorn src.fastapi_app.app:create_fastapi_app --factory --reload --host 0.0.0.0 --port 5000
 ```
 Then open `http://localhost:5000` in your browser.
 
@@ -401,6 +412,11 @@ pytest tests/ # Run all tests
 pytest tests/unit/ # Run unit tests
 pytest tests/integration/mcp/ # Run MCP tests
 pytest -v -m mcp # Run tests marked with 'mcp'
+
+# Backend parity checks
+pytest tests/integration/api/ -v # Flask API contract tests
+pytest tests/integration/api_fastapi/ -v # FastAPI parity contract tests
+pytest tests/integration/api/ tests/integration/api_fastapi/ -v # Combined migration matrix
 ```
 
 ### Test Configuration
@@ -476,11 +492,13 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 1. **Checkout** source code
 2. **Set up Python 3.11** with pip caching
 3. **Run unit tests** via `pytest tests/unit/`
-4. *(On push to `main` only)*
-5. **Authenticate to GCP** using `GCP_SA_KEY` service account key
-6. **Configure Docker** for Artifact Registry
-7. **Build Docker image** tagged with commit SHA and `latest`
-8. **Push image** to `us-central1-docker.pkg.dev/{GCP_PROJECT_ID}/ai-requirement-tool/ai-requirement-tool`
+4. **Run Flask API integration tests** via `pytest tests/integration/api/`
+5. **Run FastAPI parity integration tests** via `pytest tests/integration/api_fastapi/` (strict gate controlled by `FASTAPI_PARITY_STRICT`)
+6. *(On push to `main` only)*
+7. **Authenticate to GCP** using `GCP_SA_KEY` service account key
+8. **Configure Docker** for Artifact Registry
+9. **Build Docker image** tagged with commit SHA and `latest`
+10. **Push image** to `us-central1-docker.pkg.dev/{GCP_PROJECT_ID}/ai-requirement-tool/ai-requirement-tool`
 
 ### CD Pipeline (`cd.yml`)
 

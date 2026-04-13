@@ -194,6 +194,17 @@ def get_chatbot():
     """Get or create chatbot instance with timeout protection."""
     return get_app_runtime(app_runtime).get_chatbot()
 
+
+def _coerce_json_compatible(value):
+    """Return JSON-compatible value, falling back to None for unsupported objects."""
+    if value is None:
+        return None
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, ValueError):
+        return None
+
 @app.route('/api/chat', methods=['POST'])
 @token_required
 def chat():
@@ -373,8 +384,8 @@ def chat():
             'response': response,
             'conversation_id': conversation_id,
             'agent_mode': agent_mode,
-            'ui_actions': execution_result.ui_actions,
-            'workflow_progress': execution_result.workflow_progress,
+            'ui_actions': _coerce_json_compatible(execution_result.ui_actions),
+            'workflow_progress': _coerce_json_compatible(execution_result.workflow_progress),
             'timestamp': datetime.now().isoformat()
         })
         

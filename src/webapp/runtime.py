@@ -244,16 +244,18 @@ class AppRuntime:
                 response = chatbot.get_response(message)
                 usage_info = copy.deepcopy(getattr(chatbot, "last_usage", None))
 
-                runtime_state = copy.deepcopy(
-                    getattr(chatbot, "export_runtime_state", lambda: {})()
+                runtime_state = self._coerce_runtime_state(
+                    copy.deepcopy(getattr(chatbot, "export_runtime_state", lambda: {})())
                 )
                 ui_actions = self._build_ui_actions(runtime_state)
-                workflow_progress = copy.deepcopy(
-                    getattr(
-                        getattr(chatbot, "agent", None),
-                        "export_latest_requirement_workflow_progress",
-                        lambda: None,
-                    )()
+                workflow_progress = self._coerce_optional_json(
+                    copy.deepcopy(
+                        getattr(
+                            getattr(chatbot, "agent", None),
+                            "export_latest_requirement_workflow_progress",
+                            lambda: None,
+                        )()
+                    )
                 )
 
                 if not memory_manager:
@@ -271,6 +273,20 @@ class AppRuntime:
                 )
             finally:
                 self._restore_chatbot_state(chatbot, snapshot)
+
+    def _coerce_runtime_state(self, runtime_state: Any) -> Dict[str, Any]:
+        """Ensure runtime metadata persisted by memory manager remains dict-like."""
+        if isinstance(runtime_state, dict):
+            return runtime_state
+        return {}
+
+    def _coerce_optional_json(self, value: Any) -> Any:
+        """Keep optional response payloads JSON-serializable for API responses."""
+        if value is None:
+            return None
+        if isinstance(value, (str, int, float, bool, list, dict)):
+            return value
+        return None
 
     def _build_ui_actions(
         self,

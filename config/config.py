@@ -142,6 +142,10 @@ class Config:
     GATEWAY_CIRCUIT_BREAKER_ENABLED: bool = os.getenv('GATEWAY_CIRCUIT_BREAKER_ENABLED', 'true').lower() in ('true', '1', 'yes')
     GATEWAY_ROUTING_STRATEGY: str = os.getenv('GATEWAY_ROUTING_STRATEGY', 'auto')  # 'auto', 'cost', 'latency', 'load', 'explicit'
     USE_GATEWAY: bool = os.getenv('USE_GATEWAY', 'false').lower() in ('true', '1', 'yes')  # Feature flag for using gateway in chatbot
+
+    # Backend migration controls
+    USE_FASTAPI_BACKEND: bool = os.getenv('USE_FASTAPI_BACKEND', 'false').lower() in ('true', '1', 'yes')
+    FASTAPI_PARITY_STRICT: bool = os.getenv('FASTAPI_PARITY_STRICT', 'true').lower() in ('true', '1', 'yes')
     
     @classmethod
     def get_llm_api_key(cls) -> str:

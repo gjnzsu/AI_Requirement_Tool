@@ -10,6 +10,7 @@ env:
   GCP_REGION: us-central1
   IMAGE_NAME: ai-requirement-tool
   REGISTRY_REPO: ai-requirement-tool
+  FASTAPI_PARITY_STRICT: "true"
 
 jobs:
   build-test-push:
@@ -31,6 +32,17 @@ jobs:
 
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short
+
+      - name: Run Flask API integration tests
+        run: pytest tests/integration/api/ -v --tb=short
+
+      - name: Run FastAPI parity integration tests
+        run: |
+          if [ "${FASTAPI_PARITY_STRICT}" = "true" ]; then
+            pytest tests/integration/api_fastapi/ -v --tb=short
+          else
+            pytest tests/integration/api_fastapi/ -v --tb=short || true
+          fi
 
       # S-01 (HIGH): Currently using GCP_SA_KEY (long-lived JSON key) stored as a GitHub Secret.
       # Strictly minimal SA permissions (roles/artifactregistry.writer + roles/container.developer only).
