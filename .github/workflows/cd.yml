@@ -1,10 +1,7 @@
 name: CD -- Deploy to GKE
 
 on:
-  workflow_run:
-    workflows: ["CI -- Build, Test & Push"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
 
 env:
   GCP_REGION: us-central1
@@ -16,7 +13,6 @@ jobs:
   deploy:
     name: Deploy to GKE
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout source
@@ -37,7 +33,7 @@ jobs:
       - name: Set image in deployment manifest
         run: |
           IMAGE_BASE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}
-          FULL_IMAGE=${IMAGE_BASE}:${{ github.event.workflow_run.head_sha }}
+          FULL_IMAGE=${IMAGE_BASE}:${{ github.sha }}
           sed -i "s|IMAGE_PLACEHOLDER|${FULL_IMAGE}|g" k8s/deployment.yaml
 
       - name: Apply deployment and service
