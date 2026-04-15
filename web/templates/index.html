@@ -7,41 +7,51 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
-    <div class="container">
-        <!-- Left Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1 class="logo">CHAT A.I+</h1>
-                <div class="model-selector">
-                    <label for="modelSelect" class="model-label">
-                        <i class="fas fa-brain"></i> Model
-                    </label>
-                    <select id="modelSelect" class="model-dropdown">
-                        <option value="openai">OpenAI</option>
-                        <option value="deepseek">DeepSeek</option>
-                    </select>
+<body class="app-page">
+    <div class="app-shell">
+        <aside class="sidebar panel">
+            <div class="sidebar-header panel-section">
+                <span class="section-label">Workspace</span>
+                <div class="brand-block">
+                    <h1 class="logo">CHAT A.I+</h1>
+                    <p class="brand-copy">Requirement conversations with a calmer, more intentional interface.</p>
                 </div>
-                <div class="model-selector">
-                    <label for="agentModeSelect" class="model-label">
-                        <i class="fas fa-diagram-project"></i> Agent
-                    </label>
-                    <select id="agentModeSelect" class="model-dropdown">
-                        <option value="auto">Auto</option>
-                        <option value="requirement_sdlc_agent">Requirement SDLC Agent</option>
-                    </select>
+
+                <button class="btn-new-chat" id="newChatBtn">
+                    <i class="fas fa-plus"></i>
+                    <span>New chat</span>
+                </button>
+
+                <div class="control-stack">
+                    <div class="model-selector field">
+                        <label for="modelSelect" class="model-label">
+                            <i class="fas fa-brain"></i>
+                            <span>Model</span>
+                        </label>
+                        <select id="modelSelect" class="model-dropdown">
+                            <option value="openai">OpenAI</option>
+                            <option value="deepseek">DeepSeek</option>
+                        </select>
+                    </div>
+
+                    <div class="model-selector field">
+                        <label for="agentModeSelect" class="model-label">
+                            <i class="fas fa-diagram-project"></i>
+                            <span>Agent</span>
+                        </label>
+                        <select id="agentModeSelect" class="model-dropdown">
+                            <option value="auto">Auto</option>
+                            <option value="requirement_sdlc_agent">Requirement SDLC Agent</option>
+                        </select>
+                    </div>
+
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search conversations..." id="searchInput">
+                    </div>
                 </div>
             </div>
-            
-            <button class="btn-new-chat" id="newChatBtn">
-                <i class="fas fa-plus"></i> New chat
-            </button>
-            
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" placeholder="Search conversations..." id="searchInput">
-            </div>
-            
+
             <div class="conversations-section">
                 <div class="section-header">
                     <span>Your conversations</span>
@@ -51,77 +61,103 @@
                     <!-- Conversations will be loaded here -->
                 </div>
             </div>
-            
+
             <div class="sidebar-footer">
                 <button class="btn-settings">
-                    <i class="fas fa-cog"></i> Settings
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
                 </button>
                 <div class="user-profile">
                     <div class="avatar">RG</div>
-                    <span>Raymond Gao</span>
+                    <div class="user-meta">
+                        <span class="user-name">Raymond Gao</span>
+                        <span class="user-caption">Authenticated workspace</span>
+                    </div>
                 </div>
-                <button class="btn-logout" id="logoutBtn" style="margin-top: 10px; width: 100%; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                <button class="btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
                 </button>
             </div>
         </aside>
-        
-        <!-- Main Chat Area -->
+
         <main class="chat-area">
-            <div class="chat-messages" id="chatMessages">
-                <div class="welcome-message">
-                    <h2>Welcome to CHAT A.I+</h2>
-                    <p>Start a conversation by typing a message below</p>
+            <div class="chat-stage">
+                <div class="chat-stage-header">
+                    <div class="chat-stage-copy">
+                        <span class="section-label">Conversation</span>
+                        <h2 class="chat-stage-title">Shape requirements with more clarity.</h2>
+                        <p class="chat-stage-subtitle">Switch models, search prior threads, and keep your working context in one focused space.</p>
+                    </div>
+                    <div class="status-pill">Live workspace</div>
                 </div>
             </div>
-            
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <section class="empty-state">
+                        <div class="empty-state-kicker">
+                            <i class="fas fa-sparkles"></i>
+                            <span>Balanced workspace mode</span>
+                        </div>
+                        <h2>Welcome to CHAT A.I+</h2>
+                        <p>Start a new requirement conversation, continue a saved thread, or switch into the Requirement SDLC Agent when you need a more guided workflow.</p>
+                        <div class="welcome-actions">
+                            <button type="button" class="pill-button primary" onclick="document.getElementById('chatInput').focus();">
+                                <i class="fas fa-pen"></i>
+                                <span>Start typing</span>
+                            </button>
+                            <button type="button" class="pill-button secondary" onclick="document.getElementById('newChatBtn').click();">
+                                <i class="fas fa-plus"></i>
+                                <span>New conversation</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
             <div class="chat-input-container">
                 <div class="chat-input-wrapper">
-                    <input 
-                        type="text" 
-                        id="chatInput" 
-                        placeholder="What's in your mind?..."
+                    <input
+                        type="text"
+                        id="chatInput"
+                        placeholder="Ask about a requirement, workflow, or decision..."
                         autocomplete="off"
                     >
-                    <button class="btn-send" id="sendBtn">
+                    <button class="btn-send" id="sendBtn" aria-label="Send message">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
         </main>
-        
-        <!-- Right Sidebar (Upgrade) -->
-        <aside class="upgrade-sidebar">
+
+        <aside class="upgrade-sidebar" aria-hidden="true">
             <div class="upgrade-content">
                 <i class="fas fa-star"></i>
-                <p>Upgrade to Pro</p>
+                <span>Pro Workspace</span>
             </div>
         </aside>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        // Check authentication on page load
         if (!auth.isAuthenticated()) {
             window.location.href = '/login';
         } else {
-            // Update user profile display
             const currentUser = auth.getCurrentUser();
             if (currentUser) {
-                const userProfile = document.querySelector('.user-profile span');
+                const userProfile = document.querySelector('.user-name');
                 const userAvatar = document.querySelector('.user-profile .avatar');
                 if (userProfile) {
                     userProfile.textContent = currentUser.username || 'User';
                 }
                 if (userAvatar && currentUser.username) {
-                    // Set avatar initials
                     const initials = currentUser.username.substring(0, 2).toUpperCase();
                     userAvatar.textContent = initials;
                 }
             }
-            
-            // Setup logout button
+
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
@@ -134,4 +170,3 @@
     </script>
 </body>
 </html>
-

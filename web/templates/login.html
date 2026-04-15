@@ -6,172 +6,31 @@
     <title>Login - CHAT A.I+</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            position: relative;
-            z-index: 1;
-        }
-
-        .login-card {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
-        .login-header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .login-header p {
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 8px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #1f2937;
-            background: white;
-            transition: all 0.2s;
-            outline: none;
-        }
-
-        .form-input:focus {
-            border-color: #3B82F6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-input::placeholder {
-            color: #9ca3af;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .input-wrapper i {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-        }
-
-        .input-wrapper .form-input {
-            padding-left: 44px;
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-            margin-top: 8px;
-        }
-
-        .btn-login:hover {
-            background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-            transform: translateY(-1px);
-        }
-
-        .btn-login:active {
-            transform: translateY(0);
-        }
-
-        .btn-login:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-message {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
 </head>
-<body>
-    <div class="login-container">
-        <div class="login-card">
+<body class="auth-page">
+    <div class="auth-stage">
+        <section class="auth-card panel">
+            <span class="section-label">Secure Access</span>
+
             <div class="login-header">
                 <h1>CHAT A.I+</h1>
-                <p>Sign in to continue</p>
+                <p>Sign in to continue your requirement workflow in a cleaner, more focused workspace.</p>
             </div>
 
             <div class="error-message" id="errorMessage"></div>
 
-            <form id="loginForm">
-                <div class="form-group">
-                    <label class="form-label" for="username">Username</label>
+            <form id="loginForm" class="login-form">
+                <div class="form-group field">
+                    <label class="form-label" for="username">
+                        <i class="fas fa-user"></i>
+                        <span>Username</span>
+                    </label>
                     <div class="input-wrapper">
                         <i class="fas fa-user"></i>
-                        <input 
-                            type="text" 
-                            id="username" 
-                            class="form-input" 
+                        <input
+                            type="text"
+                            id="username"
+                            class="form-input"
                             placeholder="Enter your username"
                             required
                             autocomplete="username"
@@ -179,14 +38,17 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
+                <div class="form-group field">
+                    <label class="form-label" for="password">
+                        <i class="fas fa-lock"></i>
+                        <span>Password</span>
+                    </label>
                     <div class="input-wrapper">
                         <i class="fas fa-lock"></i>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            class="form-input" 
+                        <input
+                            type="password"
+                            id="password"
+                            class="form-input"
                             placeholder="Enter your password"
                             required
                             autocomplete="current-password"
@@ -198,12 +60,11 @@
                     <span id="loginBtnText">Sign In</span>
                 </button>
             </form>
-        </div>
+        </section>
     </div>
 
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
     <script>
-        // Check if already authenticated
         if (auth.isAuthenticated()) {
             window.location.href = '/';
         }
@@ -215,7 +76,7 @@
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
@@ -224,23 +85,18 @@
                 return;
             }
 
-            // Disable button and show loading
             loginBtn.disabled = true;
             loginBtnText.innerHTML = '<span class="loading-spinner"></span>Signing in...';
             errorMessage.classList.remove('show');
 
             try {
                 const success = await auth.login(username, password);
-                
+
                 if (success) {
-                    // Verify token is stored before redirecting
                     const token = localStorage.getItem('chatbot_auth_token');
                     console.log('[Login] Token verified before redirect:', token ? token.substring(0, 20) + '...' : 'MISSING');
-                    
-                    // Small delay to ensure localStorage is written
+
                     await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    // Redirect to main app
                     window.location.href = '/';
                 } else {
                     showError('Invalid username or password');
@@ -259,7 +115,6 @@
             errorMessage.classList.add('show');
         }
 
-        // Allow Enter key to submit
         document.getElementById('password').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 loginForm.dispatchEvent(new Event('submit'));
