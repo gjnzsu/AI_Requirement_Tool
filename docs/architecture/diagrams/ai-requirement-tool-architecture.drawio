@@ -1,0 +1,202 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="title" value="AI Requirement Tool - System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+      <mxGeometry x="240" y="20" width="520" height="40" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="gke-container" value="GKE Cluster (us-central1)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;startSize=40;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="920" height="680" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="app-pod-container" value="ai-tool Deployment (1 replica)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;startSize=30;" vertex="1" parent="gke-container">
+      <mxGeometry x="40" y="80" width="280" height="320" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="flask-app" value="Flask App&#xa;(Gunicorn 360s timeout)&#xa;Port 5000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1" vertex="1" parent="app-pod-container">
+      <mxGeometry x="40" y="50" width="200" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="api-endpoints" value="/api/analyze&#xa;/api/export&#xa;/api/health&#xa;/metrics" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=10;" vertex="1" parent="app-pod-container">
+      <mxGeometry x="40" y="130" width="200" height="70" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="static-files" value="Static Files&#xa;(HTML/CSS/JS)&#xa;Bootstrap 5 + Vanilla JS" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="app-pod-container">
+      <mxGeometry x="40" y="220" width="200" height="70" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="app-service" value="ai-tool-service&#xa;LoadBalancer&#xa;Port 80 → 5000&#xa;External IP: 34.133.164.110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;fontSize=11;fontStyle=1" vertex="1" parent="gke-container">
+      <mxGeometry x="80" y="440" width="200" height="80" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="prometheus-container" value="Prometheus v2.51.0" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1;startSize=30;" vertex="1" parent="gke-container">
+      <mxGeometry x="380" y="80" width="240" height="200" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="prometheus-app" value="Prometheus Server&#xa;Scrapes every 30s&#xa;Internal: prometheus-service:9090" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="prometheus-container">
+      <mxGeometry x="20" y="50" width="200" height="70" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="prometheus-metrics" value="Metrics:&#xa;• http_requests_total&#xa;• http_request_duration_seconds&#xa;• llm_tokens_total&#xa;• llm_errors_total" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="prometheus-container">
+      <mxGeometry x="20" y="130" width="200" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="grafana-container" value="Grafana 10.4.0" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;startSize=30;" vertex="1" parent="gke-container">
+      <mxGeometry x="660" y="80" width="240" height="200" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="grafana-app" value="Grafana Server&#xa;External IP: 136.114.77.0&#xa;Port 80" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="grafana-container">
+      <mxGeometry x="20" y="50" width="200" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="grafana-dashboard" value="Dashboard:&#xa;ai-tool-prometheus&#xa;5 PromQL panels" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="grafana-container">
+      <mxGeometry x="20" y="120" width="200" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="secrets" value="Kubernetes Secrets&#xa;• ai-tool-secrets&#xa;• grafana-secrets" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;dashed=1;" vertex="1" parent="gke-container">
+      <mxGeometry x="380" y="320" width="240" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="user" value="User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="40" y="840" width="40" height="80" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="browser" value="Web Browser&#xa;http://34.133.164.110" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="140" y="850" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="external-apis" value="External APIs" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;startSize=30;" vertex="1" parent="1">
+      <mxGeometry x="40" y="980" width="920" height="140" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="openai" value="OpenAI API&#xa;gpt-3.5-turbo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="external-apis">
+      <mxGeometry x="40" y="50" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="coze" value="Coze Agent&#xa;cozepy SDK v0.20.0&#xa;Timeout: 300s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="external-apis">
+      <mxGeometry x="220" y="50" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="anthropic" value="Anthropic API&#xa;claude-opus-4-5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="external-apis">
+      <mxGeometry x="400" y="50" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="docker-registry" value="Artifact Registry&#xa;us-central1-docker.pkg.dev" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;fontSize=10;" vertex="1" parent="external-apis">
+      <mxGeometry x="580" y="50" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="github" value="GitHub Actions&#xa;CI/CD Pipeline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;fontSize=10;" vertex="1" parent="external-apis">
+      <mxGeometry x="760" y="50" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-user-browser" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="1" source="user" target="browser">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-browser-lb" value="HTTP Request" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=10;" edge="1" parent="1" source="browser" target="app-service">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-lb-flask" value="Port 80 → 5000" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;" edge="1" parent="1" source="app-service" target="flask-app">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-flask-openai" value="LLM Analysis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d6b656;fontSize=10;dashed=1;" edge="1" parent="1" source="flask-app" target="openai">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="180" y="820"/>
+          <mxPoint x="150" y="820"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="edge-flask-coze" value="Agent Integration" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d6b656;fontSize=10;dashed=1;" edge="1" parent="1" source="flask-app" target="coze">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="180" y="820"/>
+          <mxPoint x="330" y="820"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="edge-flask-anthropic" value="Requirements Analysis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d6b656;fontSize=10;dashed=1;" edge="1" parent="1" source="flask-app" target="anthropic">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="180" y="820"/>
+          <mxPoint x="510" y="820"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="edge-prometheus-scrape" value="Scrape /metrics&#xa;every 30s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d79b00;fontSize=9;dashed=1;" edge="1" parent="1" source="prometheus-app" target="app-service">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="540" y="480"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="edge-grafana-prometheus" value="PromQL Queries" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#b85450;fontSize=10;" edge="1" parent="1" source="grafana-app" target="prometheus-app">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-github-registry" value="Build &amp; Push" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10739e;fontSize=10;dashed=1;" edge="1" parent="1" source="github" target="docker-registry">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge-github-gke" value="kubectl deploy" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10739e;fontSize=10;dashed=1;" edge="1" parent="1" source="github" target="gke-container">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="870" y="940"/>
+          <mxPoint x="960" y="940"/>
+          <mxPoint x="960" y="440"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="edge-registry-gke" value="Pull Image" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10739e;fontSize=10;dashed=1;" edge="1" parent="1" source="docker-registry" target="app-pod-container">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="690" y="940"/>
+          <mxPoint x="20" y="940"/>
+          <mxPoint x="20" y="240"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="legend" value="Legend" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;startSize=30;" vertex="1" parent="1">
+      <mxGeometry x="1020" y="100" width="200" height="200" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="legend-solid" value="HTTP/Internal Traffic" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=9;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="legend">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="20" y="50" as="sourcePoint"/>
+        <mxPoint x="180" y="50" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="legend-dashed" value="External API Calls" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d6b656;fontSize=9;dashed=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="legend">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="20" y="90" as="sourcePoint"/>
+        <mxPoint x="180" y="90" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="legend-monitoring" value="Monitoring/Scraping" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#d79b00;fontSize=9;dashed=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="legend">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="20" y="130" as="sourcePoint"/>
+        <mxPoint x="180" y="130" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="legend-cicd" value="CI/CD Pipeline" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10739e;fontSize=9;dashed=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="legend">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="20" y="170" as="sourcePoint"/>
+        <mxPoint x="180" y="170" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
