@@ -352,6 +352,7 @@ Tools are automatically selected based on intent:
 
 **Architecture:**
 - **[docs/architecture/README.md](docs/architecture/README.md)** - Current architecture documentation
+- **[docs/architecture/post-migration-hardening-checklist.md](docs/architecture/post-migration-hardening-checklist.md)** - Post-migration hardening and release-readiness checklist
 - **[docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md](docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md)** - Phase 1 and Phase 2 refactor design and completion notes
 - **[docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md](docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md)** - Phase 3 architecture cleanup design and migration direction
 - **[docs/architecture/diagrams/architecture-diagram.drawio](docs/architecture/diagrams/architecture-diagram.drawio)** - Current architecture diagram
