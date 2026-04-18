@@ -15,7 +15,7 @@ from werkzeug.local import LocalProxy
 from config.config import Config
 from src.webapp import create_app_runtime, get_app_runtime, safe_print
 from src.webapp.conversation_ids import generate_conversation_id
-from src.webapp.routes import auth_blueprint, core_blueprint, conversations_blueprint
+from src.webapp.routes import auth_blueprint, core_blueprint, conversations_blueprint, jobs_blueprint
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -105,6 +105,7 @@ CORS(app)
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(core_blueprint)
 app.register_blueprint(conversations_blueprint)
+app.register_blueprint(jobs_blueprint)
 
 # Prometheus request instrumentation
 if PROMETHEUS_AVAILABLE:
@@ -324,6 +325,19 @@ def chat():
         # Get chatbot response through request-scoped runtime execution
         chatbot = get_chatbot()
         try:
+            async_job = runtime.enqueue_async_chat_request_if_needed(
+                message=message,
+                conversation_id=conversation_id,
+                model=model,
+                agent_mode=agent_mode,
+                chatbot=chatbot,
+                memory_manager=memory_manager,
+            )
+            if async_job is not None:
+                async_job_response = dict(async_job)
+                async_job_response.setdefault('conversation_id', conversation_id)
+                return jsonify(async_job_response), 202
+
             execution_result = runtime.execute_chat_request(
                 message=message,
                 conversation_id=conversation_id,

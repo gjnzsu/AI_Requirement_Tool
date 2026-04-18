@@ -16,6 +16,7 @@ def build_runtime_mock(
 ):
     runtime = Mock()
     runtime.ensure_conversation.return_value = conversation_id
+    runtime.enqueue_async_chat_request_if_needed.return_value = None
     runtime.execute_chat_request.return_value = Mock(
         response=response_text,
         conversation_id=conversation_id,
@@ -54,6 +55,7 @@ class TestChatAPI:
                     assert 'timestamp' in data
                     assert data['response'] == "Mocked chatbot response"
                     assert data['agent_mode'] == 'auto'
+                    runtime.enqueue_async_chat_request_if_needed.assert_called_once()
                     runtime.execute_chat_request.assert_called_once()
     
     def test_chat_with_conversation_id(self, test_client, mock_chatbot, temp_db, sample_conversation):
@@ -281,7 +283,110 @@ class TestChatAPI:
 
                     assert response.status_code == 200
                     runtime.ensure_conversation.assert_called_once()
+                    runtime.enqueue_async_chat_request_if_needed.assert_called_once()
                     runtime.execute_chat_request.assert_called_once()
+
+    def test_chat_coze_agent_request_returns_202_and_skips_sync_execution(self, test_client, mock_chatbot, temp_db):
+        """Test Coze-routed requests enqueue an async job instead of executing synchronously."""
+        memory_manager, db_path = temp_db
+        runtime = build_runtime_mock(conversation_id='conv-async-123')
+        runtime.enqueue_async_chat_request_if_needed.return_value = {
+            'job_id': 'job-123',
+            'status': 'queued',
+        }
+
+        with patch('app.get_chatbot', return_value=mock_chatbot):
+            with patch('app.get_app_runtime', return_value=runtime):
+                with patch('app.memory_manager', memory_manager):
+                    response = test_client.post(
+                        '/api/chat',
+                        json={'message': 'Give me the AI daily report'},
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 202
+                    data = json.loads(response.data)
+                    assert data == {
+                        'job_id': 'job-123',
+                        'status': 'queued',
+                        'conversation_id': 'conv-async-123'
+                    }
+                    runtime.enqueue_async_chat_request_if_needed.assert_called_once()
+                    runtime.execute_chat_request.assert_not_called()
+
+    def test_chat_ensures_conversation_before_async_enqueue(self, test_client, mock_chatbot, temp_db):
+        """Test conversation creation happens before the async enqueue decision."""
+        memory_manager, db_path = temp_db
+        runtime = build_runtime_mock(conversation_id='conv-async-order')
+        call_order = []
+
+        def record_ensure(*args, **kwargs):
+            call_order.append('ensure_conversation')
+            return 'conv-async-order'
+
+        def record_enqueue(*args, **kwargs):
+            call_order.append('enqueue_async_chat_request_if_needed')
+            return {'job_id': 'job-ordered', 'status': 'queued'}
+
+        runtime.ensure_conversation.side_effect = record_ensure
+        runtime.enqueue_async_chat_request_if_needed.side_effect = record_enqueue
+
+        with patch('app.get_chatbot', return_value=mock_chatbot):
+            with patch('app.get_app_runtime', return_value=runtime):
+                with patch('app.memory_manager', memory_manager):
+                    response = test_client.post(
+                        '/api/chat',
+                        json={'message': 'Share AI news for today'},
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 202
+                    assert call_order == [
+                        'ensure_conversation',
+                        'enqueue_async_chat_request_if_needed',
+                    ]
+
+    def test_chat_async_path_disabled_falls_back_to_sync_execution(self, test_client, mock_chatbot, temp_db):
+        """Test async-disabled behavior still returns the normal synchronous response."""
+        memory_manager, db_path = temp_db
+        runtime = build_runtime_mock(response_text='Synchronous fallback response')
+        runtime.enqueue_async_chat_request_if_needed.return_value = None
+
+        with patch('app.get_chatbot', return_value=mock_chatbot):
+            with patch('app.get_app_runtime', return_value=runtime):
+                with patch('app.memory_manager', memory_manager):
+                    with patch('app.Config.ASYNC_COZE_ENABLED', False):
+                        response = test_client.post(
+                            '/api/chat',
+                            json={'message': 'Give me the AI daily report'},
+                            content_type='application/json'
+                        )
+
+                        assert response.status_code == 200
+                        data = json.loads(response.data)
+                        assert data['response'] == 'Synchronous fallback response'
+                        runtime.enqueue_async_chat_request_if_needed.assert_called_once()
+                        runtime.execute_chat_request.assert_called_once()
+
+    def test_chat_async_preflight_value_error_returns_400(self, test_client, mock_chatbot, temp_db):
+        """Test ValueError during async preflight preserves the existing 400 behavior."""
+        memory_manager, db_path = temp_db
+        runtime = build_runtime_mock()
+        runtime.enqueue_async_chat_request_if_needed.side_effect = ValueError("Invalid provider")
+
+        with patch('app.get_chatbot', return_value=mock_chatbot):
+            with patch('app.get_app_runtime', return_value=runtime):
+                with patch('app.memory_manager', memory_manager):
+                    response = test_client.post(
+                        '/api/chat',
+                        json={'message': 'Hello'},
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 400
+                    data = json.loads(response.data)
+                    assert data['error'] == 'Invalid provider'
+                    runtime.execute_chat_request.assert_not_called()
     
     def test_chat_llm_failure(self, test_client, mock_chatbot, temp_db):
         """Test handling of LLM provider failures."""

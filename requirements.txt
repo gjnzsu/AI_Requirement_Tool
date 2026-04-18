@@ -11,6 +11,8 @@ google-generativeai>=0.8.0,<1.0.0  # For Gemini support
 # If langchain-google-genai fails, it may need to be installed separately
 python-dotenv>=1.0.0,<2.0.0
 requests>=2.26.0,<3.0.0
+celery[redis]>=5.4.0,<6.0.0
+redis>=5.0.0,<6.0.0
 
 # Dependencies for original chatbot (optional - only needed if using chatbot.py)
 Flask>=2.0.1,<4.0.0
@@ -52,7 +54,7 @@ slowapi>=0.1.9,<1.0.0  # Rate limiting for gateway
 httpx>=0.25.0,<1.0.0  # HTTP client for gateway client
 
 # WSGI server for production
-gunicorn>=21.0.0,<23.0.0
+gunicorn>=24.1.1,<25.0.0
 
 # Prometheus metrics
 prometheus-client>=0.19.0,<1.0.0

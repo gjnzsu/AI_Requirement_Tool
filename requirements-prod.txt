@@ -1,5 +1,5 @@
 # Production-only requirements for Docker/GKE deployment
-# Trimmed from requirements.txt — excludes transformers (never imported),
+# Trimmed from requirements.txt - excludes transformers (never imported),
 # google-generativeai (Gemini optional; LLM_PROVIDER=openai in prod),
 # and dev/test-only packages.
 
@@ -35,6 +35,8 @@ jira>=3.5.2,<4.0.0
 # HTTP / networking
 requests>=2.26.0,<3.0.0
 httpx>=0.25.0,<1.0.0
+celery[redis]>=5.4.0,<6.0.0
+redis>=5.0.0,<6.0.0
 
 # AI Gateway (FastAPI-based)
 fastapi>=0.104.0,<1.0.0

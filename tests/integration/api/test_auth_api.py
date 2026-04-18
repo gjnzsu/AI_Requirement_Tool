@@ -361,11 +361,59 @@ class TestAuthAPI:
                     data = response.get_json()
                     assert 'error' in data
                     assert 'authentication' in data['error'].lower() or 'token' in data['error'].lower()
+
+    def test_jobs_endpoint_requires_authentication(self, test_client, auth_setup):
+        """Test that job polling endpoint requires authentication and returns JSON errors."""
+        auth_service, user_service, test_user, secret = auth_setup
+
+        with patch('app.auth_service', auth_service):
+            with patch('app.user_service', user_service):
+                response = test_client.get('/api/jobs/job-123')
+
+                assert response.status_code == 401
+                assert response.is_json
+                data = response.get_json()
+                assert 'error' in data
+                assert 'authentication' in data['error'].lower() or 'token' in data['error'].lower()
+
+    def test_jobs_endpoint_with_valid_token(self, test_client, auth_setup):
+        """Test that job polling endpoint works with valid token."""
+        auth_service, user_service, test_user, secret = auth_setup
+        token = auth_service.generate_token(test_user['id'], test_user['username'])
+        job_service = Mock()
+        job_service.get_job_status.return_value = {'job_id': 'job-123', 'status': 'running'}
+        runtime = Mock()
+        runtime._get_async_job_service.return_value = job_service
+
+        with patch('app.auth_service', auth_service):
+            with patch('app.user_service', user_service):
+                with patch('src.auth.middleware.auth_service', auth_service):
+                    with patch('src.auth.middleware.user_service', user_service):
+                        with patch('src.webapp.routes.jobs.get_app_runtime', return_value=runtime):
+                            response = test_client.get(
+                                '/api/jobs/job-123',
+                                headers={'Authorization': f'Bearer {token}'}
+                            )
+
+                            assert response.status_code == 200
+                            assert response.is_json
+                            assert response.get_json() == {'job_id': 'job-123', 'status': 'running'}
+                            job_service.get_job_status.assert_called_once_with('job-123')
     
     def test_chat_endpoint_with_valid_token(self, test_client, auth_setup, temp_db, mock_chatbot):
         """Test that chat endpoint works with valid token."""
         auth_service, user_service, test_user, secret = auth_setup
         memory_manager, db_path = temp_db
+        runtime = Mock()
+        runtime.ensure_conversation.return_value = 'conv-123'
+        runtime.enqueue_async_chat_request_if_needed.return_value = None
+        runtime.execute_chat_request.return_value = Mock(
+            response='Mocked chatbot response',
+            conversation_id='conv-123',
+            usage_info=None,
+            ui_actions=None,
+            workflow_progress=None,
+        )
         
         # Generate token
         token = auth_service.generate_token(test_user['id'], test_user['username'])
@@ -377,12 +425,13 @@ class TestAuthAPI:
                     with patch('src.auth.middleware.user_service', user_service):
                         with patch('app.memory_manager', memory_manager):
                             with patch('app.get_chatbot', return_value=mock_chatbot):
-                                response = test_client.post(
-                                    '/api/chat',
-                                    json={'message': 'Hello'},
-                                    content_type='application/json',
-                                    headers={'Authorization': f'Bearer {token}'}
-                                )
+                                with patch('app.get_app_runtime', return_value=runtime):
+                                    response = test_client.post(
+                                        '/api/chat',
+                                        json={'message': 'Hello'},
+                                        content_type='application/json',
+                                        headers={'Authorization': f'Bearer {token}'}
+                                    )
                                 
                                 assert response.status_code == 200
                                 assert response.is_json

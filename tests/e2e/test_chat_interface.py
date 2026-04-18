@@ -4,7 +4,7 @@ Tests sending messages, message display, loading states, and model switching.
 """
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from .pages.chat_page import ChatPage
 
@@ -242,4 +242,242 @@ class TestChatInterface:
         # Note: In real app, button stays disabled until response, but for UI test
         # we just verify the button state can change
         assert True, "Send button state changes when message is sent (UI behavior)"
+
+    @pytest.mark.e2e_ui
+    def test_async_chat_job_polls_and_renders_completed_response(self, authenticated_page: Page):
+        """Test that a 202 chat response is polled and updates the assistant message in place."""
+        chat_page = ChatPage(authenticated_page)
+        job_poll_count = 0
+
+        def handle_chat_route(route: Route):
+            route.fulfill(
+                status=202,
+                content_type="application/json",
+                body='{"job_id": "job-123", "status": "queued"}'
+            )
+
+        def handle_job_route(route: Route):
+            nonlocal job_poll_count
+            job_poll_count += 1
+
+            if job_poll_count == 1:
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"job_id": "job-123", "status": "running"}'
+                )
+                return
+
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"job_id": "job-123", "status": "completed", "result": {"answer": "Async job complete"}}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-123", handle_job_route)
+
+        authenticated_page.evaluate("sendMessage('Run async job')")
+
+        expect(authenticated_page.locator(".message.assistant")).to_have_count(1, timeout=5000)
+        expect(authenticated_page.locator(".message.assistant .loading")).to_have_count(1, timeout=5000)
+
+        expect(authenticated_page.locator(".message.assistant .message-content")).to_contain_text(
+            "Async job complete",
+            timeout=8000
+        )
+        expect(authenticated_page.locator(".message.assistant")).to_have_count(1)
+        expect(authenticated_page.locator(".message.assistant .loading")).to_have_count(0)
+        assert job_poll_count >= 2, "Expected the frontend to poll until the job completed"
+
+    @pytest.mark.e2e_ui
+    def test_async_chat_job_failure_shows_safe_error_message(self, authenticated_page: Page):
+        """Test that a failed async job replaces the placeholder with a user-safe error message."""
+        chat_page = ChatPage(authenticated_page)
+        job_poll_count = 0
+
+        def handle_chat_route(route: Route):
+            route.fulfill(
+                status=202,
+                content_type="application/json",
+                body='{"job_id": "job-456", "status": "queued"}'
+            )
+
+        def handle_job_route(route: Route):
+            nonlocal job_poll_count
+            job_poll_count += 1
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"job_id": "job-456", "status": "failed", "error": "backend exploded"}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-456", handle_job_route)
+
+        authenticated_page.evaluate("sendMessage('Run async failure')")
+
+        expect(authenticated_page.locator(".message.assistant .message-content")).to_contain_text(
+            "Sorry, I couldn't complete that request right now. Please try again.",
+            timeout=5000
+        )
+        expect(authenticated_page.locator(".message.assistant")).to_have_count(1)
+        expect(authenticated_page.locator(".message.assistant .loading")).to_have_count(0)
+        assert job_poll_count >= 1, "Expected the frontend to poll the async job endpoint"
+
+    @pytest.mark.e2e_ui
+    def test_async_chat_sets_conversation_id_immediately_for_follow_up_messages(self, authenticated_page: Page):
+        """Test that the frontend uses the async conversation id immediately for follow-up messages."""
+        first_chat_count = 0
+        second_request_body = {}
+
+        def handle_chat_route(route: Route):
+            nonlocal first_chat_count, second_request_body
+            first_chat_count += 1
+
+            if first_chat_count == 1:
+                route.fulfill(
+                    status=202,
+                    content_type="application/json",
+                    body='{"job_id": "job-continuity", "status": "queued", "conversation_id": "conv-queued-1"}'
+                )
+                return
+
+            second_request_body = route.request.post_data_json
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"response": "Follow-up response", "conversation_id": "conv-queued-1", "agent_mode": "auto"}'
+            )
+
+        def handle_job_route(route: Route):
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"job_id": "job-continuity", "status": "running", "conversation_id": "conv-queued-1"}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-continuity", handle_job_route)
+
+        authenticated_page.evaluate("sendMessage('First async request')")
+        authenticated_page.wait_for_timeout(200)
+        authenticated_page.evaluate("sendMessage('Second message')")
+
+        expect(authenticated_page.locator(".message.user")).to_have_count(2, timeout=5000)
+        assert second_request_body["conversation_id"] == "conv-queued-1"
+
+    @pytest.mark.e2e_ui
+    def test_async_chat_job_retries_after_transient_poll_error(self, authenticated_page: Page):
+        """Test that transient poll errors do not permanently fail the placeholder."""
+        job_poll_count = 0
+
+        def handle_chat_route(route: Route):
+            route.fulfill(
+                status=202,
+                content_type="application/json",
+                body='{"job_id": "job-retry", "status": "queued", "conversation_id": "conv-retry"}'
+            )
+
+        def handle_job_route(route: Route):
+            nonlocal job_poll_count
+            job_poll_count += 1
+
+            if job_poll_count == 1:
+                route.fulfill(
+                    status=500,
+                    content_type="application/json",
+                    body='{"error": "temporary upstream problem"}'
+                )
+                return
+
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"job_id": "job-retry", "status": "completed", "conversation_id": "conv-retry", "result": {"answer": "Recovered after retry"}}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-retry", handle_job_route)
+
+        authenticated_page.evaluate("sendMessage('Retry async request')")
+
+        expect(authenticated_page.locator(".message.assistant .message-content")).to_contain_text(
+            "Recovered after retry",
+            timeout=9000
+        )
+        assert job_poll_count >= 2, "Expected polling to continue after a transient error"
+
+    @pytest.mark.e2e_ui
+    def test_async_regenerate_message_polls_and_renders_completed_response(self, authenticated_page: Page):
+        """Test that regenerateMessage handles async 202 responses and updates in place."""
+        job_poll_count = 0
+
+        authenticated_page.evaluate("""
+            addMessageToUI('user', 'Original question');
+            addMessageToUI('assistant', 'Initial response');
+        """)
+
+        assistant_message_id = authenticated_page.locator(".message.assistant").get_attribute("id")
+
+        def handle_chat_route(route: Route):
+            route.fulfill(
+                status=202,
+                content_type="application/json",
+                body='{"job_id": "job-regen", "status": "queued", "conversation_id": "conv-regen"}'
+            )
+
+        def handle_job_route(route: Route):
+            nonlocal job_poll_count
+            job_poll_count += 1
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"job_id": "job-regen", "status": "completed", "conversation_id": "conv-regen", "result": {"answer": "Regenerated async response"}}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-regen", handle_job_route)
+
+        authenticated_page.evaluate(f"regenerateMessage('{assistant_message_id}')")
+
+        expect(authenticated_page.locator(".message.assistant .message-content")).to_contain_text(
+            "Regenerated async response",
+            timeout=5000
+        )
+        expect(authenticated_page.locator(".message.assistant")).to_have_count(1)
+        assert job_poll_count >= 1
+
+    @pytest.mark.e2e_ui
+    def test_async_chat_job_404_stops_polling_and_shows_safe_error_message(self, authenticated_page: Page):
+        """Test that polling stops on 404 and replaces the placeholder with a safe error message."""
+        job_poll_count = 0
+
+        def handle_chat_route(route: Route):
+            route.fulfill(
+                status=202,
+                content_type="application/json",
+                body='{"job_id": "job-missing", "status": "queued", "conversation_id": "conv-missing"}'
+            )
+
+        def handle_job_route(route: Route):
+            nonlocal job_poll_count
+            job_poll_count += 1
+            route.fulfill(
+                status=404,
+                content_type="application/json",
+                body='{"error": "Job not found", "job_id": "job-missing"}'
+            )
+
+        authenticated_page.route("**/api/chat", handle_chat_route)
+        authenticated_page.route("**/api/jobs/job-missing", handle_job_route)
+
+        authenticated_page.evaluate("sendMessage('Missing async request')")
+
+        expect(authenticated_page.locator(".message.assistant .message-content")).to_contain_text(
+            "Sorry, I couldn't complete that request right now. Please try again.",
+            timeout=5000
+        )
+        authenticated_page.wait_for_timeout(3500)
+        assert job_poll_count == 1, "Expected polling to stop after a 404 response"
 

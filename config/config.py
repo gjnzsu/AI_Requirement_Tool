@@ -112,6 +112,14 @@ class Config:
     JWT_EXPIRATION_HOURS: int = int(os.getenv('JWT_EXPIRATION_HOURS', '24'))
     AUTH_DB_PATH: Optional[str] = os.getenv('AUTH_DB_PATH', None)  # Path to auth database, None uses default
     
+    # Async job / Redis / Celery Configuration
+    REDIS_URL: str = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    CELERY_BROKER_URL: str = os.getenv('CELERY_BROKER_URL', REDIS_URL)
+    CELERY_RESULT_BACKEND: str = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
+    CELERY_RESULT_TTL_SECONDS: int = int(os.getenv('CELERY_RESULT_TTL_SECONDS', '86400'))
+    ASYNC_COZE_ENABLED: bool = os.getenv('ASYNC_COZE_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    CELERY_TASK_TIME_LIMIT: int = int(os.getenv('CELERY_TASK_TIME_LIMIT', '300'))
+    
     # Coze Platform Configuration
     COZE_ENABLED: bool = os.getenv('COZE_ENABLED', 'false').lower() in ('true', '1', 'yes')
     COZE_API_TOKEN: str = os.getenv('COZE_API_TOKEN', '')

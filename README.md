@@ -46,6 +46,8 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ### Production Readiness
 - **GKE Deployment** - Kubernetes manifests with LoadBalancer service and Recreate rollout strategy
+- **Async Coze Deployment Shape** - Separate Redis and Celery worker manifests keep slow Coze execution out of the Flask web pods
+- **Temporary Worker Co-Location Constraint** - The Celery worker is pinned onto the same node as the web pod to safely share the existing `ReadWriteOnce` PVC in v1
 - **CI/CD via GitHub Actions** - Automated test, build, push, and deploy pipeline
 - **Lazy Tool Loading** - Tools initialized on demand to minimize startup overhead
 - **Error Recovery** - Automatic fallback mechanisms at agent and provider level
@@ -478,10 +480,14 @@ Set `LLM_PROVIDER` in your `.env`:
 ### Coze Configuration
 
 - `COZE_ENABLED=true` - Enable Coze platform integration
+- `ASYNC_COZE_ENABLED=true` - Route Coze turns through the async job path when enabled
 - `COZE_API_TOKEN` - Coze API token
 - `COZE_BOT_ID` - Coze bot/agent ID
 - `COZE_API_BASE_URL` - API base URL (`https://api.coze.cn` or `https://api.coze.com`)
 - `COZE_API_TIMEOUT=300` - HTTP timeout in seconds for Coze API calls (default: 300)
+- `REDIS_URL=redis://redis-service:6379/0` - Shared Redis connection for Celery broker and result backend
+- `CELERY_BROKER_URL` - Optional override for Celery broker URL (defaults to `REDIS_URL`)
+- `CELERY_RESULT_BACKEND` - Optional override for Celery result backend (defaults to `REDIS_URL`)
 
 ## CI/CD Pipeline
 
@@ -507,12 +513,15 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 
 ### CD Pipeline (`cd.yml`)
 
+Before running the CD workflow, update and apply `k8s/secret.yaml` with real values. The web and worker manifests now reference `JIRA_PROJECT_KEY`, `CONFLUENCE_URL`, `CONFLUENCE_SPACE_KEY`, `COZE_API_TOKEN`, and `COZE_BOT_ID`, so rollout will fail if the cluster secret is stale.
+
 1. **Authenticate to GCP**
 2. **Get GKE credentials** for cluster `helloworld-cluster` in `us-central1`
-3. **Inject image** (commit SHA tag) into `k8s/deployment.yaml`
-4. **Apply** `k8s/deployment.yaml` and `k8s/service.yaml`
-5. **Wait for rollout** (`kubectl rollout status deployment/ai-tool`)
-6. **Print external IP** of the LoadBalancer service
+3. **Inject image** (commit SHA tag) into `k8s/deployment.yaml` and `k8s/celery-worker-deployment.yaml`
+4. **Assume existing cluster secret is already updated** with the required keys from `k8s/secret.yaml`
+5. **Apply** `k8s/redis-deployment.yaml`, `k8s/redis-service.yaml`, `k8s/deployment.yaml`, `k8s/celery-worker-deployment.yaml`, and `k8s/service.yaml`
+6. **Wait for rollout** (`kubectl rollout status deployment/redis`, `kubectl rollout status deployment/ai-tool`, `kubectl rollout status deployment/celery-worker`)
+7. **Print external IP** of the LoadBalancer service
 
 ### Required GitHub Secrets
 
@@ -528,9 +537,15 @@ The project uses GitHub Actions for automated build, test, and deployment to Goo
 - **Registry:** `us-central1-docker.pkg.dev/{GCP_PROJECT_ID}/ai-requirement-tool/ai-requirement-tool`
 - **Cluster:** `helloworld-cluster` (us-central1)
 - **Deployment:** `ai-tool` (1 replica)
+- **Async worker:** `celery-worker` (1 replica)
+- **Redis:** `redis` exposed internally as `redis-service`
 - **Service:** `ai-tool-service` (LoadBalancer)
 - **Endpoint discovery:** CD workflow prints the current external IP after deployment
 - **Health check pattern:** `http://<external-ip>/api/health`
+
+### Async Deployment Note
+
+The Celery worker currently mounts the same `ai-tool-data-pvc` volume as the Flask deployment so async jobs can write conversation state into the same SQLite-backed storage. Because that PVC uses `ReadWriteOnce`, the worker deployment includes required pod affinity to schedule onto the same `kubernetes.io/hostname` as the `ai-tool` pod. This is a temporary v1 compromise to avoid broad storage changes; a future cleanup should move shared state off the node-local SQLite/PVC assumption.
 
 > The GKE LoadBalancer IP is dynamic. Use the CD workflow output or `kubectl get svc ai-tool-service` to retrieve the current endpoint.
 

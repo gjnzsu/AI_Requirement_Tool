@@ -30,15 +30,20 @@ jobs:
           location: ${{ env.GCP_REGION }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Set image in deployment manifest
+      - name: Set image in deployment manifests
         run: |
           IMAGE_BASE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}
           FULL_IMAGE=${IMAGE_BASE}:${{ github.sha }}
           sed -i "s|IMAGE_PLACEHOLDER|${FULL_IMAGE}|g" k8s/deployment.yaml
+          sed -i "s|IMAGE_PLACEHOLDER|${FULL_IMAGE}|g" k8s/celery-worker-deployment.yaml
 
-      - name: Apply deployment and service
+      - name: Apply deployment manifests
         run: |
+          echo "Assuming ai-tool-secrets already exists in cluster with required keys."
+          kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/redis-service.yaml
           kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/celery-worker-deployment.yaml
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/prometheus-deployment.yaml
           kubectl apply -f k8s/grafana-deployment.yaml
@@ -47,7 +52,9 @@ jobs:
 
       - name: Wait for rollout
         run: |
+          kubectl rollout status deployment/redis --timeout=120s
           kubectl rollout status deployment/ai-tool --timeout=120s
+          kubectl rollout status deployment/celery-worker --timeout=120s
 
       - name: Print external IP
         run: |

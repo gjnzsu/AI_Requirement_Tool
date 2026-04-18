@@ -669,6 +669,8 @@ class ChatbotAgent:
     
     def _detect_intent(self, state: AgentState) -> AgentState:
         """Detect user intent through the dedicated intent service."""
+        if state.get("intent"):
+            return state
         self._refresh_intent_service()
         return self.intent_service.detect_intent(state)
     
@@ -1074,7 +1076,12 @@ class ChatbotAgent:
         if hasattr(self, 'llm_callback'):
             self.llm_callback.log_summary()
     
-    def invoke(self, user_input: str, conversation_history: Optional[List[Dict]] = None) -> str:
+    def invoke(
+        self,
+        user_input: str,
+        conversation_history: Optional[List[Dict]] = None,
+        precomputed_intent: Optional[str] = None,
+    ) -> str:
         """
         Invoke the agent with user input.
         
@@ -1089,7 +1096,7 @@ class ChatbotAgent:
         initial_state: AgentState = {
             "messages": [],
             "user_input": user_input,
-            "intent": None,
+            "intent": precomputed_intent,
             "jira_result": None,
             "evaluation_result": None,
             "confluence_result": None,

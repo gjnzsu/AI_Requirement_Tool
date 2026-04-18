@@ -89,6 +89,7 @@ class Chatbot:
         self.use_agent = use_agent
         self.use_mcp = use_mcp
         self._tools_initialized = False
+        self._precomputed_intent_for_next_response = None
         self.requirement_workflow_service = None
         self.jira_issue_port = None
         self.jira_evaluation_port = None
@@ -547,7 +548,11 @@ class Chatbot:
                 self.agent.set_selected_agent_mode(
                     getattr(self, "selected_agent_mode", "auto")
                 )
-                response = self.agent.invoke(user_input, conversation_history)
+                response = self.agent.invoke(
+                    user_input,
+                    conversation_history,
+                    precomputed_intent=self.consume_precomputed_intent_for_next_response(),
+                )
 
                 # Propagate token usage from agent callback for Prometheus metrics
                 cb = getattr(self.agent, 'llm_callback', None)
@@ -1140,6 +1145,16 @@ class Chatbot:
         )
         if self.agent and hasattr(self.agent, "set_selected_agent_mode"):
             self.agent.set_selected_agent_mode(self.selected_agent_mode)
+
+    def set_precomputed_intent_for_next_response(self, intent: Optional[str]) -> None:
+        """Store a one-shot precomputed intent for the next agent turn."""
+        self._precomputed_intent_for_next_response = intent
+
+    def consume_precomputed_intent_for_next_response(self) -> Optional[str]:
+        """Return and clear any precomputed intent carried over from request preflight."""
+        intent = getattr(self, "_precomputed_intent_for_next_response", None)
+        self._precomputed_intent_for_next_response = None
+        return intent
 
     def _persist_runtime_state(self) -> None:
         """Persist conversation-scoped runtime state when persistent memory is enabled."""

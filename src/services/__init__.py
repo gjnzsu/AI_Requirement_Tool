@@ -2,6 +2,8 @@
 
 from src.services.agent_intent_service import AgentIntentService
 from src.services.atlassian_mcp_support_service import AtlassianMcpSupportService
+from src.services.async_coze_execution_service import AsyncCozeExecutionService
+from src.services.async_job_service import AsyncJobService
 from src.services.chat_response_service import ChatResponseService
 from src.services.confluence_creation_service import ConfluenceCreationService
 from src.services.coze_agent_service import CozeAgentService
@@ -21,6 +23,8 @@ from src.services.requirement_workflow_service import (
 __all__ = [
     "AgentIntentService",
     "AtlassianMcpSupportService",
+    "AsyncCozeExecutionService",
+    "AsyncJobService",
     "ChatResponseService",
     "ConfluenceCreationService",
     "CozeAgentService",

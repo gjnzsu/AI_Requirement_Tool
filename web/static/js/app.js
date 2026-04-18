@@ -4,6 +4,8 @@ let currentConversationId = null;
 let conversations = [];
 let currentModel = 'openai'; // Default model
 let currentAgentMode = 'auto';
+const CHAT_JOB_POLL_INTERVAL_MS = 3000;
+const ASYNC_JOB_ERROR_MESSAGE = "Sorry, I couldn't complete that request right now. Please try again.";
 
 // DOM Elements
 const chatMessages = document.getElementById('chatMessages');
@@ -198,26 +200,21 @@ async function sendMessage(messageOverride = null) {
             data = await response.json();
         } else {
             // If not JSON, try to get text and create error
-            const text = await response.text();
+            await response.text();
             throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
         }
         
-        if (response.ok) {
+        if (response.status === 202 && data.job_id) {
+            startAsyncJob(data, loadingId);
+        } else if (response.ok) {
             // Update current conversation ID
             currentConversationId = data.conversation_id;
             currentAgentMode = data.agent_mode || currentAgentMode;
             if (agentModeSelect) {
                 agentModeSelect.value = currentAgentMode;
             }
-            
-            // Remove loading indicator
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) {
-                loadingElement.remove();
-            }
-            
-            // Add assistant response
-            addMessageToUI('assistant', data.response, false, {
+
+            updateMessageInUI(loadingId, data.response, false, {
                 uiActions: data.ui_actions || [],
                 workflowProgress: data.workflow_progress || []
             });
@@ -229,19 +226,13 @@ async function sendMessage(messageOverride = null) {
         }
     } catch (error) {
         console.error('Error:', error);
-        
-        // Remove loading indicator
-        const loadingElement = document.getElementById(loadingId);
-        if (loadingElement) {
-            loadingElement.remove();
-        }
-        
+
         // Show error message
         let errorMessage = error.message;
         if (error.message.includes('Failed to decode JSON')) {
             errorMessage = 'Server returned an invalid response. Please check your authentication and try again.';
         }
-        addMessageToUI('assistant', `Sorry, I encountered an error: ${errorMessage}`);
+        updateMessageInUI(loadingId, `Sorry, I encountered an error: ${errorMessage}`);
     } finally {
         sendBtn.disabled = false;
         chatInput.focus();
@@ -252,6 +243,9 @@ async function sendMessage(messageOverride = null) {
 function addMessageToUI(role, content, isLoading = false, options = {}) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
+    if (isLoading) {
+        messageDiv.classList.add('loading');
+    }
     
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     messageDiv.id = messageId;
@@ -268,90 +262,194 @@ function addMessageToUI(role, content, isLoading = false, options = {}) {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     
-    if (isLoading) {
-        contentDiv.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
-    } else {
-        // Format content with proper line breaks and preserve formatting
-        const formattedContent = formatMessageContent(content);
-        contentDiv.innerHTML = formattedContent;
-        
-        if (role === 'assistant' && Array.isArray(options.uiActions) && options.uiActions.length > 0) {
-            const quickActionsDiv = document.createElement('div');
-            quickActionsDiv.className = 'message-quick-actions';
-
-            options.uiActions.forEach((action) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `quick-action-btn ${action.kind || 'secondary'}`;
-                button.textContent = action.label;
-                button.dataset.actionValue = action.value;
-                button.addEventListener('click', () => submitQuickAction(quickActionsDiv, action.value));
-                quickActionsDiv.appendChild(button);
-            });
-
-            contentDiv.appendChild(quickActionsDiv);
-        }
-
-        if (role === 'assistant' && Array.isArray(options.workflowProgress) && options.workflowProgress.length > 0) {
-            const workflowProgressDiv = document.createElement('div');
-            workflowProgressDiv.className = 'workflow-progress';
-
-            const workflowTitle = document.createElement('div');
-            workflowTitle.className = 'workflow-progress-title';
-            workflowTitle.textContent = 'Requirement SDLC Progress';
-            workflowProgressDiv.appendChild(workflowTitle);
-
-            options.workflowProgress.forEach((step) => {
-                const stepDiv = document.createElement('div');
-                stepDiv.className = `workflow-progress-item ${step.status || 'unknown'}`;
-
-                const labelSpan = document.createElement('span');
-                labelSpan.className = 'workflow-step-label';
-                labelSpan.textContent = step.label || step.step || 'Unknown step';
-
-                const statusSpan = document.createElement('span');
-                statusSpan.className = 'workflow-step-status';
-                statusSpan.textContent = formatWorkflowStatus(step.status);
-
-                stepDiv.appendChild(labelSpan);
-                stepDiv.appendChild(statusSpan);
-
-                if (step.detail || step.link) {
-                    const detailDiv = document.createElement('div');
-                    detailDiv.className = 'workflow-step-detail';
-                    detailDiv.textContent = step.detail || step.link;
-                    stepDiv.appendChild(detailDiv);
-                }
-
-                workflowProgressDiv.appendChild(stepDiv);
-            });
-
-            contentDiv.appendChild(workflowProgressDiv);
-        }
-
-        // Add actions for assistant messages
-        if (role === 'assistant') {
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'message-actions';
-            actionsDiv.innerHTML = `
-                <button onclick="copyMessage('${messageId}')" title="Copy">
-                    <i class="fas fa-copy"></i>
-                </button>
-                <button onclick="regenerateMessage('${messageId}')" title="Regenerate">
-                    <i class="fas fa-redo"></i>
-                </button>
-            `;
-            messageDiv.appendChild(actionsDiv);
-        }
-    }
-    
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(contentDiv);
+    renderMessageContent(messageDiv, role, messageId, content, isLoading, options);
     
     chatMessages.appendChild(messageDiv);
     scrollToBottom();
     
     return messageId;
+}
+
+function renderMessageContent(messageDiv, role, messageId, content, isLoading = false, options = {}) {
+    const contentDiv = messageDiv.querySelector('.message-content');
+    if (!contentDiv) return;
+
+    contentDiv.innerHTML = '';
+    messageDiv.classList.toggle('loading', isLoading);
+
+    const existingActions = messageDiv.querySelector('.message-actions');
+    if (existingActions) {
+        existingActions.remove();
+    }
+
+    if (isLoading) {
+        contentDiv.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+        return;
+    }
+
+    contentDiv.innerHTML = formatMessageContent(content);
+
+    if (role === 'assistant' && Array.isArray(options.uiActions) && options.uiActions.length > 0) {
+        const quickActionsDiv = document.createElement('div');
+        quickActionsDiv.className = 'message-quick-actions';
+
+        options.uiActions.forEach((action) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `quick-action-btn ${action.kind || 'secondary'}`;
+            button.textContent = action.label;
+            button.dataset.actionValue = action.value;
+            button.addEventListener('click', () => submitQuickAction(quickActionsDiv, action.value));
+            quickActionsDiv.appendChild(button);
+        });
+
+        contentDiv.appendChild(quickActionsDiv);
+    }
+
+    if (role === 'assistant' && Array.isArray(options.workflowProgress) && options.workflowProgress.length > 0) {
+        const workflowProgressDiv = document.createElement('div');
+        workflowProgressDiv.className = 'workflow-progress';
+
+        const workflowTitle = document.createElement('div');
+        workflowTitle.className = 'workflow-progress-title';
+        workflowTitle.textContent = 'Requirement SDLC Progress';
+        workflowProgressDiv.appendChild(workflowTitle);
+
+        options.workflowProgress.forEach((step) => {
+            const stepDiv = document.createElement('div');
+            stepDiv.className = `workflow-progress-item ${step.status || 'unknown'}`;
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'workflow-step-label';
+            labelSpan.textContent = step.label || step.step || 'Unknown step';
+
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'workflow-step-status';
+            statusSpan.textContent = formatWorkflowStatus(step.status);
+
+            stepDiv.appendChild(labelSpan);
+            stepDiv.appendChild(statusSpan);
+
+            if (step.detail || step.link) {
+                const detailDiv = document.createElement('div');
+                detailDiv.className = 'workflow-step-detail';
+                detailDiv.textContent = step.detail || step.link;
+                stepDiv.appendChild(detailDiv);
+            }
+
+            workflowProgressDiv.appendChild(stepDiv);
+        });
+
+        contentDiv.appendChild(workflowProgressDiv);
+    }
+
+    if (role === 'assistant') {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+        actionsDiv.innerHTML = `
+            <button onclick="copyMessage('${messageId}')" title="Copy">
+                <i class="fas fa-copy"></i>
+            </button>
+            <button onclick="regenerateMessage('${messageId}')" title="Regenerate">
+                <i class="fas fa-redo"></i>
+            </button>
+        `;
+        messageDiv.appendChild(actionsDiv);
+    }
+}
+
+function updateMessageInUI(messageId, content, isLoading = false, options = {}) {
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) {
+        return null;
+    }
+
+    const role = messageDiv.classList.contains('user') ? 'user' : 'assistant';
+    renderMessageContent(messageDiv, role, messageId, content, isLoading, options);
+    scrollToBottom();
+    return messageId;
+}
+
+function getAsyncJobResultPayload(data) {
+    if (data && data.result && typeof data.result === 'object') {
+        return data.result;
+    }
+    return {};
+}
+
+function getAsyncJobResponseText(data) {
+    const result = getAsyncJobResultPayload(data);
+
+    return result.answer || result.response || data.response || data.answer || 'Your request completed successfully.';
+}
+
+function getAsyncJobMessageOptions(data) {
+    const result = getAsyncJobResultPayload(data);
+
+    return {
+        uiActions: data.ui_actions || result.ui_actions || [],
+        workflowProgress: data.workflow_progress || result.workflow_progress || []
+    };
+}
+
+function startAsyncJob(jobData, placeholderId) {
+    if (jobData.conversation_id) {
+        currentConversationId = jobData.conversation_id;
+        loadConversations();
+    }
+
+    pollAsyncJob(jobData.job_id, placeholderId);
+}
+
+async function pollAsyncJob(jobId, placeholderId) {
+    while (true) {
+        await new Promise(resolve => setTimeout(resolve, CHAT_JOB_POLL_INTERVAL_MS));
+
+        try {
+            const response = await auth.authenticatedFetch(`/api/jobs/${jobId}`);
+
+            if (response.status === 404) {
+                updateMessageInUI(placeholderId, ASYNC_JOB_ERROR_MESSAGE);
+                return;
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                continue;
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                continue;
+            }
+
+            if (data.conversation_id) {
+                currentConversationId = data.conversation_id;
+            }
+
+            if (data.status === 'completed') {
+                updateMessageInUI(
+                    placeholderId,
+                    getAsyncJobResponseText(data),
+                    false,
+                    getAsyncJobMessageOptions(data)
+                );
+                loadConversations();
+                return;
+            }
+
+            if (data.status === 'failed') {
+                updateMessageInUI(placeholderId, ASYNC_JOB_ERROR_MESSAGE);
+                return;
+            }
+        } catch (error) {
+            console.error('Error polling async job:', error);
+            continue;
+        }
+    }
 }
 
 // Load conversations list
@@ -596,17 +694,15 @@ function copyMessage(messageId) {
 // Regenerate message
 async function regenerateMessage(messageId) {
     const messageElement = document.getElementById(messageId);
-    const content = messageElement.querySelector('.message-content').textContent;
+    if (!messageElement) return;
+
+    const previousMessageElement = messageElement.previousElementSibling;
     
     // Remove the message
     messageElement.remove();
-    
-    // Get the previous user message
-    const messages = Array.from(chatMessages.querySelectorAll('.message'));
-    const userMessageIndex = messages.findIndex(msg => msg.id === messageId) - 1;
-    
-    if (userMessageIndex >= 0 && messages[userMessageIndex].classList.contains('user')) {
-        const userMessage = messages[userMessageIndex].querySelector('.message-content').textContent;
+
+    if (previousMessageElement && previousMessageElement.classList.contains('user')) {
+        const userMessage = previousMessageElement.querySelector('.message-content').textContent;
         
         // Show loading
         const loadingId = addMessageToUI('assistant', '', true);
@@ -635,23 +731,17 @@ async function regenerateMessage(messageId) {
                 throw new Error('Server returned non-JSON response');
             }
             
-            if (response.ok) {
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) {
-                    loadingElement.remove();
-                }
-                addMessageToUI('assistant', data.response, false, {
+            if (response.status === 202 && data.job_id) {
+                startAsyncJob(data, loadingId);
+            } else if (response.ok) {
+                updateMessageInUI(loadingId, data.response, false, {
                     uiActions: data.ui_actions || [],
                     workflowProgress: data.workflow_progress || []
                 });
             }
         } catch (error) {
             console.error('Error regenerating:', error);
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) {
-                loadingElement.remove();
-            }
-            addMessageToUI('assistant', `Error: ${error.message}`);
+            updateMessageInUI(loadingId, `Error: ${error.message}`);
         }
     }
 }

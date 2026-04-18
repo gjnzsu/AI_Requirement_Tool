@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
 from flask import current_app, has_app_context
+from langchain_core.messages import AIMessage, HumanMessage
 from werkzeug.local import LocalProxy
 
 
@@ -57,6 +58,7 @@ class AppRuntime:
         self.conversations: Dict[str, Dict[str, Any]] = {}
         self.auth_service: Optional[Any] = None
         self.user_service: Optional[Any] = None
+        self.async_job_service: Optional[Any] = None
         self._chatbot_lock = threading.Lock()
         self.chatbot_request_lock = threading.Lock()
 
@@ -226,6 +228,7 @@ class AppRuntime:
         memory_manager = self.memory_manager if memory_manager is None else memory_manager
 
         with self.chatbot_request_lock:
+            request_precomputed_intent = self._pop_precomputed_intent(chatbot)
             snapshot = self._snapshot_chatbot_state(chatbot)
             try:
                 if chatbot.provider_name.lower() != model.lower():
@@ -241,6 +244,8 @@ class AppRuntime:
                 if agent_mode and hasattr(chatbot, "set_selected_agent_mode"):
                     chatbot.set_selected_agent_mode(agent_mode)
 
+                if request_precomputed_intent is not None:
+                    self._stash_precomputed_intent(chatbot, request_precomputed_intent)
                 response = chatbot.get_response(message)
                 usage_info = copy.deepcopy(getattr(chatbot, "last_usage", None))
 
@@ -272,6 +277,56 @@ class AppRuntime:
             finally:
                 self._restore_chatbot_state(chatbot, snapshot)
 
+    def enqueue_async_chat_request_if_needed(
+        self,
+        *,
+        message: str,
+        conversation_id: str,
+        model: str,
+        agent_mode: Optional[str] = None,
+        chatbot: Optional[Any] = None,
+        memory_manager: Optional[Any] = None,
+    ) -> Optional[Dict[str, str]]:
+        """Queue Coze-backed turns when async handling is enabled and selected by routing."""
+        if not getattr(self.config, "ASYNC_COZE_ENABLED", False):
+            return None
+
+        chatbot = chatbot or self.get_chatbot()
+        memory_manager = self.memory_manager if memory_manager is None else memory_manager
+
+        with self.chatbot_request_lock:
+            snapshot = self._snapshot_chatbot_state(chatbot)
+            try:
+                if getattr(chatbot, "provider_name", "").lower() != model.lower():
+                    chatbot.switch_provider(model)
+
+                chatbot.set_conversation_id(conversation_id)
+
+                if memory_manager:
+                    chatbot.load_conversation(conversation_id)
+                else:
+                    self._load_in_memory_conversation(chatbot, conversation_id)
+
+                if agent_mode and hasattr(chatbot, "set_selected_agent_mode"):
+                    chatbot.set_selected_agent_mode(agent_mode)
+
+                intent, route = self._resolve_chat_route(message=message, chatbot=chatbot)
+                if route != "coze_agent":
+                    self._stash_precomputed_intent(chatbot, intent)
+                    return None
+
+                payload = {
+                    "user_input": message,
+                    "conversation_id": conversation_id,
+                    "conversation_history": copy.deepcopy(
+                        getattr(chatbot, "conversation_history", [])
+                    ),
+                    "agent_mode": (agent_mode or "auto").strip().lower() or "auto",
+                }
+                return self._get_async_job_service().enqueue_coze_job(payload)
+            finally:
+                self._restore_chatbot_state(chatbot, snapshot)
+
     def _build_ui_actions(
         self,
         runtime_state: Optional[Dict[str, Any]],
@@ -296,6 +351,9 @@ class AppRuntime:
             "agent_llm": getattr(getattr(chatbot, "agent", None), "llm", None),
             "conversation_history": copy.deepcopy(getattr(chatbot, "conversation_history", [])),
             "last_usage": copy.deepcopy(getattr(chatbot, "last_usage", None)),
+            "precomputed_intent": copy.deepcopy(
+                getattr(chatbot, "_precomputed_intent_for_next_response", None)
+            ),
             "workflow_progress": copy.deepcopy(
                 getattr(
                     getattr(chatbot, "agent", None),
@@ -330,6 +388,11 @@ class AppRuntime:
             chatbot.conversation_history = snapshot.get("conversation_history", [])
         if hasattr(chatbot, "last_usage"):
             chatbot.last_usage = snapshot.get("last_usage")
+        setattr(
+            chatbot,
+            "_precomputed_intent_for_next_response",
+            snapshot.get("precomputed_intent"),
+        )
         agent = getattr(chatbot, "agent", None)
         if agent is not None and hasattr(agent, "load_latest_requirement_workflow_progress"):
             agent.load_latest_requirement_workflow_progress(
@@ -337,6 +400,77 @@ class AppRuntime:
             )
         if hasattr(chatbot, "load_runtime_state"):
             chatbot.load_runtime_state(copy.deepcopy(snapshot.get("runtime_state", {})))
+
+    def _resolve_chat_route(self, *, message: str, chatbot: Any) -> tuple[Optional[str], str]:
+        """Resolve the graph route for a request without executing the full agent turn."""
+        agent = getattr(chatbot, "agent", None)
+        if agent is None:
+            return None, "general_chat"
+
+        detect_intent = getattr(agent, "_detect_intent", None)
+        route_after_intent = getattr(agent, "_route_after_intent", None)
+        if not callable(detect_intent) or not callable(route_after_intent):
+            return None, "general_chat"
+
+        conversation_history = copy.deepcopy(getattr(chatbot, "conversation_history", []))
+        state = {
+            "messages": self._build_agent_messages(conversation_history),
+            "user_input": message,
+            "intent": None,
+            "jira_result": None,
+            "evaluation_result": None,
+            "confluence_result": None,
+            "rag_context": None,
+            "conversation_history": conversation_history,
+            "next_action": None,
+        }
+        resolved_state = detect_intent(state)
+        return resolved_state.get("intent"), route_after_intent(resolved_state)
+
+    @staticmethod
+    def _build_agent_messages(conversation_history: list[dict[str, Any]]) -> list[Any]:
+        """Translate stored conversation history into LangChain message objects."""
+        messages: list[Any] = []
+        for item in conversation_history[-10:]:
+            role = item.get("role", "user")
+            content = item.get("content", "")
+            if role == "assistant":
+                messages.append(AIMessage(content=content))
+            else:
+                messages.append(HumanMessage(content=content))
+        return messages
+
+    def _get_async_job_service(self) -> Any:
+        """Lazily build the async job service used for Coze tasks."""
+        if self.async_job_service is None:
+            from src.services.async_job_service import AsyncJobService
+
+            self.async_job_service = AsyncJobService()
+        return self.async_job_service
+
+    @staticmethod
+    def _stash_precomputed_intent(chatbot: Any, intent: Optional[str]) -> None:
+        """Persist a one-shot precomputed intent for the next synchronous chatbot turn."""
+        if not intent:
+            return
+
+        setter = getattr(chatbot, "set_precomputed_intent_for_next_response", None)
+        if callable(setter):
+            setter(intent)
+            return
+
+        setattr(chatbot, "_precomputed_intent_for_next_response", intent)
+
+    @staticmethod
+    def _pop_precomputed_intent(chatbot: Any) -> Optional[str]:
+        """Consume any one-shot precomputed intent from the chatbot instance."""
+        consumer = getattr(chatbot, "consume_precomputed_intent_for_next_response", None)
+        if callable(consumer):
+            return consumer()
+
+        intent = getattr(chatbot, "_precomputed_intent_for_next_response", None)
+        setattr(chatbot, "_precomputed_intent_for_next_response", None)
+        return intent
 
     def _load_in_memory_conversation(self, chatbot: Any, conversation_id: str) -> None:
         """Load request-scoped in-memory history into the shared chatbot instance."""

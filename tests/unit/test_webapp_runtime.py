@@ -288,3 +288,175 @@ def test_chatbot_load_runtime_state_restores_selected_agent_mode():
 
     assert chatbot.selected_agent_mode == "requirement_sdlc_agent"
     chatbot.agent.set_selected_agent_mode.assert_called_once_with("requirement_sdlc_agent")
+
+
+class AsyncEnabledConfig(FakeConfig):
+    ASYNC_COZE_ENABLED = True
+
+
+class AsyncDisabledConfig(FakeConfig):
+    ASYNC_COZE_ENABLED = False
+
+
+def test_enqueue_async_chat_request_if_needed_skips_routing_when_async_disabled():
+    runtime = AppRuntime(config=AsyncDisabledConfig)
+    chatbot = Mock()
+    chatbot.provider_name = "openai"
+    chatbot.conversation_history = [{"role": "user", "content": "existing"}]
+    chatbot.export_runtime_state = Mock(return_value={"agent_mode": "auto"})
+    chatbot.load_runtime_state = Mock()
+    chatbot.set_conversation_id = Mock()
+    chatbot.load_conversation = Mock()
+    chatbot.set_selected_agent_mode = Mock()
+    chatbot.agent = Mock()
+    chatbot.agent._detect_intent = Mock(side_effect=AssertionError("should not route"))
+    chatbot.agent._route_after_intent = Mock(side_effect=AssertionError("should not route"))
+
+    result = runtime.enqueue_async_chat_request_if_needed(
+        message="Give me AI news",
+        conversation_id="conv-123",
+        model="openai",
+        chatbot=chatbot,
+        memory_manager=None,
+    )
+
+    assert result is None
+    chatbot.set_conversation_id.assert_not_called()
+    chatbot.agent._detect_intent.assert_not_called()
+
+
+def test_enqueue_async_chat_request_if_needed_enqueues_coze_request_with_real_runtime_logic():
+    runtime = AppRuntime(config=AsyncEnabledConfig)
+    runtime.async_job_service = Mock()
+    runtime.async_job_service.enqueue_coze_job.return_value = {
+        "job_id": "job-123",
+        "status": "queued",
+    }
+    runtime.conversations["conv-async"] = {
+        "messages": [{"role": "assistant", "content": "earlier"}],
+        "metadata": {"agent_mode": "auto"},
+        "title": "Async chat",
+        "created_at": "2026-04-10T00:00:00",
+        "updated_at": "2026-04-10T00:00:00",
+    }
+
+    chatbot = Mock()
+    chatbot.provider_name = "openai"
+    chatbot.conversation_history = []
+    chatbot.export_runtime_state = Mock(return_value={"agent_mode": "auto"})
+    chatbot.load_runtime_state = Mock()
+    chatbot.set_conversation_id = Mock(side_effect=lambda value: setattr(chatbot, "conversation_id", value))
+    chatbot.load_conversation = Mock()
+    chatbot.set_selected_agent_mode = Mock()
+    chatbot.agent = Mock()
+    chatbot.agent.provider_name = "openai"
+    chatbot.agent.llm = Mock()
+    chatbot.agent.export_latest_requirement_workflow_progress = Mock(return_value=None)
+
+    def detect_intent(state):
+        state["intent"] = "coze_agent"
+        return state
+
+    chatbot.agent._detect_intent = Mock(side_effect=detect_intent)
+    chatbot.agent._route_after_intent = Mock(return_value="coze_agent")
+
+    result = runtime.enqueue_async_chat_request_if_needed(
+        message="Give me the AI daily report",
+        conversation_id="conv-async",
+        model="openai",
+        agent_mode="auto",
+        chatbot=chatbot,
+        memory_manager=None,
+    )
+
+    assert result == {"job_id": "job-123", "status": "queued"}
+    runtime.async_job_service.enqueue_coze_job.assert_called_once_with(
+        {
+            "user_input": "Give me the AI daily report",
+            "conversation_id": "conv-async",
+            "conversation_history": [{"role": "assistant", "content": "earlier"}],
+            "agent_mode": "auto",
+        }
+    )
+    chatbot.agent._detect_intent.assert_called_once()
+
+
+def test_enqueue_async_chat_request_if_needed_stashes_intent_for_following_sync_execution():
+    runtime = AppRuntime(config=AsyncEnabledConfig)
+    chatbot = Mock()
+    chatbot.provider_name = "openai"
+    chatbot.conversation_history = []
+    chatbot.set_precomputed_intent_for_next_response = Mock()
+    chatbot.export_runtime_state = Mock(return_value={"agent_mode": "auto"})
+    chatbot.load_runtime_state = Mock()
+    chatbot.set_conversation_id = Mock()
+    chatbot.load_conversation = Mock()
+    chatbot.set_selected_agent_mode = Mock()
+    chatbot.agent = Mock()
+    chatbot.agent.provider_name = "openai"
+    chatbot.agent.llm = Mock()
+    chatbot.agent.export_latest_requirement_workflow_progress = Mock(return_value=None)
+
+    def detect_intent(state):
+        state["intent"] = "general_chat"
+        return state
+
+    chatbot.agent._detect_intent = Mock(side_effect=detect_intent)
+    chatbot.agent._route_after_intent = Mock(return_value="general_chat")
+
+    result = runtime.enqueue_async_chat_request_if_needed(
+        message="Hello there",
+        conversation_id="conv-sync",
+        model="openai",
+        chatbot=chatbot,
+        memory_manager=None,
+    )
+
+    assert result is None
+    chatbot.set_precomputed_intent_for_next_response.assert_called_once_with("general_chat")
+
+
+def test_execute_chat_request_clears_precomputed_intent_when_sync_fallback_fails_before_response():
+    runtime = AppRuntime(config=FakeConfig)
+    runtime.memory_manager = None
+    runtime.conversations["conv-123"] = {
+        "messages": [],
+        "metadata": {},
+        "title": "Existing Chat",
+        "created_at": "2026-04-10T00:00:00",
+        "updated_at": "2026-04-10T00:00:00",
+    }
+
+    chatbot = Mock()
+    chatbot.provider_name = "openai"
+    chatbot.provider_manager = None
+    chatbot.llm_provider = Mock(model="gpt-4")
+    chatbot.conversation_history = []
+    chatbot._precomputed_intent_for_next_response = "general_chat"
+    chatbot.consume_precomputed_intent_for_next_response = None
+    chatbot.export_runtime_state = Mock(return_value={})
+    chatbot.load_runtime_state = Mock()
+    chatbot.switch_provider = Mock()
+    chatbot.set_conversation_id = Mock()
+    chatbot.load_conversation = Mock()
+    chatbot.set_selected_agent_mode = Mock(side_effect=ValueError("agent mode failure"))
+    chatbot.get_response = Mock()
+    chatbot.agent = Mock()
+    chatbot.agent.export_latest_requirement_workflow_progress = Mock(return_value=None)
+
+    try:
+        runtime.execute_chat_request(
+            message="hello",
+            conversation_id="conv-123",
+            model="openai",
+            agent_mode="requirement_sdlc_agent",
+            chatbot=chatbot,
+            memory_manager=None,
+        )
+    except ValueError as exc:
+        assert str(exc) == "agent mode failure"
+    else:
+        raise AssertionError("Expected ValueError to be raised")
+
+    assert chatbot._precomputed_intent_for_next_response is None
+    chatbot.get_response.assert_not_called()
