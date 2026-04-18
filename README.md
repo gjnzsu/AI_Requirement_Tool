@@ -272,16 +272,36 @@ python ingest_pdf.py
 
 ### Current Architecture
 
-The chatbot uses LangGraph for orchestration, but the architecture has been refactored so responsibilities are split across smaller modules.
+The chatbot still uses LangGraph for orchestration, but the current product architecture now has two execution paths:
+- a synchronous path for normal chat, RAG, Jira creation, Confluence creation, and Requirement SDLC turns
+- an asynchronous path for long-running Coze requests using Redis + Celery
 
 ```text
 User
   |
   v
-Chatbot
+Web UI / API
   |
   v
-ChatbotAgent / LangGraph
+POST /api/chat
+  |
+  +--> AppRuntime.ensure_conversation(...)
+  |
+  +--> AppRuntime.enqueue_async_chat_request_if_needed(...)
+  |      |
+  |      +--> if route != coze_agent:
+  |      |      fall through to sync execution
+  |      |
+  |      +--> if route == coze_agent and ASYNC_COZE_ENABLED=true:
+  |             return 202 { job_id, conversation_id, status }
+  |
+  +--> AppRuntime.execute_chat_request(...)
+         |
+         v
+      Chatbot
+         |
+         v
+      ChatbotAgent / LangGraph
   |
   v
 intent_detection
@@ -302,6 +322,7 @@ intent_detection
   |
   +--> coze_agent
   |      Purpose: handoff to Coze when configured
+  |      Note: direct sync graph node still exists, but web requests now prefer async execution for Coze
   |
   +--> jira_creation
          Purpose: create Jira issue
@@ -313,6 +334,23 @@ intent_detection
          |      Purpose: create Confluence page after evaluation
          |
          +--> end
+
+Async Coze path
+  |
+  +--> Redis
+  |      Purpose: Celery broker + result backend + known-job markers
+  |
+  +--> Celery worker
+  |      Task: src.async_jobs.process_coze_job
+  |      Impl: src/async_jobs/tasks.py
+  |
+  +--> AsyncCozeExecutionService
+  |      Purpose: execute Coze request and persist conversation messages
+  |      Impl: src/services/async_coze_execution_service.py
+  |
+  +--> GET /api/jobs/<job_id>
+         Purpose: poll queued/running/completed/failed job state
+         Impl: src/webapp/routes/jobs.py
 ```
 
 ### Refactor Status
@@ -320,6 +358,7 @@ intent_detection
 - **Phase 1 completed** - Shared requirement workflow logic was extracted into `src/services/requirement_workflow_service.py`
 - **Phase 2 completed** - `src/agent/agent_graph.py` now delegates to focused helper modules for intent routing, Jira, Confluence, RAG, Coze, and general chat
 - **Phase 3 foundations implemented (ongoing cleanup)** - Ports/adapters and centralized composition are present in `src/application`, `src/adapters`, and `src/runtime`; runtime and request-safety hardening continues incrementally
+- **Async Coze execution implemented** - `src/webapp/runtime.py`, `src/services/async_job_service.py`, `src/async_jobs/`, and the frontend polling flow now support long-running Coze requests without blocking the web request lifecycle
 
 ### Intent Detection
 
@@ -328,7 +367,7 @@ The agent automatically detects user intents:
 - **Jira Creation** - Requests to create Jira issues
 - **Confluence Creation** - Requests to create a Confluence page directly from freeform notes
 - **Information Query** - Questions that benefit from RAG
-- **Coze Agent** - Requests routed to the Coze integration when enabled
+- **Coze Agent** - Requests routed to the Coze integration when enabled; web requests use the async queue path when `ASYNC_COZE_ENABLED=true`
 - **Requirement SDLC Agent** - Requests to draft, revise, confirm, or execute requirement lifecycle work
 
 ### Tool Usage
