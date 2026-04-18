@@ -46,11 +46,7 @@ def test_execute_writes_assistant_message_into_conversation_storage():
 
     coze_service.handle.assert_called_once_with(
         user_input="Summarize today's work",
-        previous_result={
-            "conversation_id": "conv-123",
-            "conversation_history": [{"role": "user", "content": "Hi"}],
-            "agent_mode": "coze_agent",
-        },
+        previous_result=None,
     )
     assert memory_manager.messages_by_conversation == {
         "conv-123": [

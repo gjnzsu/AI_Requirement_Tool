@@ -51,11 +51,7 @@ class AsyncCozeExecutionService:
         """Run the Coze turn and return the completed async result payload."""
         coze_result = self.coze_service.handle(
             user_input=user_input,
-            previous_result={
-                "conversation_id": conversation_id,
-                "conversation_history": conversation_history,
-                "agent_mode": agent_mode,
-            },
+            previous_result=None,
         )
         response_text = self._extract_response_text(coze_result)
         self._persist_user_message(
