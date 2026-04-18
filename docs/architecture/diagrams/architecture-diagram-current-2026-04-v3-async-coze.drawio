@@ -1,0 +1,249 @@
+<mxfile host="app.diagrams.net" agent="codex" version="24.7.17" pages="1">
+  <diagram id="architecture-current-2026-04-v3-async-coze" name="Architecture Diagram - Current (2026-04 v3 Async Coze)">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="AI Requirement Tool - Current Architecture (Async Coze, 2026-04)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=1;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="900" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Web request runtime, LangGraph routing, and Redis + Celery async execution for long-running Coze turns" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="50" width="1100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane-entry" value="UI / Entry" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="20" y="95" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-runtime" value="Runtime Boundary" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="20" y="175" width="170" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-agent" value="Chat / Agent Orchestration" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="285" width="220" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-async" value="Async Job Path" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="20" y="495" width="160" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-app" value="Application Services / Ports / Adapters" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#b0e3e6;strokeColor=#0e8088;" vertex="1" parent="1">
+          <mxGeometry x="20" y="705" width="340" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-ext" value="External Systems / Storage" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="20" y="965" width="240" height="36" as="geometry" />
+        </mxCell>
+
+        <mxCell id="user" value="User" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="220" y="90" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="webui" value="Web UI&#xa;web/templates + web/static&#xa;placeholder + polling for async jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;" vertex="1" parent="1">
+          <mxGeometry x="430" y="80" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="flask" value="Flask App (app.py)&#xa;/api/chat + auth + conversation APIs + /api/jobs/&lt;job_id&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;" vertex="1" parent="1">
+          <mxGeometry x="790" y="80" width="330" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="runtime" value="AppRuntime (src/webapp/runtime.py)&#xa;ensure_conversation()&#xa;enqueue_async_chat_request_if_needed()&#xa;execute_chat_request()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;" vertex="1" parent="1">
+          <mxGeometry x="220" y="175" width="420" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="async-decision" value="Async decision&#xa;if route == coze_agent and&#xa;ASYNC_COZE_ENABLED=true&#xa;return 202 + { job_id, conversation_id }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;" vertex="1" parent="1">
+          <mxGeometry x="700" y="185" width="290" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="sync-fallthrough" value="Sync fallthrough&#xa;non-Coze routes continue to&#xa;execute_chat_request()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="185" width="260" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="chatbot" value="Chatbot (src/chatbot.py)&#xa;provider switch, memory, RAG wiring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;" vertex="1" parent="1">
+          <mxGeometry x="220" y="335" width="290" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" value="ChatbotAgent / LangGraph&#xa;intent_detection + orchestration nodes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;" vertex="1" parent="1">
+          <mxGeometry x="560" y="335" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="routes" value="Intent routes&#xa;general_chat&#xa;rag_query&#xa;jira_creation -&gt; evaluation -&gt; confluence_creation&#xa;confluence_creation&#xa;coze_agent&#xa;requirement_sdlc_agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;" vertex="1" parent="1">
+          <mxGeometry x="910" y="320" width="360" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sdlc" value="RequirementSdlcAgentService&#xa;draft -&gt; revise -&gt; confirm -&gt; execute" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="335" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="job-service" value="AsyncJobService&#xa;submit Coze task&#xa;map Celery state to queued/running/completed/failed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="220" y="515" width="300" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="jobs-api" value="Jobs API&#xa;GET /api/jobs/&lt;job_id&gt;&#xa;used by frontend polling" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="570" y="525" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="Redis&#xa;broker + result backend + known-job markers&#xa;24h TTL for job results" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="850" y="515" width="260" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="celery" value="Celery Worker&#xa;shared queue&#xa;task: src.async_jobs.process_coze_job" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="515" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="async-coze" value="AsyncCozeExecutionService&#xa;replay captured conversation snapshot&#xa;persist final assistant message back to conversation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="515" width="300" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="composition" value="build_application_services()&#xa;src/runtime/composition.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;" vertex="1" parent="1">
+          <mxGeometry x="220" y="735" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="workflow" value="RequirementWorkflowService&#xa;shared lifecycle execution logic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;" vertex="1" parent="1">
+          <mxGeometry x="490" y="735" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="confluence-service" value="ConfluenceCreationService&#xa;freeform Confluence page creation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;" vertex="1" parent="1">
+          <mxGeometry x="790" y="735" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ports" value="Application ports&#xa;JiraIssuePort / ConfluencePagePort / JiraEvaluationPort" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="735" width="310" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="adapters" value="Adapters&#xa;MCP-first + direct fallback&#xa;normalized DTOs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="735" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="memory" value="MemoryManager + MemorySummarizer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;" vertex="1" parent="1">
+          <mxGeometry x="220" y="825" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="rag" value="RAG Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;" vertex="1" parent="1">
+          <mxGeometry x="500" y="825" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="coze-client" value="Coze service/client&#xa;used by both sync node and async worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;" vertex="1" parent="1">
+          <mxGeometry x="710" y="825" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp" value="MCP Integration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="825" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="direct-tools" value="Direct Jira + Confluence tools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="825" width="230" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="LLM Router + ProviderManager" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="825" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="llm-apis" value="LLM Provider APIs&#xa;OpenAI / Gemini / DeepSeek" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="220" y="1030" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="atlassian" value="Atlassian APIs&#xa;Jira + Confluence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="520" y="1030" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="coze-api" value="Coze Platform API&#xa;300s timeout profile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1030" width="200" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="conversation-db" value="Conversation + Memory DB&#xa;SQLite (shared PVC in v1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="1030" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="vector-db" value="Vector DB&#xa;ChromaDB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="1030" width="180" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-db" value="Auth DB&#xa;SQLite" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="1030" width="140" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" edge="1" parent="1" source="user" target="webui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="webui" target="flask" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="POST /api/chat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="flask" target="runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="runtime" target="async-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="async-decision" target="sync-fallthrough" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="non-Coze">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="sync-fallthrough" target="chatbot" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="chatbot" target="agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="agent" target="routes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="routes" target="sdlc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="requirement_sdlc_agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e10" edge="1" parent="1" source="async-decision" target="job-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="coze_agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="job-service" target="redis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="enqueue / status">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="redis" target="celery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="broker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="celery" target="async-coze" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="process_coze_job">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="webui" target="jobs-api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="poll every 3s">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="jobs-api" target="redis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="read state / result">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e16" edge="1" parent="1" source="chatbot" target="memory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="agent" target="rag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="routes" target="confluence-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="direct confluence route">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="routes" target="workflow" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="jira + evaluation flow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="chatbot" target="composition" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;" value="composition">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="composition" target="workflow" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" edge="1" parent="1" source="workflow" target="ports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="confluence-service" target="ports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" edge="1" parent="1" source="ports" target="adapters" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" edge="1" parent="1" source="adapters" target="mcp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="adapters" target="direct-tools" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" value="fallback">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" edge="1" parent="1" source="chatbot" target="llm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" edge="1" parent="1" source="async-coze" target="coze-client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="call Coze">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e29" edge="1" parent="1" source="llm" target="llm-apis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" edge="1" parent="1" source="mcp" target="atlassian" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;" value="MCP path">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="direct-tools" target="atlassian" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;" value="direct fallback">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="coze-client" target="coze-api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="memory" target="conversation-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="async-coze" target="conversation-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6c8ebf;" value="write back response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e35" edge="1" parent="1" source="rag" target="vector-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e36" edge="1" parent="1" source="flask" target="auth-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
