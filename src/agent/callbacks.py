@@ -90,6 +90,8 @@ class LLMMonitoringCallback(BaseCallbackHandler):
                     metadata = response.response_metadata
                     if isinstance(metadata, dict) and 'token_usage' in metadata:
                         token_usage = metadata['token_usage']
+                if not token_usage:
+                    token_usage = self._extract_generation_token_usage(response)
             except Exception as e:
                 logger.debug(f"Could not extract token usage: {e}")
             
@@ -118,6 +120,40 @@ class LLMMonitoringCallback(BaseCallbackHandler):
         except Exception as e:
             logger.warning(f"Error in on_llm_end callback: {e}")
             self.start_time = None
+
+    def _extract_generation_token_usage(self, response: Any) -> Dict[str, int]:
+        """Extract token usage from generation message metadata when available."""
+        generations = getattr(response, 'generations', None)
+        if not generations:
+            return {}
+
+        try:
+            first_generation = generations[0][0]
+        except (IndexError, TypeError):
+            return {}
+
+        message = getattr(first_generation, 'message', None)
+        if message is None:
+            return {}
+
+        response_metadata = getattr(message, 'response_metadata', None) or {}
+        token_usage = response_metadata.get('token_usage')
+        if isinstance(token_usage, dict):
+            return token_usage
+
+        usage_metadata = getattr(message, 'usage_metadata', None) or {}
+        if isinstance(usage_metadata, dict):
+            prompt_tokens = usage_metadata.get('prompt_tokens', usage_metadata.get('input_tokens', 0)) or 0
+            completion_tokens = usage_metadata.get('completion_tokens', usage_metadata.get('output_tokens', 0)) or 0
+            total_tokens = usage_metadata.get('total_tokens', 0) or (prompt_tokens + completion_tokens)
+            if prompt_tokens or completion_tokens or total_tokens:
+                return {
+                    'prompt_tokens': prompt_tokens,
+                    'completion_tokens': completion_tokens,
+                    'total_tokens': total_tokens,
+                }
+
+        return {}
     
     def on_llm_error(self, error: Exception, **kwargs):
         """Called when LLM call fails."""

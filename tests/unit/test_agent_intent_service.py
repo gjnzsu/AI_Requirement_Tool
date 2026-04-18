@@ -3,6 +3,7 @@ from unittest.mock import Mock
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.services.agent_intent_service import AgentIntentService
+from src.agent.intent_routing import detect_keyword_intent
 
 
 class FakeConfig:
@@ -157,6 +158,28 @@ def test_detect_intent_short_circuits_to_agent_when_analysis_follow_up_pending()
     assert state["intent"] == "requirement_sdlc_agent"
 
 
+def test_detect_intent_allows_general_chat_escape_hatch_when_pending_in_auto_mode():
+    service = AgentIntentService(
+        config=FakeConfig,
+        detect_keyword_intent_fn=Mock(return_value="general_chat"),
+        rag_service_available=True,
+        jira_available=True,
+        coze_client=None,
+        use_mcp=False,
+        mcp_integration=None,
+        jira_tool=None,
+        get_cached_intent=Mock(),
+        cache_intent=Mock(),
+        initialize_intent_detector=Mock(),
+        has_pending_requirement_sdlc_agent_state=Mock(return_value=True),
+        get_selected_agent_mode=Mock(return_value="auto"),
+    )
+
+    state = service.detect_intent({"user_input": "who are you?", "messages": []})
+
+    assert state["intent"] == "general_chat"
+
+
 def test_detect_intent_honors_explicit_requirement_sdlc_agent_mode():
     service = AgentIntentService(
         config=FakeConfig,
@@ -177,3 +200,14 @@ def test_detect_intent_honors_explicit_requirement_sdlc_agent_mode():
     state = service.detect_intent({"user_input": "hello", "messages": []})
 
     assert state["intent"] == "requirement_sdlc_agent"
+
+
+def test_detect_keyword_intent_treats_model_identity_question_as_general_chat():
+    intent = detect_keyword_intent(
+        "which llm model are you using?",
+        rag_service_available=True,
+        jira_available=True,
+        coze_enabled=True,
+    )
+
+    assert intent == "general_chat"

@@ -59,17 +59,22 @@ class AgentIntentService:
             logger.debug("Intent: requirement_sdlc_agent (explicit agent mode)")
             return state
 
-        if self.has_pending_requirement_sdlc_agent_state():
-            state["intent"] = "requirement_sdlc_agent"
-            logger.debug("Intent: requirement_sdlc_agent (pending staged agent state)")
-            return state
-
         keyword_intent = self.detect_keyword_intent_fn(
             raw_user_input,
             rag_service_available=self.rag_service_available,
             jira_available=bool(self.jira_available),
             coze_enabled=self.config.COZE_ENABLED,
         )
+        if keyword_intent == "general_chat":
+            state["intent"] = keyword_intent
+            logger.debug("Intent: %s (general-chat escape hatch)", keyword_intent)
+            return state
+
+        if self.has_pending_requirement_sdlc_agent_state():
+            state["intent"] = "requirement_sdlc_agent"
+            logger.debug("Intent: requirement_sdlc_agent (pending staged agent state)")
+            return state
+
         if keyword_intent:
             state["intent"] = keyword_intent
             logger.debug("Intent: %s (keyword routing)", keyword_intent)

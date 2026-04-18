@@ -7,6 +7,8 @@ Tests the LLMMonitoringCallback class for tracking performance, token usage, and
 import pytest
 import time
 from unittest.mock import Mock, MagicMock
+from langchain_core.messages import AIMessage
+from langchain_core.outputs import ChatGeneration, LLMResult
 from src.agent.callbacks import LLMMonitoringCallback
 
 
@@ -101,6 +103,37 @@ class TestLLMMonitoringCallback:
         assert callback.total_prompt_tokens == 200
         assert callback.total_completion_tokens == 100
         assert callback.total_tokens == 300
+
+    def test_on_llm_end_with_generation_message_usage_metadata(self):
+        """Test on_llm_end with token usage stored on the generated AIMessage."""
+        callback = LLMMonitoringCallback()
+
+        callback.on_llm_start({'id': ['test']}, ["prompt"])
+        time.sleep(0.01)
+
+        result = LLMResult(
+            generations=[
+                [
+                    ChatGeneration(
+                        text="Test response",
+                        message=AIMessage(
+                            content="Test response",
+                            usage_metadata={
+                                'input_tokens': 120,
+                                'output_tokens': 30,
+                                'total_tokens': 150,
+                            },
+                        ),
+                    )
+                ]
+            ]
+        )
+
+        callback.on_llm_end(result)
+
+        assert callback.total_prompt_tokens == 120
+        assert callback.total_completion_tokens == 30
+        assert callback.total_tokens == 150
     
     def test_on_llm_end_without_token_usage(self):
         """Test on_llm_end without token usage data."""
