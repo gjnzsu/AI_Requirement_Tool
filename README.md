@@ -6,15 +6,12 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ## Key Features
 
-### Latest Change Highlights (2026-04-13)
+### Latest Change Highlights (2026-04-18)
 
-- Product agent flow redesigned for clearer end-to-end user progression
-- Internal orchestration refactored to improve maintainability and extension safety
-- UX behavior improved across chat validation, error handling, and workflow response consistency
-- Final polish package added:
- - `docs/release/2026-04-13-final-polish/QA_SIGNOFF_CHECKLIST.md`
- - `docs/release/2026-04-13-final-polish/METRICS_INSTRUMENTATION_REVIEW.md`
- - `docs/release/2026-04-13-final-polish/RELEASE_NOTES_DRAFT.md`
+- Added direct `confluence_creation` intent and graph route for freeform Confluence page creation
+- Kept `Requirement SDLC Agent` as the guided multi-step workflow for Jira + evaluation + Confluence orchestration
+- Added standalone `src/services/confluence_creation_service.py` for drafting and creating Confluence pages without SDLC handoff
+- Updated README architecture and intent documentation to reflect the current routing model
 
 ### Conversational AI
 - **LangGraph Agent Framework** - Stateful agent graph with intent detection and multi-step tool orchestration
@@ -31,6 +28,7 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ### Jira & Confluence Workflows
 - **Shared Requirement Workflow Service** - Centralized requirement backlog generation, Jira creation, maturity evaluation, and Confluence-page assembly in `src/services/requirement_workflow_service.py`
+- **Direct Confluence Creation Service** - Freeform Confluence-page drafting and creation in `src/services/confluence_creation_service.py`
 - **MCP Integration** - Model Context Protocol server for Jira and Confluence, enabling natural-language issue creation, search, and page management
 - **Custom Tools** - Direct REST API tools for Jira issue management and Confluence content operations
 - **Jira Maturity Evaluator** - Automated assessment of issue quality and completeness
@@ -75,6 +73,7 @@ AI_Requirement_Tool/
 | |-- services/ # Application services
 | | |-- requirement_workflow_service.py
 | | |-- requirement_sdlc_agent_service.py
+| | |-- confluence_creation_service.py
 | | |-- intent_detector.py
 | | |-- jira_maturity_evaluator.py
 | | |-- memory_manager.py
