@@ -59,7 +59,7 @@ class TestIntentDetector:
         
         assert detector.llm_provider == mock_provider
         assert detector.temperature == 0.1
-        assert detector.SUPPORTED_INTENTS == ['jira_creation', 'rag_query', 'general_chat', 'coze_agent']
+        assert detector.SUPPORTED_INTENTS == ['jira_creation', 'rag_query', 'general_chat', 'coze_agent', 'requirement_sdlc_agent', 'confluence_creation']
     
     def test_detect_intent_jira_creation(self):
         """Test intent detection for Jira creation."""
@@ -108,6 +108,21 @@ class TestIntentDetector:
         
         assert result["intent"] == "general_chat"
         assert result["confidence"] == 0.7
+
+    def test_detect_intent_confluence_creation(self):
+        """Test intent detection for direct Confluence page creation."""
+        response = json.dumps({
+            "intent": "confluence_creation",
+            "confidence": 0.91,
+            "reasoning": "User wants to create a Confluence page from freeform notes"
+        })
+        mock_provider = MockLLMProvider(response=response)
+        detector = IntentDetector(llm_provider=mock_provider)
+
+        result = detector.detect_intent("Create a Confluence page for this rollout summary")
+
+        assert result["intent"] == "confluence_creation"
+        assert result["confidence"] == 0.91
     
     def test_detect_intent_with_context(self):
         """Test intent detection with conversation context."""

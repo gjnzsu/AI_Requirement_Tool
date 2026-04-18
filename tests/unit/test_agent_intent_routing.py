@@ -45,3 +45,17 @@ def test_detect_keyword_intent_routes_jira_key_lookup_to_rag_when_not_creation()
         )
         == "rag_query"
     )
+
+
+@pytest.mark.unit
+def test_detect_keyword_intent_routes_direct_confluence_creation_requests():
+    """Direct Confluence page creation requests should route to confluence_creation."""
+    assert (
+        detect_keyword_intent(
+            "Please create a Confluence page for the release plan",
+            rag_service_available=True,
+            jira_available=True,
+            coze_enabled=False,
+        )
+        == "confluence_creation"
+    )

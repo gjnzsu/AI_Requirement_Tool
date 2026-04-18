@@ -114,6 +114,29 @@ def test_route_after_intent_returns_requirement_sdlc_agent():
     assert route == "requirement_sdlc_agent"
 
 
+def test_route_after_intent_returns_confluence_creation_when_confluence_capability_available():
+    service = AgentIntentService(
+        config=FakeConfig,
+        detect_keyword_intent_fn=Mock(),
+        rag_service_available=True,
+        jira_available=True,
+        coze_client=None,
+        use_mcp=False,
+        mcp_integration=None,
+        jira_tool=None,
+        get_cached_intent=Mock(),
+        cache_intent=Mock(),
+        initialize_intent_detector=Mock(),
+        has_pending_requirement_sdlc_agent_state=Mock(return_value=False),
+        get_selected_agent_mode=Mock(return_value="auto"),
+        confluence_page_port=object(),
+    )
+
+    route = service.route_after_intent({"intent": "confluence_creation"})
+
+    assert route == "confluence_creation"
+
+
 def test_detect_intent_short_circuits_to_agent_when_confirmation_pending():
     service = AgentIntentService(
         config=FakeConfig,

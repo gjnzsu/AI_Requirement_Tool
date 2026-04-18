@@ -29,6 +29,7 @@ class IntentDetector:
         'general_chat',
         'coze_agent',
         'requirement_sdlc_agent',
+        'confluence_creation',
     ]
     
     def __init__(self, llm_provider: LLMProvider, temperature: float = 0.1):
@@ -52,7 +53,7 @@ class IntentDetector:
             
         Returns:
             Dictionary with:
-                - intent: str - Detected intent ('jira_creation', 'rag_query', 'general_chat', 'coze_agent', 'requirement_sdlc_agent')
+                - intent: str - Detected intent ('jira_creation', 'rag_query', 'general_chat', 'coze_agent', 'requirement_sdlc_agent', 'confluence_creation')
                 - confidence: float - Confidence score (0.0 to 1.0)
                 - reasoning: str - Brief explanation of the detection
         """
@@ -65,7 +66,7 @@ class IntentDetector:
                 "You are an expert intent classifier for a chatbot system. "
                 "Analyze the user's input and determine their intent. "
                 "Return a JSON response with 'intent', 'confidence' (0.0-1.0), and 'reasoning' fields. "
-                "Available intents: jira_creation, rag_query, general_chat, coze_agent, requirement_sdlc_agent. "
+                "Available intents: jira_creation, rag_query, general_chat, coze_agent, requirement_sdlc_agent, confluence_creation. "
                 "Be precise and confident in your classification."
             )
             
@@ -138,6 +139,7 @@ class IntentDetector:
         prompt_parts.append("- general_chat: General conversation, greetings, or questions not requiring specific tools")
         prompt_parts.append("- coze_agent: User wants AI daily report or AI news (if Coze is enabled)")
         prompt_parts.append("- requirement_sdlc_agent: User wants help drafting, revising, confirming, or executing a requirement SDLC draft")
+        prompt_parts.append("- confluence_creation: User wants to create a Confluence or wiki page directly from freeform notes")
         prompt_parts.append("")
         prompt_parts.append("Analyze the user input and determine the most appropriate intent.")
         

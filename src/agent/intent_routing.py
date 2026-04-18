@@ -47,6 +47,24 @@ JIRA_CREATION_PATTERNS = [
     r"please\s+create\s+(a\s+)?(jira|issue|ticket)",
 ]
 
+CONFLUENCE_CREATION_KEYWORDS = [
+    "create confluence page",
+    "create a confluence page",
+    "create the confluence page",
+    "new confluence page",
+    "make confluence page",
+    "add confluence page",
+    "create wiki page",
+    "new wiki page",
+    "publish to confluence",
+    "post to confluence",
+]
+
+CONFLUENCE_CREATION_PATTERNS = [
+    r"\b(create|make|add|new|publish|post)\s+(a\s+|the\s+)?(confluence|wiki)\s+(page|doc|document)\b",
+    r"\b(create|make|add|new)\s+(a\s+|the\s+)?page\s+in\s+(confluence|wiki)\b",
+]
+
 RAG_KEYWORDS = [
     "knowledge base",
     "document",
@@ -156,6 +174,9 @@ def detect_keyword_intent(
     if jira_available and _matches_jira_creation_intent(normalized_input):
         return "jira_creation"
 
+    if _matches_confluence_creation_intent(normalized_input):
+        return "confluence_creation"
+
     if rag_service_available and _matches_jira_lookup_intent(user_input or "", normalized_input):
         return "rag_query"
 
@@ -192,3 +213,13 @@ def _matches_jira_lookup_intent(raw_user_input: str, normalized_input: str) -> b
         return False
 
     return not _matches_jira_creation_intent(normalized_input)
+
+
+def _matches_confluence_creation_intent(normalized_input: str) -> bool:
+    if any(keyword in normalized_input for keyword in CONFLUENCE_CREATION_KEYWORDS):
+        return True
+
+    return any(
+        re.search(pattern, normalized_input, re.IGNORECASE)
+        for pattern in CONFLUENCE_CREATION_PATTERNS
+    )

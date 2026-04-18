@@ -118,3 +118,60 @@ def test_build_agent_graph_routes_requirement_sdlc_agent_to_end():
 
     assert result["messages"][-1] == "preview"
     assert calls == ["detect", "requirement_sdlc_agent"]
+
+
+def test_build_agent_graph_routes_direct_confluence_creation_to_end():
+    calls = []
+
+    def detect(state):
+        calls.append("detect")
+        state["intent"] = "confluence_creation"
+        return state
+
+    def route_after_intent(state):
+        return "confluence_creation"
+
+    def general_chat(state):
+        calls.append("general_chat")
+        return state
+
+    def jira_creation(state):
+        calls.append("jira")
+        return state
+
+    def evaluation(state):
+        calls.append("evaluation")
+        return state
+
+    def route_after_evaluation(state):
+        return "end"
+
+    def confluence(state):
+        calls.append("confluence")
+        state["confluence_result"] = {"success": True}
+        return state
+
+    def rag_query(state):
+        calls.append("rag")
+        return state
+
+    def coze_agent(state):
+        calls.append("coze")
+        return state
+
+    graph = build_agent_graph(
+        detect_intent=detect,
+        route_after_intent=route_after_intent,
+        handle_general_chat=general_chat,
+        handle_jira_creation=jira_creation,
+        handle_evaluation=evaluation,
+        route_after_evaluation=route_after_evaluation,
+        handle_confluence_creation=confluence,
+        handle_rag_query=rag_query,
+        handle_coze_agent=coze_agent,
+    )
+
+    result = graph.invoke({"messages": [], "user_input": "create a confluence page"})
+
+    assert result["confluence_result"]["success"] is True
+    assert calls == ["detect", "confluence"]

@@ -28,6 +28,7 @@ from src.tools.confluence_tool import ConfluenceTool
 from src.runtime import build_application_services
 from src.services.atlassian_mcp_support_service import AtlassianMcpSupportService
 from src.services.chat_response_service import ChatResponseService
+from src.services.confluence_creation_service import ConfluenceCreationService
 from src.services.coze_agent_service import CozeAgentService
 from src.services.general_chat_service import GeneralChatService
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
@@ -155,6 +156,7 @@ class ChatbotAgent:
         self.requirement_sdlc_agent_service = None
         self.chat_response_service = None
         self.general_chat_service = None
+        self.confluence_creation_service = None
         self.rag_query_service = None
         self.coze_agent_service = None
         self.atlassian_support_service = None
@@ -400,6 +402,10 @@ class ChatbotAgent:
                 llm_provider=llm,
                 workflow_service=getattr(self, "requirement_workflow_service", None),
             )
+            self.confluence_creation_service = ConfluenceCreationService(
+                llm_provider=llm,
+                confluence_page_port=getattr(self, "confluence_page_port", None),
+            )
         else:
             self.chat_response_service = getattr(self, "chat_response_service", None)
             self.general_chat_service = getattr(self, "general_chat_service", None)
@@ -407,6 +413,11 @@ class ChatbotAgent:
             self.requirement_sdlc_agent_service = getattr(
                 self,
                 "requirement_sdlc_agent_service",
+                None,
+            )
+            self.confluence_creation_service = getattr(
+                self,
+                "confluence_creation_service",
                 None,
             )
 
@@ -443,6 +454,7 @@ class ChatbotAgent:
             get_cached_intent=self._get_cached_intent,
             cache_intent=self._cache_intent,
             initialize_intent_detector=self._initialize_intent_detector,
+            confluence_page_port=getattr(self, "confluence_page_port", None),
             has_pending_requirement_sdlc_agent_state=self.has_pending_requirement_sdlc_agent_state,
             get_selected_agent_mode=self.get_selected_agent_mode,
         )
@@ -863,6 +875,36 @@ class ChatbotAgent:
     
     def _handle_confluence_creation(self, state: AgentState) -> AgentState:
         """Create Confluence page for the Jira issue using MCP protocol with fallback."""
+        if state.get("intent") == "confluence_creation":
+            self._refresh_application_services()
+            self._refresh_flow_services()
+
+            if not self.confluence_creation_service:
+                state["confluence_result"] = {
+                    "success": False,
+                    "error": "Confluence page creation is not configured.",
+                }
+                state["messages"].append(
+                    AIMessage(content="Confluence page creation is not configured.")
+                )
+                return state
+
+            result = self.confluence_creation_service.handle(
+                user_input=state.get("user_input", ""),
+                messages=list(state.get("messages", [])),
+                conversation_history=list(state.get("conversation_history", [])),
+            )
+            state["confluence_result"] = result.get("confluence_result")
+            state["messages"].append(AIMessage(content=result.get("message", "")))
+
+            if (
+                state.get("confluence_result", {}).get("success")
+                and result.get("rag_document")
+                and result.get("rag_metadata")
+            ):
+                self._ingest_to_rag(result["rag_document"], result["rag_metadata"])
+            return state
+
         self._refresh_application_services()
 
         jira_result = state.get("jira_result", {})

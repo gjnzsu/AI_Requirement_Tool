@@ -3,6 +3,7 @@
 from src.services.agent_intent_service import AgentIntentService
 from src.services.atlassian_mcp_support_service import AtlassianMcpSupportService
 from src.services.chat_response_service import ChatResponseService
+from src.services.confluence_creation_service import ConfluenceCreationService
 from src.services.coze_agent_service import CozeAgentService
 from src.services.general_chat_service import GeneralChatService
 from src.services.rag_ingestion_service import RagIngestionService
@@ -21,6 +22,7 @@ __all__ = [
     "AgentIntentService",
     "AtlassianMcpSupportService",
     "ChatResponseService",
+    "ConfluenceCreationService",
     "CozeAgentService",
     "GeneralChatService",
     "RagIngestionService",

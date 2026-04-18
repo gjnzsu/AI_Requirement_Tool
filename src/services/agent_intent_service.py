@@ -30,6 +30,7 @@ class AgentIntentService:
         get_cached_intent: Callable[[str], Optional[Dict[str, Any]]],
         cache_intent: Callable[[str, Dict[str, Any]], None],
         initialize_intent_detector: Callable[[], Any],
+        confluence_page_port: Any = None,
         has_pending_requirement_sdlc_agent_state: Callable[[], bool] = lambda: False,
         get_selected_agent_mode: Callable[[], str] = lambda: "auto",
     ) -> None:
@@ -41,6 +42,7 @@ class AgentIntentService:
         self.use_mcp = use_mcp
         self.mcp_integration = mcp_integration
         self.jira_tool = jira_tool
+        self.confluence_page_port = confluence_page_port
         self.get_cached_intent = get_cached_intent
         self.cache_intent = cache_intent
         self.initialize_intent_detector = initialize_intent_detector
@@ -147,6 +149,9 @@ class AgentIntentService:
 
         if intent == "requirement_sdlc_agent":
             return "requirement_sdlc_agent"
+
+        if intent == "confluence_creation":
+            return "confluence_creation" if self.confluence_page_port else "general_chat"
 
         if intent in {"general_chat", "rag_query", "coze_agent"}:
             if intent == "coze_agent":

@@ -37,6 +37,7 @@ def build_agent_graph(
         route_after_intent,
         {
             "jira_creation": "jira_creation",
+            "confluence_creation": "confluence_creation",
             "rag_query": "rag_query",
             "general_chat": "general_chat",
             "coze_agent": "coze_agent",

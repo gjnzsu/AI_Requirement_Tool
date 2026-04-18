@@ -274,23 +274,44 @@ python ingest_pdf.py
 The chatbot uses LangGraph for orchestration, but the architecture has been refactored so responsibilities are split across smaller modules.
 
 ```text
-User Input
- ->
+User
+  |
+  v
 Chatbot
- ->
-ChatbotAgent / agent_graph.py
- ->
-Intent Detection
- ->
-+-------------------+--------------------+------------------+-----------------+
-| General Chat | Jira/Requirement | RAG Query | Coze Agent |
-+-------------------+--------------------+------------------+-----------------+
- ->
-Focused helper modules + shared services
- ->
-Tool / RAG / provider execution
- ->
-User Response
+  |
+  v
+ChatbotAgent / LangGraph
+  |
+  v
+intent_detection
+  |
+  +--> requirement_sdlc_agent
+  |      Purpose: staged BA-guided requirement drafting and approval flow
+  |      Impl: src/services/requirement_sdlc_agent_service.py
+  |
+  +--> confluence_creation
+  |      Purpose: direct freeform Confluence or wiki page creation
+  |      Impl: src/services/confluence_creation_service.py
+  |
+  +--> general_chat
+  |      Purpose: normal conversation / fallback path
+  |
+  +--> rag_query
+  |      Purpose: document Q&A / knowledge retrieval
+  |
+  +--> coze_agent
+  |      Purpose: handoff to Coze when configured
+  |
+  +--> jira_creation
+         Purpose: create Jira issue
+         |
+         v
+      evaluation
+         |
+         +--> confluence_creation
+         |      Purpose: create Confluence page after evaluation
+         |
+         +--> end
 ```
 
 ### Refactor Status
@@ -304,8 +325,10 @@ User Response
 The agent automatically detects user intents:
 - **General Chat** - Conversational queries
 - **Jira Creation** - Requests to create Jira issues
+- **Confluence Creation** - Requests to create a Confluence page directly from freeform notes
 - **Information Query** - Questions that benefit from RAG
 - **Coze Agent** - Requests routed to the Coze integration when enabled
+- **Requirement SDLC Agent** - Requests to draft, revise, confirm, or execute requirement lifecycle work
 
 ### Tool Usage
 
