@@ -355,17 +355,74 @@ Async Coze path
 
 ### Architecture Reference Diagrams
 
-The following engineering-oriented diagrams provide a design reference for the current deployment shape and the logical runtime structure.
+The following diagrams provide different views of the system architecture.
 
-#### Deployment Diagram
+#### Main Request Flow
+
+This flowchart shows how a user request flows through the system from start to finish:
+
+![Main Request Flow](docs/architecture/diagrams/main-request-flow.drawio.png)
+
+**Key decision points:**
+- **Authentication check**: Validates JWT token
+- **Intent detection**: LangGraph agent determines request type
+- **Routing**: Directs to appropriate execution path (6 different intents)
+- **Async vs Sync**: Coze requests can be processed synchronously or asynchronously via Celery
+
+**Execution paths:**
+- `general_chat`: Direct LLM call for conversation
+- `rag_query`: Retrieve documents → LLM with context
+- `jira_creation`: Create Jira issue via MCP/direct tool
+- `confluence_creation`: Create Confluence page via MCP/direct tool
+- `requirement_sdlc_agent`: Multi-step guided workflow
+- `coze_agent`: Handoff to Coze platform (sync or async)
+
+Source: [main-request-flow.drawio](docs/architecture/diagrams/main-request-flow.drawio)
+
+#### Logical Architecture
+
+This layered architecture diagram shows the logical components, their relationships, and data flow:
+
+![AI Requirement Tool Architecture](docs/architecture/diagrams/ai-requirement-tool-architecture-comprehensive.drawio.png)
+
+**Layers:**
+- **User Layer**: Web UI and API clients
+- **Web Layer**: Flask app with REST API routes (auth, core, conversations, jobs)
+- **Core Services**: Chatbot orchestrator, LangGraph agent, memory manager, authentication
+- **Agent Execution Paths**: Sync paths (chat, RAG, Jira, Confluence, SDLC) and async path (Coze via Celery)
+- **Integration Layer**: Multi-provider LLM routing, optional AI gateway, MCP integration, direct tools
+- **Data Layer**: RAG service, memory DB (SQLite), Redis (Celery broker)
+- **External Systems**: Atlassian (Jira/Confluence), Coze platform
+- **Observability**: Prometheus metrics, Grafana dashboards
+
+Source: [ai-requirement-tool-architecture-comprehensive.drawio](docs/architecture/diagrams/ai-requirement-tool-architecture-comprehensive.drawio)
+
+#### Deployment Architecture
+
+This diagram shows the physical deployment topology on Google Kubernetes Engine (GKE):
 
 ![Deployment Architecture Reference](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-deployment-engineering.png)
 
+**Key deployment components:**
+- GKE cluster with LoadBalancer service
+- Flask web pods and Celery worker pods
+- Redis for async job queue
+- Prometheus and Grafana for observability
+- Persistent volume for SQLite storage
+
 Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-deployment-engineering.mmd)
 
-#### Logical Diagram
+#### Runtime Flow Diagram
+
+This diagram shows the runtime execution flow and agent routing logic:
 
 ![Logical Architecture Reference](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.png)
+
+**Shows:**
+- Request flow from user to response
+- Intent detection and routing logic
+- Sync vs async execution paths
+- LangGraph agent state transitions
 
 Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.mmd)
 

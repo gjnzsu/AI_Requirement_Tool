@@ -1,0 +1,222 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="start" value="User sends message" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="340" y="40" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="auth_check" value="Authentication&#xa;valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="350" y="140" width="140" height="100" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="auth_fail" value="Return 401&#xa;Unauthorized" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="560" y="160" width="120" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="intent_detection" value="Intent Detection&#xa;(LangGraph Agent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="340" y="280" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="route_decision" value="Which intent?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="350" y="380" width="140" height="100" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="general_chat" value="general_chat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="40" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="rag_query" value="rag_query" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="180" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="jira_creation" value="jira_creation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="320" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="confluence_creation" value="confluence_&#xa;creation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="460" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="req_sdlc" value="requirement_&#xa;sdlc_agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="600" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="coze_agent" value="coze_agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="740" y="540" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="llm_call_1" value="Call LLM&#xa;Provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="40" y="640" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="rag_retrieve" value="RAG Service&#xa;Retrieve Docs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="180" y="640" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="llm_call_2" value="Call LLM&#xa;with Context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="180" y="720" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="jira_tool" value="Jira Tool/MCP&#xa;Create Issue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="320" y="640" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="confluence_tool" value="Confluence&#xa;Tool/MCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="460" y="640" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="workflow_service" value="Workflow Service&#xa;Multi-step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="600" y="640" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="async_check" value="Async Coze&#xa;enabled?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="750" y="640" width="100" height="80" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="sync_coze" value="Call Coze API&#xa;(Sync)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="900" y="655" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="async_enqueue" value="Enqueue to&#xa;Redis/Celery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="740" y="760" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="return_202" value="Return 202&#xa;with job_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="740" y="840" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="celery_worker" value="Celery Worker&#xa;Process Job" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="900" y="760" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="poll_job" value="User polls&#xa;/api/jobs/&lt;id&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="740" y="940" width="120" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="response_merge" value="Format Response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="340" y="840" width="160" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="end" value="Return Response&#xa;to User" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="340" y="940" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge1" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="start" target="auth_check">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge2" value="No" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="auth_check" target="auth_fail">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge3" value="Yes" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="auth_check" target="intent_detection">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge4" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="intent_detection" target="route_decision">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge5" value="" style="endArrow=classic;html=1;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="general_chat">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge6" value="" style="endArrow=classic;html=1;exitX=0.2;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="rag_query">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge7" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="jira_creation">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge8" value="" style="endArrow=classic;html=1;exitX=0.8;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="confluence_creation">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge9" value="" style="endArrow=classic;html=1;exitX=0.9;exitY=0.8;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="req_sdlc">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge10" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="route_decision" target="coze_agent">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge11" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="general_chat" target="llm_call_1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge12" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="rag_query" target="rag_retrieve">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge13" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="rag_retrieve" target="llm_call_2">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge14" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="jira_creation" target="jira_tool">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge15" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="confluence_creation" target="confluence_tool">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge16" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="req_sdlc" target="workflow_service">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge17" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="coze_agent" target="async_check">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge18" value="No" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="async_check" target="sync_coze">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge19" value="Yes" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="async_check" target="async_enqueue">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge20" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="async_enqueue" target="return_202">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge21" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;dashed=1;" edge="1" parent="1" source="async_enqueue" target="celery_worker">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge22" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="return_202" target="poll_job">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge23" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" edge="1" parent="1" source="llm_call_1" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge24" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" edge="1" parent="1" source="llm_call_2" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge25" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="jira_tool" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge26" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="confluence_tool" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge27" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=1;entryY=0.3;" edge="1" parent="1" source="workflow_service" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge28" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=1;entryY=0.7;" edge="1" parent="1" source="sync_coze" target="response_merge">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="edge29" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="response_merge" target="end">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
