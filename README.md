@@ -353,6 +353,22 @@ Async Coze path
          Impl: src/webapp/routes/jobs.py
 ```
 
+### Architecture Reference Diagrams
+
+The following engineering-oriented diagrams provide a design reference for the current deployment shape and the logical runtime structure.
+
+#### Deployment Diagram
+
+![Deployment Architecture Reference](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-deployment-engineering.png)
+
+Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-deployment-engineering.mmd)
+
+#### Logical Diagram
+
+![Logical Architecture Reference](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.png)
+
+Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.mmd)
+
 ### Refactor Status
 
 - **Phase 1 completed** - Shared requirement workflow logic was extracted into `src/services/requirement_workflow_service.py`
@@ -415,6 +431,7 @@ Tools are automatically selected based on intent:
 
 **Architecture:**
 - **[docs/architecture/README.md](docs/architecture/README.md)** - Current architecture documentation
+- **[README architecture reference diagrams](#architecture-reference-diagrams)** - Embedded deployment and logical design-reference diagrams for quick orientation
 - **[docs/architecture/post-migration-hardening-checklist.md](docs/architecture/post-migration-hardening-checklist.md)** - Post-migration hardening and release-readiness checklist
 - **[docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md](docs/superpowers/specs/2026-04-03-requirement-workflow-refactor-design.md)** - Phase 1 and Phase 2 refactor design and completion notes
 - **[docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md](docs/superpowers/specs/2026-04-05-phase-3-architecture-cleanup-design.md)** - Phase 3 architecture cleanup design and migration direction

@@ -1,0 +1,61 @@
+flowchart LR
+    user[User]
+    webui[Web UI]
+    flask[Flask App]
+    runtime[AppRuntime]
+    decision{Async Coze route?}
+
+    chatbot[Chatbot]
+    agent[ChatbotAgent / LangGraph]
+    routes[Intent Routes]
+    sdlc[RequirementSdlcAgentService]
+
+    jobsapi[Jobs API]
+    asyncsvc[AsyncJobService]
+    redis[Redis]
+    celery[Celery Worker]
+    asynccoze[AsyncCozeExecutionService]
+
+    composition["build_application_services()"]
+    workflow[RequirementWorkflowService]
+    confluence[ConfluenceCreationService]
+    ports[Application Ports]
+    adapters[Adapters]
+
+    memory[MemoryManager / MemorySummarizer]
+    rag[RAG Service]
+    cozeclient[Coze Client]
+    mcp[MCP Integration]
+    direct[Direct Jira / Confluence Tools]
+    llmrouter[LLM Router / ProviderManager]
+
+    llms[LLM Provider APIs]
+    atlassian[Atlassian APIs]
+    cozeapi[Coze Platform API]
+    conversationdb[Conversation + Memory DB]
+    vectordb[Vector DB]
+    authdb[Auth DB]
+
+    user --> webui --> flask --> runtime --> decision
+
+    decision -->|No| chatbot --> agent --> routes
+    routes --> sdlc
+    routes --> workflow
+    routes --> confluence
+
+    decision -->|Yes| asyncsvc
+    webui -->|poll status| jobsapi --> redis
+    asyncsvc --> redis --> celery --> asynccoze --> cozeclient --> cozeapi
+    asynccoze --> conversationdb
+
+    chatbot -.-> composition
+    composition --> workflow --> ports --> adapters
+    confluence --> ports
+
+    chatbot --> memory --> conversationdb
+    agent --> rag --> vectordb
+    chatbot --> llmrouter --> llms
+
+    adapters --> mcp --> atlassian
+    adapters --> direct --> atlassian
+    flask --> authdb

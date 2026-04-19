@@ -1,0 +1,56 @@
+flowchart LR
+    browser[User Browser]
+    lb[LoadBalancer Service]
+
+    subgraph gke[GKE Cluster]
+        direction LR
+
+        subgraph webdeploy[ai-tool Deployment]
+            direction TB
+            webpod[Web Pod]
+            flask[Flask App]
+            webui[Web UI]
+            jobsapi[Jobs API]
+        end
+
+        subgraph workerdeploy[celery-worker Deployment]
+            direction TB
+            workerpod[Worker Pod]
+            celery[Celery Worker]
+            cozetask[process_coze_job]
+        end
+
+        subgraph redisdeploy[redis Deployment]
+            direction TB
+            redispod[Redis Pod]
+            broker[Broker Queue]
+            results[Result Backend]
+        end
+
+        pvc[Shared PVC]
+        secret[Kubernetes Secret]
+    end
+
+    coze[Coze Platform API]
+    registry[Artifact Registry]
+    cicd[GitHub Actions CD]
+
+    browser --> lb --> webpod
+    webpod --> flask
+    webpod --> webui
+    webpod --> jobsapi
+
+    flask --> broker
+    jobsapi --> results
+    celery --> broker
+    celery --> results
+    celery --> cozetask --> coze
+
+    flask <--> pvc
+    celery <--> pvc
+    secret -.-> flask
+    secret -.-> celery
+
+    cicd --> registry
+    registry -.-> webdeploy
+    registry -.-> workerdeploy

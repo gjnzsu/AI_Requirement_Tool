@@ -1,0 +1,28 @@
+flowchart LR
+    user[Users]
+    lb[Internet / Load Balancer]
+
+    subgraph gke[GKE Cluster]
+        direction LR
+
+        web[Web Application]
+        worker[Async Worker]
+
+        subgraph platform[Platform Services]
+            direction TB
+            redis[Redis]
+            storage[Shared Storage / Config]
+        end
+    end
+
+    coze[Coze Platform]
+    registry[Artifact Registry]
+    cicd[CI/CD Pipeline]
+
+    user --> lb --> web
+    web --> redis
+    worker --> redis
+    worker --> coze
+    cicd --> registry --> gke
+    web <--> storage
+    worker <--> storage

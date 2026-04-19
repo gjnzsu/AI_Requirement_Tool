@@ -1,0 +1,19 @@
+flowchart LR
+    users[Users]
+    web[Web Experience]
+    runtime[Application Runtime]
+    orchestration[AI Orchestration]
+    async[Async Processing]
+    services[Business Services]
+    external[External Platforms]
+    data[Data Stores]
+
+    users --> web --> runtime
+    runtime --> orchestration
+    runtime --> async
+    orchestration --> services
+    orchestration --> external
+    async --> external
+    services --> external
+    orchestration --> data
+    async --> data
