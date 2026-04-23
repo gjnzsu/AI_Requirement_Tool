@@ -94,7 +94,7 @@ $env:OPENAI_API_KEY="your-openai-api-key"
 $env:MAX_BACKLOG_ITEMS="50"
 
 Write-Host "Environment variables set for current session!"
-Write-Host "Run: python evaluate_jira_maturity.py"
+Write-Host "Run: python scripts/evaluate_jira_maturity.py"
 ```
 
 Then run: `.\set-env.ps1`

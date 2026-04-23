@@ -120,6 +120,12 @@ AI_Requirement_Tool/
 | |-- architecture/
 | |-- features/
 | `-- superpowers/
+|-- examples/
+| |-- example_rag.py # RAG usage example
+|-- scripts/
+| |-- deploy.sh # Deployment helper
+| |-- evaluate_jira_maturity.py # Jira maturity evaluation utility
+| `-- ingest_pdf.py # RAG PDF ingestion utility
 |-- requirements.txt
 |-- pytest.ini
 |-- run_tests.py
@@ -272,7 +278,7 @@ RAG is automatically used when:
 
 ```bash
 # Ingest PDF files
-python ingest_pdf.py
+python scripts/ingest_pdf.py
 
 # Documents are stored in data/ directory
 ```

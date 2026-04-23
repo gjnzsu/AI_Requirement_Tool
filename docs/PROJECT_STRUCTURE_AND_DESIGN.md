@@ -166,7 +166,7 @@ GenAIChatbot/
 │   └── *.ps1, *.sh                  # Setup scripts (PowerShell/Bash)
 │
 └── deployment/                      # Deployment configurations
-    ├── deploy.sh                    # Deployment script
+    ├── scripts/deploy.sh            # Deployment script
     ├── deploy-on-vm.sh              # VM deployment
     ├── deploy-to-gcp.sh             # GCP deployment
     ├── nginx.conf                   # Nginx configuration

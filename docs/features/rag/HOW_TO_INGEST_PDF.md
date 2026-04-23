@@ -6,13 +6,13 @@ Use the provided script to ingest PDFs:
 
 ```bash
 # Ingest a single PDF
-python ingest_pdf.py your_document.pdf
+python scripts/ingest_pdf.py your_document.pdf
 
 # Ingest all PDFs in a folder
-python ingest_pdf.py ./pdf_folder/
+python scripts/ingest_pdf.py ./pdf_folder/
 
 # Ingest PDFs recursively (including subfolders)
-python ingest_pdf.py ./pdf_folder/ --recursive
+python scripts/ingest_pdf.py ./pdf_folder/ --recursive
 ```
 
 ## Method 2: Using Python Code

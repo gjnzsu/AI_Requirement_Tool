@@ -179,7 +179,7 @@ This database contains:
 
 ## Example Script
 
-See `example_rag.py` for a complete working example.
+See `examples/example_rag.py` for a complete working example.
 
 ## Next Steps
 

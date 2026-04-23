@@ -2,15 +2,15 @@
 Simple script to ingest PDF files into RAG knowledge base.
 
 Usage:
-    python ingest_pdf.py path/to/file.pdf
-    python ingest_pdf.py path/to/pdf/folder/
+    python scripts/ingest_pdf.py path/to/file.pdf
+    python scripts/ingest_pdf.py path/to/pdf/folder/
 """
 
 import sys
 from pathlib import Path
 
 # Add project root to path
-project_root = Path(__file__).parent
+project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.rag import RAGService
@@ -111,12 +111,12 @@ def main():
         print("PDF Ingestion Tool for RAG Knowledge Base")
         print("=" * 70)
         print("\nUsage:")
-        print("  python ingest_pdf.py <pdf_file_path>")
-        print("  python ingest_pdf.py <directory_path>")
+        print("  python scripts/ingest_pdf.py <pdf_file_path>")
+        print("  python scripts/ingest_pdf.py <directory_path>")
         print("\nExamples:")
-        print("  python ingest_pdf.py document.pdf")
-        print("  python ingest_pdf.py ./pdfs/")
-        print("  python ingest_pdf.py ./pdfs/ --recursive")
+        print("  python scripts/ingest_pdf.py document.pdf")
+        print("  python scripts/ingest_pdf.py ./pdfs/")
+        print("  python scripts/ingest_pdf.py ./pdfs/ --recursive")
         print("\nOptions:")
         print("  --recursive    Search subdirectories (for directory mode)")
         print("=" * 70)

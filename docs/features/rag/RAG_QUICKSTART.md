@@ -122,5 +122,5 @@ RAG_CHUNK_OVERLAP=200
 
 - See `RAG_GUIDE.md` for detailed documentation
 - Run `python test_rag.py` to see it in action
-- Check `example_rag.py` for more examples
+- Check `examples/example_rag.py` for more examples
 

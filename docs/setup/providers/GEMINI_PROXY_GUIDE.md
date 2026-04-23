@@ -82,7 +82,7 @@ $env:GEMINI_PROXY="http://proxy.company.com:8080"
 python test_gemini.py
 
 # Run service
-python evaluate_jira_maturity.py
+python scripts/evaluate_jira_maturity.py
 ```
 
 ### .env File Example

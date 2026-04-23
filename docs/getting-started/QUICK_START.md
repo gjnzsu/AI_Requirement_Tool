@@ -31,7 +31,7 @@ This will:
 Once everything is configured, run the main evaluation:
 
 ```powershell
-python evaluate_jira_maturity.py
+python scripts/evaluate_jira_maturity.py
 ```
 
 ## What Happens During Evaluation

@@ -108,7 +108,7 @@ This will verify:
 Once configured, run the evaluation service:
 
 ```powershell
-python evaluate_jira_maturity.py
+python scripts/evaluate_jira_maturity.py
 ```
 
 ## Available Gemini Models

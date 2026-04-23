@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # deploy.sh — build, push, and deploy to GKE
-# Usage: PROJECT_ID=my-gcp-project ./deploy.sh
+# Usage: PROJECT_ID=my-gcp-project ./scripts/deploy.sh
 
 set -euo pipefail
 
 if [[ -z "${PROJECT_ID:-}" ]]; then
   echo "ERROR: PROJECT_ID env var is required"
-  echo "  Usage: PROJECT_ID=my-gcp-project ./deploy.sh"
+  echo "  Usage: PROJECT_ID=my-gcp-project ./scripts/deploy.sh"
   exit 1
 fi
 
