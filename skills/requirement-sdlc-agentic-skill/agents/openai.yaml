@@ -1,0 +1,7 @@
+interface:
+  display_name: "Requirement SDLC Agentic Skill"
+  short_description: "Draft, approve, and execute SDLC requirements."
+  default_prompt: "Use $requirement-sdlc-agentic-skill to turn a rough software idea into a structured requirement draft, wait for approval, then coordinate the lifecycle workflow."
+
+policy:
+  allow_implicit_invocation: true

@@ -21,6 +21,15 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **Intent Routing** - Automatically distinguishes general chat, document Q&A, and Jira/Confluence actions
 - **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable HTTP timeout
 
+### Requirement SDLC Agentic Skill
+
+The Requirement SDLC Agentic Skill helps convert raw requirement input into structured SDLC artifacts through a guided, stateful, human-approved workflow. It drafts requirements, identifies missing information, supports revision, waits for approval, then executes downstream lifecycle actions such as Jira creation, maturity evaluation, Confluence documentation, and RAG ingestion.
+
+- **Skill package** - `skills/requirement-sdlc-agentic-skill/SKILL.md`
+- **Repo implementation map** - `skills/requirement-sdlc-agentic-skill/references/repo-implementation-map.md`
+- **Runtime service** - `src/services/requirement_sdlc_agent_service.py`
+- **Execution service** - `src/services/requirement_workflow_service.py`
+
 ### Document Q&A (RAG)
 - **RAG Service** - Retrieval-Augmented Generation over internal documents with vector embeddings
 - **Vector Store & Caching** - Fast similarity search with a TTL-based RAG cache to reduce redundant embedding calls
