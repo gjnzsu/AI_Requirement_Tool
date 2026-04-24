@@ -20,7 +20,7 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboards
 data:
-  ai-tool.json: |
+  service-overview.json: |
     {
       "annotations": {"list": []},
       "editable": true,
@@ -28,130 +28,272 @@ data:
       "links": [],
       "schemaVersion": 36,
       "style": "dark",
-      "tags": ["ai-tool", "prometheus"],
-      "title": "AI Requirement Tool",
-      "uid": "ai-tool-prometheus",
+      "tags": ["ai-tool", "service", "health"],
+      "title": "Service Overview - Health & Metrics",
+      "uid": "service-overview",
       "version": 1,
       "panels": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "fieldConfig": {
-            "defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"},
+            "defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "short"},
             "overrides": []
           },
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
           "id": 1,
-          "options": {
-            "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
-            "tooltip": {"mode": "multi"}
-          },
-          "targets": [
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "A",
-              "expr": "rate(http_requests_total[2m])",
-              "legendFormat": "{{method}} {{endpoint}} {{status}}"
-            }
-          ],
-          "title": "HTTP Request Rate",
-          "type": "timeseries"
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "up{job=\"ai-requirement-tool\"}", "legendFormat": "Service Health"}],
+          "title": "Service Health",
+          "type": "stat"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {
-            "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
-            "overrides": []
-          },
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
           "id": 2,
-          "options": {
-            "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
-            "tooltip": {"mode": "multi"}
-          },
-          "targets": [
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "A",
-              "expr": "rate(llm_tokens_total[2m])",
-              "legendFormat": "{{provider}} {{model}} {{type}}"
-            }
-          ],
-          "title": "LLM Token Rate",
-          "type": "timeseries"
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "Total RPS"}],
+          "title": "Request Rate",
+          "type": "stat"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {
-            "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
-            "overrides": []
-          },
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
           "id": 3,
-          "options": {
-            "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
-            "tooltip": {"mode": "multi"}
-          },
-          "targets": [
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "A",
-              "expr": "rate(llm_errors_total[2m])",
-              "legendFormat": "{{provider}} {{error_type}}"
-            }
-          ],
-          "title": "LLM Error Rate",
-          "type": "timeseries"
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total{status=~\"2..\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "Success Rate"}],
+          "title": "Success Rate",
+          "type": "stat"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {
-            "defaults": {"color": {"mode": "palette-classic"}, "unit": "currencyUSD"},
-            "overrides": []
-          },
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
           "id": 4,
-          "options": {
-            "legend": {"calcs": ["sum"], "displayMode": "list", "placement": "bottom"},
-            "tooltip": {"mode": "multi"}
-          },
-          "targets": [
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "A",
-              "expr": "rate(llm_token_cost_usd_total[2m])",
-              "legendFormat": "{{provider}} {{model}}"
-            }
-          ],
-          "title": "LLM Cost Rate (USD/s)",
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "Error Rate"}],
+          "title": "Error Rate (5xx)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "id": 5,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "rate(http_requests_total[2m])", "legendFormat": "{{method}} {{endpoint}} - {{status}}"}],
+          "title": "HTTP Request Rate by Endpoint",
           "type": "timeseries"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "fieldConfig": {
-            "defaults": {"color": {"mode": "palette-classic"}, "unit": "s"},
-            "overrides": []
-          },
-          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
-          "id": 5,
-          "options": {
-            "legend": {"calcs": ["mean"], "displayMode": "list", "placement": "bottom"},
-            "tooltip": {"mode": "multi"}
-          },
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "id": 6,
+          "options": {"legend": {"calcs": ["mean"], "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (endpoint) / sum(rate(http_requests_total[5m])) by (endpoint)", "legendFormat": "{{endpoint}}"}],
+          "title": "Error Rate by Endpoint",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+          "id": 7,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
           "targets": [
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "A",
-              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))",
-              "legendFormat": "p95 {{endpoint}}"
-            },
-            {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "refId": "B",
-              "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))",
-              "legendFormat": "p50 {{endpoint}}"
-            }
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))", "legendFormat": "p95 {{endpoint}}"},
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "B", "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint))", "legendFormat": "p50 {{endpoint}}"}
           ],
           "title": "HTTP Request Latency (p50 / p95)",
+          "type": "timeseries"
+        }
+      ]
+    }
+  llm-cost-usage.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 0,
+      "links": [],
+      "schemaVersion": 36,
+      "style": "dark",
+      "tags": ["ai-tool", "llm", "cost"],
+      "title": "LLM Cost & Usage",
+      "uid": "llm-cost-usage",
+      "version": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}, "unit": "currencyUSD"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(increase(llm_token_cost_usd_total[1h]))", "legendFormat": "Total Cost (1h)"}],
+          "title": "Total Cost (Last Hour)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(increase(llm_tokens_total[1h]))", "legendFormat": "Total Tokens (1h)"}],
+          "title": "Total Tokens (Last Hour)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+          "id": 3,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(increase(llm_requests_total[1h]))", "legendFormat": "Total Requests (1h)"}],
+          "title": "Total LLM Requests (Last Hour)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "currencyUSD"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "id": 4,
+          "options": {"legend": {"calcs": ["sum", "mean"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "rate(llm_token_cost_usd_total[5m])", "legendFormat": "{{provider}} - {{model}}"}],
+          "title": "Cost Rate by Provider & Model",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "id": 5,
+          "options": {"legend": {"calcs": ["sum", "mean"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "rate(llm_tokens_total[5m])", "legendFormat": "{{provider}} - {{model}} - {{type}}"}],
+          "title": "Token Usage by Provider & Model",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "currencyUSD"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "id": 6,
+          "options": {"displayLabels": ["percent"], "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "pie", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(increase(llm_token_cost_usd_total[24h])) by (provider)", "legendFormat": "{{provider}}"}],
+          "title": "Cost Distribution by Provider (24h)",
+          "type": "piechart"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "id": 7,
+          "options": {"displayLabels": ["percent"], "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "pie", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(increase(llm_tokens_total[24h])) by (model)", "legendFormat": "{{model}}"}],
+          "title": "Token Distribution by Model (24h)",
+          "type": "piechart"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+          "id": 8,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le, provider, model))", "legendFormat": "p95 {{provider}}/{{model}}"},
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "B", "expr": "histogram_quantile(0.50, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le, provider, model))", "legendFormat": "p50 {{provider}}/{{model}}"}
+          ],
+          "title": "LLM Request Latency by Provider/Model",
+          "type": "timeseries"
+        }
+      ]
+    }
+  request-tracing.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 0,
+      "links": [],
+      "schemaVersion": 36,
+      "style": "dark",
+      "tags": ["ai-tool", "tracing", "latency"],
+      "title": "Request Tracing & Performance",
+      "uid": "request-tracing",
+      "version": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}, "unit": "s"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95 Latency"}],
+          "title": "p95 Latency",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.2}, {"color": "red", "value": 0.5}]}, "unit": "s"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50 Latency"}],
+          "title": "p50 Latency",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.9}, {"color": "red", "value": 0.95}]}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+          "id": 3,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total{status=~\"2..\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "Success Rate"}],
+          "title": "Success Rate",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 100}, {"color": "red", "value": 500}]}, "unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+          "id": 4,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "Request Rate"}],
+          "title": "Request Rate",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "spectrum"}, "custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}}, "mappings": []}, "overrides": []},
+          "gridPos": {"h": 12, "w": 24, "x": 0, "y": 4},
+          "id": 5,
+          "options": {"calculate": false, "cellGap": 2, "color": {"exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "reverse": false, "scale": "exponential", "scheme": "Spectral", "steps": 128}, "filterValues": {"le": 1e-9}, "legend": {"show": true}, "tooltip": {"show": true}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_request_duration_seconds_bucket[2m])) by (le, endpoint)", "format": "heatmap", "legendFormat": "{{endpoint}}"}],
+          "title": "Request Latency Heatmap",
+          "type": "heatmap"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "id": 6,
+          "options": {"legend": {"calcs": ["mean", "max", "min"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))", "legendFormat": "p99 {{endpoint}}"},
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))", "legendFormat": "p95 {{endpoint}}"},
+            {"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "C", "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))", "legendFormat": "p50 {{endpoint}}"}
+          ],
+          "title": "Latency Percentiles by Endpoint",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "id": 7,
+          "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "refId": "A", "expr": "sum(rate(http_requests_total[5m])) by (status, endpoint)", "legendFormat": "{{status}} - {{endpoint}}"}],
+          "title": "Request Rate by Status Code",
           "type": "timeseries"
         }
       ]
