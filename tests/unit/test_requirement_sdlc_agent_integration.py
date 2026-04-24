@@ -23,6 +23,18 @@ def test_requirement_sdlc_agent_runtime_state_round_trips():
     assert agent.export_requirement_sdlc_agent_state()["stage"] == "confirmation"
 
 
+def test_switching_agent_mode_to_auto_clears_pending_requirement_state():
+    agent = ChatbotAgent.__new__(ChatbotAgent)
+    agent.load_requirement_sdlc_agent_state(
+        {"stage": "confirmation", "awaiting_confirmation": True}
+    )
+
+    agent.set_selected_agent_mode("auto")
+
+    assert agent.get_selected_agent_mode() == "auto"
+    assert agent.export_requirement_sdlc_agent_state() is None
+
+
 def test_handle_requirement_sdlc_agent_delegates_to_service_and_persists_state():
     agent = ChatbotAgent.__new__(ChatbotAgent)
     agent._refresh_application_services = Mock()

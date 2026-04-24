@@ -290,6 +290,38 @@ def test_chatbot_load_runtime_state_restores_selected_agent_mode():
     chatbot.agent.set_selected_agent_mode.assert_called_once_with("requirement_sdlc_agent")
 
 
+def test_chatbot_set_selected_agent_mode_to_auto_clears_requirement_sdlc_agent_state():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.selected_agent_mode = "requirement_sdlc_agent"
+    chatbot.agent = Mock()
+
+    chatbot.set_selected_agent_mode("auto")
+
+    assert chatbot.selected_agent_mode == "auto"
+    chatbot.agent.set_selected_agent_mode.assert_called_once_with("auto")
+    chatbot.agent.load_requirement_sdlc_agent_state.assert_called_once_with(None)
+
+
+def test_chatbot_load_runtime_state_drops_requirement_sdlc_agent_state_in_auto_mode():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.selected_agent_mode = "requirement_sdlc_agent"
+    chatbot.agent = Mock()
+
+    chatbot.load_runtime_state(
+        {
+            "agent_mode": "auto",
+            "requirement_sdlc_agent_state": {
+                "stage": "confirmation",
+                "awaiting_confirmation": True,
+            },
+        }
+    )
+
+    assert chatbot.selected_agent_mode == "auto"
+    chatbot.agent.set_selected_agent_mode.assert_called_once_with("auto")
+    chatbot.agent.load_requirement_sdlc_agent_state.assert_called_once_with(None)
+
+
 class AsyncEnabledConfig(FakeConfig):
     ASYNC_COZE_ENABLED = True
 

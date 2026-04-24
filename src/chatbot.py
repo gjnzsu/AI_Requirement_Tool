@@ -1132,10 +1132,12 @@ class Chatbot:
 
     def load_runtime_state(self, runtime_state: Optional[Dict[str, Any]]) -> None:
         """Load conversation-scoped runtime state from persistent metadata."""
-        self.set_selected_agent_mode((runtime_state or {}).get("agent_mode", "auto"))
+        selected_agent_mode = (runtime_state or {}).get("agent_mode", "auto")
+        self.set_selected_agent_mode(selected_agent_mode)
         if self.agent and hasattr(self.agent, "load_requirement_sdlc_agent_state"):
-            state = (runtime_state or {}).get("requirement_sdlc_agent_state")
-            self.agent.load_requirement_sdlc_agent_state(state)
+            if getattr(self, "selected_agent_mode", "auto") == "requirement_sdlc_agent":
+                state = (runtime_state or {}).get("requirement_sdlc_agent_state")
+                self.agent.load_requirement_sdlc_agent_state(state)
 
     def set_selected_agent_mode(self, agent_mode: Optional[str]) -> None:
         """Set the selected agent mode for the current conversation."""
@@ -1145,6 +1147,12 @@ class Chatbot:
         )
         if self.agent and hasattr(self.agent, "set_selected_agent_mode"):
             self.agent.set_selected_agent_mode(self.selected_agent_mode)
+        if (
+            self.selected_agent_mode != "requirement_sdlc_agent"
+            and self.agent
+            and hasattr(self.agent, "load_requirement_sdlc_agent_state")
+        ):
+            self.agent.load_requirement_sdlc_agent_state(None)
 
     def set_precomputed_intent_for_next_response(self, intent: Optional[str]) -> None:
         """Store a one-shot precomputed intent for the next agent turn."""

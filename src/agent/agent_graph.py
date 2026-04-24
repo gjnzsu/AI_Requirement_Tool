@@ -6,9 +6,8 @@ tools (Jira, Confluence, RAG) based on user intent.
 """
 
 import copy
-from typing import TypedDict, Annotated, Literal, Optional, List, Dict, Any
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
-from langchain_core.tools import BaseTool
+from typing import TypedDict, Annotated, Optional, List, Dict, Any
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
@@ -16,11 +15,10 @@ try:
 except ImportError:
     LANGCHAIN_GOOGLE_GENAI_AVAILABLE = False
     ChatGoogleGenerativeAI = None
-except Exception as e:
+except Exception:
     # Handle other import errors (e.g., version conflicts)
     LANGCHAIN_GOOGLE_GENAI_AVAILABLE = False
     ChatGoogleGenerativeAI = None
-import json
 import concurrent.futures
 
 from src.tools.jira_tool import JiraTool
@@ -599,7 +597,7 @@ class ChatbotAgent:
             # Remove oldest entry (simple FIFO - remove first key)
             oldest_key = next(iter(self._intent_cache))
             del self._intent_cache[oldest_key]
-            logger.debug(f"Intent cache size limit reached, removed oldest entry")
+            logger.debug("Intent cache size limit reached, removed oldest entry")
     
     def _build_graph(self):
         """Build the LangGraph state graph."""
@@ -657,6 +655,8 @@ class ChatbotAgent:
         self._selected_agent_mode = (
             normalized_mode if normalized_mode in {"auto", "requirement_sdlc_agent"} else "auto"
         )
+        if self._selected_agent_mode != "requirement_sdlc_agent":
+            self.load_requirement_sdlc_agent_state(None)
 
     def get_selected_agent_mode(self) -> str:
         """Return the currently selected agent mode."""
@@ -815,8 +815,7 @@ class ChatbotAgent:
             or not self.jira_evaluation_port
             or not self.requirement_workflow_service
         ):
-            skip_reason = []
-            logger.debug(f"Skipping evaluation: no jira_result or evaluator")
+            logger.debug("Skipping evaluation: no jira_result or evaluator")
             return state
         
         issue_key = jira_result["key"]
@@ -837,7 +836,7 @@ class ChatbotAgent:
                     logger.warning(f"Evaluation timed out for {issue_key}")
                     state["evaluation_result"] = {"error": f"Evaluation timed out after {EVAL_TIMEOUT}s"}
                     state["messages"].append(AIMessage(
-                        content=f"⚠️ Maturity evaluation timed out. The Confluence page will be created without evaluation scores."
+                        content="⚠️ Maturity evaluation timed out. The Confluence page will be created without evaluation scores."
                     ))
                     return state
             
