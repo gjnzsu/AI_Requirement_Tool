@@ -51,7 +51,7 @@ class Config:
     # Model names (provider-specific)
     OPENAI_MODEL: str = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
     GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-pro')
-    DEEPSEEK_MODEL: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+    DEEPSEEK_MODEL: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash')
     
     # Proxy configuration (for Gemini API access)
     GEMINI_PROXY: Optional[str] = os.getenv('GEMINI_PROXY', None)

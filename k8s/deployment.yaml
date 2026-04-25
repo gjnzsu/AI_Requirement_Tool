@@ -25,7 +25,9 @@ spec:
             - containerPort: 5000
           env:
             - name: LLM_PROVIDER
-              value: "openai"
+              value: "deepseek"
+            - name: DEEPSEEK_MODEL
+              value: "deepseek-v4-flash"
             - name: FLASK_ENV
               value: "production"
             - name: REDIS_URL

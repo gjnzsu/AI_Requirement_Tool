@@ -159,6 +159,7 @@ OPENAI_MODEL=gpt-4
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-pro
 DEEPSEEK_API_KEY=your-deepseek-api-key
+DEEPSEEK_MODEL=deepseek-v4-flash
 
 # Jira Configuration
 JIRA_URL=https://yourcompany.atlassian.net

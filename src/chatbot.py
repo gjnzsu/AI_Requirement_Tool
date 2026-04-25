@@ -387,6 +387,17 @@ class Chatbot:
         if self.requirement_workflow_service or self._tools_initialized:
             self._compose_application_services()
 
+    def _get_current_provider_model(self) -> str:
+        """Return the model configured for the currently active provider."""
+        provider_name = (self.provider_name or '').lower()
+        if provider_name == 'openai':
+            return self.config.OPENAI_MODEL
+        if provider_name == 'gemini':
+            return self.config.GEMINI_MODEL
+        if provider_name == 'deepseek':
+            return self.config.DEEPSEEK_MODEL
+        return self.config.get_llm_model()
+
     def _compose_application_services(self):
         """Assemble workflow ports and services through the shared composition layer."""
         workflow_llm = self.provider_manager or self.llm_provider
@@ -561,7 +572,7 @@ class Chatbot:
                         'prompt_tokens': cb.total_prompt_tokens,
                         'completion_tokens': cb.total_completion_tokens,
                         'provider': self.provider_name,
-                        'model': self.config.get_llm_model(),
+                        'model': self._get_current_provider_model(),
                     }
                 else:
                     self.last_usage = None

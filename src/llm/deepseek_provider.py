@@ -3,7 +3,6 @@ DeepSeek LLM Provider Implementation.
 """
 
 import os
-from typing import Optional
 from openai import OpenAI
 from .base_provider import LLMProvider
 
@@ -11,14 +10,14 @@ from .base_provider import LLMProvider
 class DeepSeekProvider(LLMProvider):
     """DeepSeek provider implementation (uses OpenAI-compatible API)."""
     
-    def __init__(self, api_key: str, model: str = "deepseek-chat", 
+    def __init__(self, api_key: str, model: str = "deepseek-v4-flash", 
                  base_url: str = "https://api.deepseek.com", **kwargs):
         """
         Initialize DeepSeek provider.
         
         Args:
             api_key: DeepSeek API key
-            model: Model name (e.g., 'deepseek-chat', 'deepseek-coder')
+            model: Model name (e.g., 'deepseek-v4-flash', 'deepseek-chat')
             base_url: API base URL (default: DeepSeek API)
             **kwargs: Additional client parameters
         """

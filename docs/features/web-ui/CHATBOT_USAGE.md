@@ -32,7 +32,7 @@ GEMINI_MODEL=gemini-pro-latest
 
 # Or for DeepSeek:
 # DEEPSEEK_API_KEY=your-api-key-here
-# DEEPSEEK_MODEL=deepseek-chat
+# DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
 ### 2. Run the Chatbot

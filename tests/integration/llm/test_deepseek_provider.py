@@ -2,18 +2,17 @@
 Test script to verify DeepSeek API connection and diagnose connectivity issues.
 """
 
-import os
 import sys
+import time
 from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from config.config import Config
-from openai import OpenAI
-import time
-from src.utils.logger import get_logger
+from config.config import Config  # noqa: E402
+from openai import OpenAI  # noqa: E402
+from src.utils.logger import get_logger  # noqa: E402
 
 logger = get_logger('test.deepseek')
 
@@ -32,7 +31,7 @@ def test_deepseek_api():
         return False
     
     if len(api_key) < 10:
-        logger.warning(f"API key format may be invalid (too short)")
+        logger.warning("API key format may be invalid (too short)")
         logger.info(f"Current key length: {len(api_key)}")
     else:
         logger.info(f"API key format looks valid (length: {len(api_key)})")
@@ -44,7 +43,7 @@ def test_deepseek_api():
     logger.info(f"Model: {model}")
     
     # Validate model name
-    valid_models = ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner']
+    valid_models = ['deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder', 'deepseek-reasoner']
     if model not in valid_models:
         logger.warning(f"Model '{model}' may not be valid")
         logger.info(f"Valid models: {', '.join(valid_models)}")
@@ -75,7 +74,7 @@ def test_deepseek_api():
     logger.info("Testing API connection with authentication...")
     try:
         # Use a valid model name for testing
-        test_model = model if model in valid_models else "deepseek-chat"
+        test_model = model if model in valid_models else "deepseek-v4-flash"
         if model != test_model:
             logger.info(f"Using '{test_model}' instead of '{model}' for testing")
         

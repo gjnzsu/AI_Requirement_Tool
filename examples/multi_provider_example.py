@@ -89,7 +89,7 @@ def example_deepseek():
     llm_provider = LLMRouter.get_provider(
         provider_name="deepseek",
         api_key=Config.DEEPSEEK_API_KEY,
-        model="deepseek-chat"
+        model=Config.DEEPSEEK_MODEL
     )
     
     evaluator = JiraMaturityEvaluator(

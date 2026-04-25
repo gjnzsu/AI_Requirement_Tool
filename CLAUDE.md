@@ -29,6 +29,7 @@ The server runs on port `5000` by default (configurable via environment variable
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | OpenAI model name |
 | `GEMINI_API_KEY` | - | Google Gemini API key |
 | `DEEPSEEK_API_KEY` | - | DeepSeek API key |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | DeepSeek model name |
 
 ### Jira & Confluence
 | Variable | Default | Description |
