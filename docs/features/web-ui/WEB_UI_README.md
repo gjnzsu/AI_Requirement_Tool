@@ -52,7 +52,7 @@ Make sure your `.env` file is configured with your LLM provider:
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-api-key
-OPENAI_MODEL=gpt-4.1
+OPENAI_MODEL=gpt-5.5
 ```
 
 ### 3. Run the Web Server

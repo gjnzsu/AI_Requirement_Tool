@@ -71,7 +71,7 @@
       <mxGeometry x="40" y="980" width="920" height="140" as="geometry"/>
     </mxCell>
 
-    <mxCell id="openai" value="OpenAI API&#xa;gpt-3.5-turbo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="external-apis">
+    <mxCell id="openai" value="OpenAI API&#xa;gpt-5.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="external-apis">
       <mxGeometry x="40" y="50" width="140" height="60" as="geometry"/>
     </mxCell>
 

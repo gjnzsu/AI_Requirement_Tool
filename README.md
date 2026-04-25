@@ -6,8 +6,11 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ## Key Features
 
-### Latest Change Highlights (2026-04-18)
+### Latest Change Highlights (2026-04-25)
 
+- Updated OpenAI fallback configuration to target `gpt-5.5` when the OpenAI provider is selected
+- Added `gpt-5.5` token pricing to LLM cost tracking so Prometheus and Grafana show OpenAI costs with the right unit
+- Kept the production default provider on DeepSeek V4 Flash while preserving OpenAI as a selectable provider
 - Added direct `confluence_creation` intent and graph route for freeform Confluence page creation
 - Kept `Requirement SDLC Agent` as the guided multi-step workflow for Jira + evaluation + Confluence orchestration
 - Added standalone `src/services/confluence_creation_service.py` for drafting and creating Confluence pages without SDLC handoff
@@ -155,7 +158,7 @@ Create a `.env` file in the project root or set environment variables:
 # LLM Provider Configuration
 LLM_PROVIDER=openai # Options: 'openai', 'gemini', 'deepseek'
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4
+OPENAI_MODEL=gpt-5.5
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-pro
 DEEPSEEK_API_KEY=your-deepseek-api-key

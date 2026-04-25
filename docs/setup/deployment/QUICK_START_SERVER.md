@@ -33,7 +33,7 @@ When the server starts successfully, you should see:
 🤖 Chatbot Web UI
 ======================================================================
 Provider: openai
-Model: gpt-4.1
+Model: gpt-5.5
 
 Starting web server...
 Open your browser and navigate to: http://localhost:5000
@@ -72,7 +72,7 @@ Make sure your `.env` file has:
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-key-here
-OPENAI_MODEL=gpt-4
+OPENAI_MODEL=gpt-5.5
 ```
 
 ### Agent Not Initializing

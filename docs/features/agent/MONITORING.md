@@ -113,19 +113,19 @@ The `get_statistics()` method returns:
 
 ## Cost Estimation
 
-The cost estimation uses approximate pricing (as of 2024):
-- **GPT-3.5-turbo baseline**: $0.0015/1K prompt tokens, $0.002/1K completion tokens
-- **Note**: Actual costs vary by model. Adjust pricing in `callbacks.py` if needed.
+The app exports token and cost metrics through `src/llm/cost_tracker.py` using per-1M-token pricing:
+- **OpenAI `gpt-5.5`**: $5 / 1M prompt tokens, $30 / 1M completion tokens
+- **DeepSeek `deepseek-v4-flash`**: $0.14 / 1M prompt tokens, $0.28 / 1M completion tokens
+- **Note**: Actual costs vary by model and provider pricing can change. Update `COST_PER_1M_TOKENS` when provider pricing changes.
 
 To customize pricing for your model:
 
 ```python
-# In src/agent/callbacks.py, modify _estimate_cost() method
-def _estimate_cost(self) -> float:
-    # Your custom pricing logic
-    prompt_cost_per_1k = 0.03  # e.g., GPT-4 pricing
-    completion_cost_per_1k = 0.06
-    # ...
+# In src/llm/cost_tracker.py, update COST_PER_1M_TOKENS
+COST_PER_1M_TOKENS["openai"]["gpt-5.5"] = {
+    "prompt": 5.0,
+    "completion": 30.0,
+}
 ```
 
 ## Integration with Flask App

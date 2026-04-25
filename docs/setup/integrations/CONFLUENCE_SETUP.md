@@ -118,7 +118,7 @@ CONFLUENCE_SPACE_KEY=DEV
 # LLM Configuration
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4.1
+OPENAI_MODEL=gpt-5.5
 ```
 
 ## API Token Permissions

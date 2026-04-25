@@ -102,14 +102,15 @@ chatbot = Chatbot(
 ### LLM Provider
 
 The agent supports:
-- **OpenAI**: GPT-3.5, GPT-4, GPT-4o
+- **OpenAI**: GPT-5.5, GPT-4o, GPT-4o-mini
 - **Gemini**: gemini-pro, gemini-1.5-pro
+- **DeepSeek**: deepseek-v4-flash
 
 Set in `.env`:
 ```bash
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-key
-OPENAI_MODEL=gpt-4
+OPENAI_MODEL=gpt-5.5
 ```
 
 ### Tools Configuration

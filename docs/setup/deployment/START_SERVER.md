@@ -15,7 +15,7 @@ python app.py
 🤖 Chatbot Web UI
 ======================================================================
 Provider: openai
-Model: gpt-4.1
+Model: gpt-5.5
 
 Starting web server...
 Open your browser and navigate to: http://localhost:5000
@@ -46,13 +46,13 @@ python src/chatbot.py
 ```
 Initializing chatbot...
 Creating chatbot instance...
-✓ Initialized LLM provider: openai (gpt-4.1)
+✓ Initialized LLM provider: openai (gpt-5.5)
 Starting chatbot...
 ======================================================================
 🤖 LLM-Powered Chatbot
 ======================================================================
 Provider: openai
-Model: gpt-4.1
+Model: gpt-5.5
 Temperature: 0.7
 Max History: 10 turns
 
@@ -83,7 +83,7 @@ Before starting, make sure:
    ```env
    LLM_PROVIDER=openai
    OPENAI_API_KEY=your-api-key
-   OPENAI_MODEL=gpt-4.1
+   OPENAI_MODEL=gpt-5.5
    
    # For Jira functionality:
    JIRA_URL=https://yourcompany.atlassian.net
