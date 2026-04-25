@@ -1,6 +1,6 @@
 # Enterprise GenAI Assistant
 
-An enterprise-oriented GenAI assistant combining conversational AI, document Q&A (RAG), and Jira/Confluence workflows via MCP and APIs with multi-provider LLM routing, an optional centralized gateway for caching and rate-limiting, a responsive web UI, and production-grade observability.
+An enterprise-oriented GenAI assistant combining conversational AI, document Q&A (RAG), and Jira/Confluence workflows via MCP and APIs with multi-provider LLM routing, a responsive web UI, and production-grade observability.
 
 Built for teams that need more than a generic chatbot: structured intent detection routes requests to the right tool automatically, RAG grounds answers in your internal knowledge base, and MCP bridges the assistant directly into your Atlassian toolchain.
 
@@ -48,7 +48,7 @@ The Requirement SDLC Agentic Skill helps convert raw requirement input into stru
 ### Multi-Provider LLM Routing
 - **Provider Support** - OpenAI, Google Gemini, and DeepSeek with a unified interface
 - **Automatic Fallback** - Transparent failover across providers on errors or rate limits
-- **Optional Centralized Gateway** - Layer in a gateway for shared caching, rate-limit enforcement, and cost visibility across teams
+- **Optional AI Gateway Scaffold** - Included as an experimental FastAPI component for future shared caching, rate-limit enforcement, and cost visibility work, but not part of the default deployed runtime
 
 ### Web UI & Observability
 - **Modern Web UI** - Responsive chat interface served by Flask, no build step required
@@ -109,7 +109,7 @@ AI_Requirement_Tool/
 | |-- mcp/ # MCP client and integration logic
 | |-- rag/ # RAG pipeline
 | |-- tools/ # Direct Jira and Confluence tools
-| |-- gateway/ # Optional FastAPI AI Gateway
+| |-- gateway/ # Optional FastAPI AI Gateway scaffold (not deployed by default)
 | |-- models/
 | `-- utils/
 |-- web/ # Web UI frontend
@@ -193,10 +193,12 @@ Then open `http://localhost:5000` in your browser.
 python src/chatbot.py
 ```
 
-**Optional AI Gateway:**
+**Optional AI Gateway Scaffold (not deployed by default):**
 ```bash
 uvicorn src.gateway.gateway_service:create_gateway_app --factory --reload --port 8001
 ```
+
+The main application does not start or depend on this gateway by default. If you enable `USE_GATEWAY=true`, make sure the gateway process is running and that `GATEWAY_HOST` and `GATEWAY_PORT` match the address the chatbot will call.
 
 ## Usage Examples
 
@@ -265,7 +267,7 @@ The RAG service enhances responses by retrieving relevant context from your docu
 
 ### Features
 
-- **Vector Store** - ChromaDB-based vector storage
+- **Vector Store** - SQLite-backed vector storage in `data/rag_vectors.db`
 - **Document Loading** - Support for PDF, TXT, and other formats
 - **Embedding Generation** - OpenAI embeddings for semantic search
 - **Caching** - Optional caching for improved performance
@@ -409,7 +411,7 @@ This layered architecture diagram shows the logical components, their relationsh
 - **Web Layer**: Flask app with REST API routes (auth, core, conversations, jobs)
 - **Core Services**: Chatbot orchestrator, LangGraph agent, memory manager, authentication
 - **Agent Execution Paths**: Sync paths (chat, RAG, Jira, Confluence, SDLC) and async path (Coze via Celery)
-- **Integration Layer**: Multi-provider LLM routing, optional AI gateway, MCP integration, direct tools
+- **Integration Layer**: Multi-provider LLM routing, MCP integration, direct tools, and an optional undeployed gateway scaffold
 - **Data Layer**: RAG service, memory DB (SQLite), Redis (Celery broker)
 - **External Systems**: Atlassian (Jira/Confluence), Coze platform
 - **Observability**: Prometheus metrics, Grafana dashboards

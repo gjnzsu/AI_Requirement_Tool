@@ -1,0 +1,102 @@
+flowchart LR
+    user[User] --> webui[Web UI<br/>HTML/CSS/JS]
+    webui --> flask[Flask App<br/>app.py]
+    flask --> runtime[AppRuntime<br/>src/webapp/runtime.py]
+
+    runtime --> auth[Auth Service]
+    auth --> authdb[(Auth DB)]
+
+    runtime --> route{Request Route}
+
+    route -->|Normal chat / RAG / Jira / Confluence| chatbot[Chatbot Orchestrator<br/>src/chatbot.py]
+    route -->|Async Coze request| asyncsvc[AsyncJobService]
+
+    chatbot --> agent[LangGraph Agent<br/>src/agent/agent_graph.py]
+    agent --> intent[Intent Routing]
+    intent --> general[General Chat]
+    intent --> rag[RAG Query]
+    intent --> req[Requirement SDLC Workflow]
+    intent --> jira[Jira Creation]
+    intent --> conf[Confluence Creation]
+    intent --> coze[Coze Agent]
+
+    chatbot --> llmrouter[LLM Router / Provider Manager]
+    llmrouter --> llmapis[OpenAI / Gemini / DeepSeek APIs]
+
+    rag --> ragservice[RAG Service]
+    ragservice --> ragdb[(SQLite RAG DB<br/>Vectors + metadata)]
+    ragservice --> ragcache[(SQLite RAG Cache)]
+    ragservice --> docs[(Local Documents / PDFs)]
+
+    req --> workflow[RequirementWorkflowService]
+    workflow --> ports[Application Ports]
+    jira --> ports
+    conf --> ports
+
+    ports --> adapters[Adapters]
+    adapters --> mcp[MCP Integration]
+    adapters --> direct[Direct Jira / Confluence Tools]
+
+    mcp --> atlassian[Atlassian APIs<br/>Jira / Confluence]
+    direct --> atlassian
+
+    chatbot --> memory[Memory Manager / Summarizer]
+    memory --> memorydb[(Conversation / Memory DB)]
+
+    asyncsvc --> redis[(Redis<br/>Broker + Result Backend)]
+    redis --> celery[Celery Worker]
+    celery --> asynccoze[AsyncCozeExecutionService]
+    asynccoze --> cozeapi[Coze Platform API]
+    asynccoze --> memorydb
+
+    coze --> cozeapi
+
+    subgraph Web_Runtime[Web Runtime]
+        webui
+        flask
+        runtime
+        auth
+    end
+
+    subgraph Core_AI[Core AI Orchestration]
+        chatbot
+        agent
+        intent
+        general
+        rag
+        req
+        jira
+        conf
+        coze
+    end
+
+    subgraph App_Services[Application Services]
+        workflow
+        ports
+        adapters
+        ragservice
+        memory
+    end
+
+    subgraph Integrations[External Integrations]
+        mcp
+        direct
+        llmapis
+        atlassian
+        cozeapi
+    end
+
+    subgraph Async_Coze[Async Coze Path]
+        asyncsvc
+        redis
+        celery
+        asynccoze
+    end
+
+    subgraph Storage[Storage]
+        authdb
+        memorydb
+        ragdb
+        ragcache
+        docs
+    end

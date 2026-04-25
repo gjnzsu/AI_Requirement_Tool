@@ -4,7 +4,17 @@ This directory contains architecture diagrams and supporting documentation for t
 
 ## Diagrams
 
-### 1. Detailed Architecture Diagram
+### 1. High-Level Architecture
+**File:** `diagrams/high-level-architecture.mmd`
+
+A concise Mermaid diagram showing:
+- browser and Flask runtime entrypoints
+- synchronous LangGraph execution paths for chat, RAG, Jira, Confluence, and Requirement SDLC workflow
+- asynchronous Coze execution through Redis and Celery
+- application services, ports, adapters, MCP/direct tools, LLM providers, and storage boundaries
+- SQLite-backed RAG vector storage and cache
+
+### 2. Detailed Architecture Diagram
 **File:** `architecture-diagram.mmd`
 
 A comprehensive diagram showing the main layers and their relationships:
@@ -12,11 +22,11 @@ A comprehensive diagram showing the main layers and their relationships:
 - Chat Orchestration Layer (`src/chatbot.py`)
 - Agent Orchestration Layer (`src/agent/agent_graph.py` and helper modules)
 - Application Services Layer (requirement workflow, memory, evaluation, Coze)
-- Integration Layer (MCP, direct tools, RAG, auth, optional gateway)
+- Integration Layer (MCP, direct tools, RAG, auth, and an optional undeployed gateway scaffold)
 - LLM Layer (provider routing and fallback)
 - External services and storage dependencies
 
-### 2. Architecture Overview
+### 3. Architecture Overview
 **File:** `architecture-overview.mmd`
 
 A high-level overview diagram showing:
@@ -24,7 +34,7 @@ A high-level overview diagram showing:
 - major components and boundaries
 - data flow between runtime, chatbot, agent, services, and integrations
 
-### 3. Request Flow Sequence Diagram
+### 4. Request Flow Sequence Diagram
 **File:** `request-flow-sequence.mmd`
 
 A sequence diagram showing how a user request flows through the system:
@@ -34,7 +44,7 @@ A sequence diagram showing how a user request flows through the system:
 - execution paths for general chat, requirement workflow, RAG, and tool usage
 - response generation and persistence
 
-### 4. Intent Detection Decision Tree
+### 5. Intent Detection Decision Tree
 **File:** `intent-detection-decision-tree.mmd`
 
 A decision tree diagram showing the intent detection flow:
@@ -42,7 +52,7 @@ A decision tree diagram showing the intent detection flow:
 - LLM-based detection for ambiguous cases
 - confidence checks and fallback behavior
 
-### 5. Project Structure Diagram
+### 6. Project Structure Diagram
 **File:** `project-structure-diagram.mmd`
 
 A visual representation of the project folder structure:
@@ -123,7 +133,7 @@ This layer contains reusable workflow and business logic shared across execution
 - **Direct tools:** `src/tools/`
 - **RAG pipeline:** `src/rag/`
 - **Authentication:** `src/auth/`
-- **Optional AI Gateway:** `src/gateway/`
+- **Optional AI Gateway scaffold:** `src/gateway/` (not deployed by default in the current Docker/K8s runtime)
 
 This layer manages external service communication, provider plumbing, retrieval infrastructure, and protocol-specific adapters.
 
@@ -134,7 +144,8 @@ This layer manages external service communication, provider plumbing, retrieval 
 
 ### 7. Data And Storage Layer
 - **Conversation storage:** SQLite-backed memory database
-- **Vector storage:** ChromaDB
+- **RAG vector storage:** SQLite-backed `data/rag_vectors.db` by default
+- **RAG cache storage:** SQLite-backed `data/rag_cache.db` by default
 - **Configuration:** environment variables plus `config/config.py`
 - **Document storage:** local files used for ingestion and retrieval
 

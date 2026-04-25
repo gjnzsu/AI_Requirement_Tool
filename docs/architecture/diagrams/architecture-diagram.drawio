@@ -2549,7 +2549,7 @@
         <mxCell id="fqqK1VO9HoPc-71TpEGH-32" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Embedding Generator&#xa;(embedding_generator.py)" vertex="1">
           <mxGeometry height="78" width="250" x="328" y="1986" as="geometry" />
         </mxCell>
-        <mxCell id="fqqK1VO9HoPc-71TpEGH-33" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Vector Store&#xa;(vector_store.py - ChromaDB)" vertex="1">
+        <mxCell id="fqqK1VO9HoPc-71TpEGH-33" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Vector Store&#xa;(vector_store.py - SQLite)" vertex="1">
           <mxGeometry height="102" width="260" x="323" y="2163" as="geometry" />
         </mxCell>
         <mxCell id="fqqK1VO9HoPc-71TpEGH-34" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="RAG Cache&#xa;(rag_cache.py)" vertex="1">
@@ -2576,7 +2576,7 @@
         <mxCell id="fqqK1VO9HoPc-71TpEGH-41" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Memory Database&#xa;(SQLite - chatbot_memory.db)" vertex="1">
           <mxGeometry height="102" width="260" x="55" y="2389" as="geometry" />
         </mxCell>
-        <mxCell id="fqqK1VO9HoPc-71TpEGH-42" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Vector Database&#xa;(ChromaDB)" vertex="1">
+        <mxCell id="fqqK1VO9HoPc-71TpEGH-42" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Vector Database&#xa;(SQLite rag_vectors.db)" vertex="1">
           <mxGeometry height="78" width="176" x="365" y="2401" as="geometry" />
         </mxCell>
         <mxCell id="fqqK1VO9HoPc-71TpEGH-43" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Configuration&#xa;(config.py + .env)" vertex="1">
