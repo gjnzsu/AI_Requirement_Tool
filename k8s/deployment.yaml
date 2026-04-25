@@ -26,6 +26,8 @@ spec:
           env:
             - name: LLM_PROVIDER
               value: "deepseek"
+            - name: OPENAI_MODEL
+              value: "gpt-5.5"
             - name: DEEPSEEK_MODEL
               value: "deepseek-v4-flash"
             - name: FLASK_ENV

@@ -49,7 +49,7 @@ class Config:
     DEEPSEEK_API_KEY: str = os.getenv('DEEPSEEK_API_KEY', '')
     
     # Model names (provider-specific)
-    OPENAI_MODEL: str = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+    OPENAI_MODEL: str = os.getenv('OPENAI_MODEL', 'gpt-5.5')
     GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-pro')
     DEEPSEEK_MODEL: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash')
     

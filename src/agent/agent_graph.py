@@ -215,8 +215,8 @@ class ChatbotAgent:
             if model_name == "gpt-4.1":
                 logger.warning("Model 'gpt-4.1' may be invalid. Using 'gpt-4' instead.")
                 model_name = "gpt-4"
-            elif "gpt-4" not in model_name.lower() and "gpt-3.5" not in model_name.lower():
-                logger.warning(f"Model '{model_name}' may not be valid. Common models: gpt-4, gpt-4-turbo, gpt-3.5-turbo")
+            elif "gpt-5" not in model_name.lower() and "gpt-4" not in model_name.lower() and "gpt-3.5" not in model_name.lower():
+                logger.warning(f"Model '{model_name}' may not be valid. Common models: gpt-5.5, gpt-4o, gpt-4o-mini")
             
             try:
                 # Try with timeout and max_retries (LangChain 0.1.0+)

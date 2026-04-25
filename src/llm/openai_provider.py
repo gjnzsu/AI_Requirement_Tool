@@ -3,7 +3,6 @@ OpenAI LLM Provider Implementation.
 """
 
 import os
-from typing import Optional
 from openai import OpenAI
 from .base_provider import LLMProvider
 
@@ -11,13 +10,13 @@ from .base_provider import LLMProvider
 class OpenAIProvider(LLMProvider):
     """OpenAI provider implementation."""
     
-    def __init__(self, api_key: str, model: str = "gpt-3.5-turbo", **kwargs):
+    def __init__(self, api_key: str, model: str = "gpt-5.5", **kwargs):
         """
         Initialize OpenAI provider.
         
         Args:
             api_key: OpenAI API key
-            model: Model name (e.g., 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo-preview')
+            model: Model name (e.g., 'gpt-5.5', 'gpt-4o-mini', 'gpt-4o')
             **kwargs: Additional OpenAI client parameters
         """
         super().__init__(api_key, model, **kwargs)
@@ -78,8 +77,9 @@ class OpenAIProvider(LLMProvider):
         return response.choices[0].message.content.strip()
     
     def supports_json_mode(self) -> bool:
-        """OpenAI supports JSON mode for gpt-3.5-turbo and gpt-4 models."""
-        return "gpt-3.5" in self.model.lower() or "gpt-4" in self.model.lower()
+        """OpenAI supports JSON mode for GPT family chat models."""
+        model = self.model.lower()
+        return "gpt-3.5" in model or "gpt-4" in model or "gpt-5" in model
     
     def get_provider_name(self) -> str:
         """Return provider name."""
