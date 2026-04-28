@@ -112,6 +112,44 @@ def test_handle_turn_returns_question_when_more_information_is_needed():
     ]
 
 
+def test_handle_turn_does_not_block_on_priority_only_follow_up():
+    llm = FakeSkillLLM(
+        """
+        {
+          "status": "needs_information",
+          "assistant_message": "What priority should we assign to this requirement?",
+          "draft": {
+            "summary": "Add login auditing",
+            "problem_goal": "Track all login attempts",
+            "business_value": "Improves traceability",
+            "scope_notes": "Authentication only",
+            "acceptance_criteria": ["Every login attempt is recorded"],
+            "assumptions": [],
+            "open_questions": ["What priority should we assign to this requirement?"],
+            "priority": "",
+            "invest_analysis": "Independent and testable"
+          }
+        }
+        """
+    )
+    service = RequirementSdlcAgentService(
+        llm_provider=llm,
+        workflow_service=Mock(),
+    )
+
+    result = service.handle_turn(
+        user_input="Turn this into a requirement for login auditing",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.response_kind == "preview"
+    assert "defaulted the priority to Medium" in result.response_text
+    assert "Priority: Medium" in result.response_text
+    assert result.pending_state["draft"]["priority"] == "Medium"
+    assert result.pending_state["draft"]["open_questions"] == []
+
+
 def test_handle_turn_unknown_status_falls_back_to_safe_question():
     service = RequirementSdlcAgentService(
         llm_provider=FakeSkillLLM(

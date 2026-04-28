@@ -28,6 +28,19 @@ class RequirementSdlcAgentTurnResult:
 class RequirementSdlcAgentService:
     """Own BA-guided intake, preview, confirmation, and execution handoff."""
 
+    _PRIORITY_FOLLOW_UP_TERMS = (
+        "priority",
+        "severity",
+        "urgent",
+        "urgency",
+        "p1",
+        "p2",
+        "p3",
+        "high priority",
+        "medium priority",
+        "low priority",
+    )
+
     def __init__(self, *, llm_provider: Any, workflow_service: Any) -> None:
         self.llm_provider = llm_provider
         self.workflow_service = workflow_service
@@ -82,11 +95,25 @@ class RequirementSdlcAgentService:
             raw_draft,
             prior_draft=(pending_state or {}).get("draft"),
         )
+        filtered_open_questions = self._filter_priority_questions(
+            draft.get("open_questions", [])
+        )
+        draft["open_questions"] = filtered_open_questions
         status = analysis.get("status", "needs_information")
         assistant_message = self._normalize_text_field(
             analysis.get("assistant_message"),
             default="I need a bit more detail before I can prepare the requirement draft.",
         )
+
+        if (
+            status == "needs_information"
+            and not filtered_open_questions
+            and self._is_priority_follow_up(assistant_message)
+        ):
+            status = "ready_for_confirmation"
+            assistant_message = (
+                "Preview ready. I defaulted the priority to Medium so the workflow can keep moving."
+            )
 
         if status == "needs_information":
             return RequirementSdlcAgentTurnResult(
@@ -185,13 +212,16 @@ class RequirementSdlcAgentService:
                 "Return JSON with keys: status, assistant_message, draft.\n"
                 "Allowed status values: ready_for_confirmation, needs_information.\n"
                 "The draft should include summary, problem_goal, business_value, scope_notes, "
-                "acceptance_criteria, assumptions, open_questions, priority, invest_analysis, description."
+                "acceptance_criteria, assumptions, open_questions, priority, invest_analysis, description.\n"
+                "Priority is optional. If the user does not specify it, default to Medium and do not ask a "
+                "follow-up question solely about priority."
             )
             response = self._generate_llm_response(
                 system_prompt=(
                     "You are a senior business analyst helping turn chat input into a "
                     "reviewable requirement draft. Ask concise follow-up questions when the "
-                    "request is underspecified. Otherwise prepare a pragmatic draft."
+                    "request is underspecified. Otherwise prepare a pragmatic draft. "
+                    "Do not block on missing priority; use Medium by default."
                 ),
                 user_prompt=user_prompt,
             )
@@ -305,6 +335,17 @@ class RequirementSdlcAgentService:
             return default
         text = str(value).strip()
         return text or default
+
+    def _is_priority_follow_up(self, text: str) -> bool:
+        normalized = text.lower()
+        return any(term in normalized for term in self._PRIORITY_FOLLOW_UP_TERMS)
+
+    def _filter_priority_questions(self, questions: List[str]) -> List[str]:
+        return [
+            question
+            for question in questions
+            if not self._is_priority_follow_up(question)
+        ]
 
     def _build_jira_description(self, draft: Dict[str, Any]) -> str:
         sections = []
