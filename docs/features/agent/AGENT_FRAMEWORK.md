@@ -54,9 +54,19 @@ The agent uses LLM to detect user intent:
 **Jira Creation Workflow:**
 1. Detect intent → "jira_creation"
 2. Generate backlog details using LLM
-3. Create Jira issue
-4. Evaluate maturity
-5. Create Confluence page (if configured)
+3. Run pre-Jira quality review when enabled
+4. Create Jira issue
+5. Evaluate maturity
+6. Create Confluence page (if configured)
+
+### Requirement Quality Review vs Maturity Evaluation
+
+The requirement lifecycle has two distinct quality phases:
+
+- **Pre-Jira Quality Review** runs before Jira creation. It can apply deterministic checks such as missing acceptance criteria, and it can run an LLM-as-a-Judge review for advisory feedback on clarity, testability, scope, ambiguity, and business value.
+- **Post-Jira Maturity Evaluation** runs after Jira creation. It evaluates the created Jira issue and preserves the existing maturity output shape with `overall_maturity_score`, `detailed_scores`, `strengths`, `weaknesses`, and `recommendations`.
+
+The pre-Jira judge is advisory by default. Deterministic gate failures may block Jira creation when enabled, but low judge scores alone do not block creation in the initial implementation.
 
 ### 3. RAG Integration
 

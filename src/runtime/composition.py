@@ -11,6 +11,7 @@ from src.adapters.confluence import (
 )
 from src.adapters.evaluation import JiraEvaluationAdapter
 from src.adapters.jira import DirectJiraIssueAdapter, FallbackJiraIssueAdapter
+from src.services.requirement_evaluation_settings import RequirementEvaluationSettings
 from src.services.requirement_workflow_service import RequirementWorkflowService
 
 
@@ -76,6 +77,7 @@ def build_application_services(
             jira_evaluation_port=jira_evaluation_port,
             confluence_page_port=confluence_page_port,
             rag_service=rag_service,
+            evaluation_settings=RequirementEvaluationSettings.from_config(config),
         )
 
     return ApplicationServices(

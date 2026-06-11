@@ -6,6 +6,7 @@ from src.services.requirement_workflow_service import (
     RequirementWorkflowResult,
     RequirementWorkflowService,
 )
+from src.services.requirement_evaluation_settings import RequirementEvaluationSettings
 from langchain_core.messages import AIMessage, HumanMessage
 
 
@@ -17,6 +18,25 @@ class FakeLLMProvider:
     def generate_response(self, **kwargs):
         self.calls.append(kwargs)
         return self.response
+
+
+class FakeJudgeService:
+    def __init__(self, review=None, error=None):
+        self.review_payload = review or {
+            "overall_score": 72,
+            "decision": "needs_review",
+            "criteria_scores": {"clarity": 80, "testability": 60},
+            "findings": ["Acceptance criteria could be more testable"],
+            "suggested_improvements": ["Use observable outcomes in each criterion"],
+        }
+        self.error = error
+        self.calls = []
+
+    def review(self, backlog_data):
+        self.calls.append(backlog_data)
+        if self.error:
+            raise self.error
+        return self.review_payload
 
 
 class FakeJiraIssue:
@@ -118,6 +138,19 @@ class FakeJiraEvaluationPort:
         return self.evaluation
 
 
+def valid_backlog_data(overrides=None):
+    backlog_data = {
+        "summary": "Add login auditing",
+        "business_value": "Improves security traceability",
+        "acceptance_criteria": ["Every login is recorded"],
+        "priority": "High",
+        "invest_analysis": "Small and testable",
+        "description": "Business Value: Improves security traceability",
+    }
+    backlog_data.update(overrides or {})
+    return backlog_data
+
+
 class FakeConfluencePagePort:
     def __init__(self, result=None):
         self.result = result or SimpleNamespace(
@@ -157,6 +190,241 @@ class FakeRagService:
         if self.error:
             raise self.error
         return self.ingest_result
+
+
+def test_requirement_evaluation_settings_defaults_and_overrides(monkeypatch):
+    monkeypatch.delenv("REQUIREMENT_EVALUATION_ENABLED", raising=False)
+    monkeypatch.delenv("REQUIREMENT_EVALUATION_GATE_ENABLED", raising=False)
+    monkeypatch.delenv("REQUIREMENT_JUDGE_ENABLED", raising=False)
+
+    defaults = RequirementEvaluationSettings.from_config(SimpleNamespace())
+
+    assert defaults.evaluation_enabled is True
+    assert defaults.gate_enabled is False
+    assert defaults.judge_enabled is False
+
+    settings = RequirementEvaluationSettings.from_config(
+        SimpleNamespace(
+            REQUIREMENT_EVALUATION_ENABLED=False,
+            REQUIREMENT_EVALUATION_GATE_ENABLED=True,
+            REQUIREMENT_JUDGE_ENABLED=True,
+        )
+    )
+
+    assert settings.evaluation_enabled is False
+    assert settings.gate_enabled is True
+    assert settings.judge_enabled is True
+
+
+def test_execute_backlog_data_blocks_missing_acceptance_criteria_when_gate_enabled():
+    jira_issue_port = FakeJiraIssuePort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=jira_issue_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=True,
+            gate_enabled=True,
+            judge_enabled=False,
+        ),
+    )
+
+    result = service.execute_backlog_data(
+        valid_backlog_data({"acceptance_criteria": []})
+    )
+
+    assert result.success is False
+    assert jira_issue_port.calls == []
+    assert "acceptance criteria are missing" in result.response_text.lower()
+    assert result.workflow_progress == [
+        {
+            "step": "quality_review",
+            "label": "Review Quality",
+            "status": "blocked",
+            "detail": "Requirement quality gate blocked creation because acceptance criteria are missing.",
+        },
+        {"step": "jira", "label": "Create Jira", "status": "skipped"},
+        {"step": "evaluation", "label": "Evaluate Requirement", "status": "skipped"},
+        {"step": "confluence", "label": "Create Confluence Page", "status": "skipped"},
+        {"step": "rag", "label": "Ingest to RAG", "status": "skipped"},
+    ]
+
+
+def test_execute_backlog_data_allows_creation_when_gate_enabled_and_criteria_present():
+    jira_issue_port = FakeJiraIssuePort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=jira_issue_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=True,
+            judge_enabled=False,
+        ),
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert result.jira_result["key"] == "PROJ-123"
+    assert jira_issue_port.calls == [valid_backlog_data()]
+    assert result.workflow_progress[0] == {
+        "step": "quality_review",
+        "label": "Review Quality",
+        "status": "completed",
+        "detail": "Deterministic checks passed.",
+    }
+
+
+def test_execute_backlog_data_preserves_creation_when_gate_disabled():
+    jira_issue_port = FakeJiraIssuePort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=jira_issue_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=False,
+            judge_enabled=False,
+        ),
+    )
+
+    result = service.execute_backlog_data(
+        valid_backlog_data({"acceptance_criteria": []})
+    )
+
+    assert result.success is True
+    assert jira_issue_port.calls == [valid_backlog_data({"acceptance_criteria": []})]
+    assert result.workflow_progress[0] == {
+        "step": "quality_review",
+        "label": "Review Quality",
+        "status": "skipped",
+    }
+
+
+def test_execute_backlog_data_surfaces_successful_judge_review_as_advisory():
+    judge_service = FakeJudgeService()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=FakeJiraIssuePort(),
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=True,
+            judge_enabled=True,
+        ),
+        judge_service=judge_service,
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert result.quality_review_result["overall_score"] == 72
+    assert judge_service.calls == [valid_backlog_data()]
+    assert "Quality Review" in result.response_text
+    assert "Advisory" in result.response_text
+    assert result.workflow_progress[0]["status"] == "completed"
+    assert "Judge score: 72" in result.workflow_progress[0]["detail"]
+
+
+def test_execute_backlog_data_low_judge_score_does_not_block_creation():
+    judge_service = FakeJudgeService(
+        review={
+            "overall_score": 35,
+            "decision": "weak",
+            "criteria_scores": {"clarity": 40, "testability": 30},
+            "findings": ["Requirement is too vague"],
+            "suggested_improvements": ["Add measurable acceptance criteria"],
+        }
+    )
+    jira_issue_port = FakeJiraIssuePort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=jira_issue_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=True,
+            judge_enabled=True,
+        ),
+        judge_service=judge_service,
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert result.jira_result["key"] == "PROJ-123"
+    assert jira_issue_port.calls == [valid_backlog_data()]
+    assert result.quality_review_result["overall_score"] == 35
+    assert "Requirement is too vague" in result.response_text
+
+
+def test_execute_backlog_data_judge_failure_does_not_block_creation():
+    judge_service = FakeJudgeService(error=ValueError("invalid judge json"))
+    jira_issue_port = FakeJiraIssuePort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=jira_issue_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=True,
+            judge_enabled=True,
+        ),
+        judge_service=judge_service,
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert jira_issue_port.calls == [valid_backlog_data()]
+    assert result.quality_review_result == {
+        "error": "invalid judge json",
+        "advisory": True,
+    }
+    assert "Quality review warning: invalid judge json" in result.response_text
+    assert "Judge warning: invalid judge json" in result.workflow_progress[0]["detail"]
+
+
+def test_execute_backlog_data_skips_judge_when_disabled():
+    judge_service = FakeJudgeService()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=FakeJiraIssuePort(),
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=True,
+            judge_enabled=False,
+        ),
+        judge_service=judge_service,
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert judge_service.calls == []
+    assert result.quality_review_result is None
+
+
+def test_execute_backlog_data_skips_post_jira_evaluation_when_disabled():
+    jira_evaluation_port = FakeJiraEvaluationPort()
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=FakeJiraIssuePort(),
+        jira_evaluation_port=jira_evaluation_port,
+        evaluation_settings=RequirementEvaluationSettings(
+            evaluation_enabled=False,
+            gate_enabled=False,
+            judge_enabled=False,
+        ),
+    )
+
+    result = service.execute_backlog_data(valid_backlog_data())
+
+    assert result.success is True
+    assert jira_evaluation_port.calls == []
+    assert result.evaluation_result is None
+    assert "Maturity Evaluation Results" not in result.response_text
+    assert result.workflow_progress[2] == {
+        "step": "evaluation",
+        "label": "Evaluate Requirement",
+        "status": "skipped",
+        "detail": "Post-Jira maturity evaluation disabled by configuration.",
+    }
 
 
 def test_execute_creates_jira_evaluates_and_creates_confluence():
