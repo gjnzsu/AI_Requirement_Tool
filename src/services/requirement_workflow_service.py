@@ -19,6 +19,9 @@ from src.agent.requirement_workflow import (
     format_confluence_content,
 )
 from src.services.rag_ingestion_service import RagIngestionService
+from src.services.requirement_evaluation_settings import RequirementEvaluationSettings
+from src.services.requirement_gate_service import RequirementGateService
+from src.services.requirement_judge_service import RequirementJudgeService
 from src.utils.logger import get_logger
 
 
@@ -33,6 +36,7 @@ class RequirementWorkflowResult:
     response_text: str
     backlog_data: Optional[Dict[str, Any]] = None
     jira_result: Optional[Dict[str, Any]] = None
+    quality_review_result: Optional[Dict[str, Any]] = None
     evaluation_result: Optional[Dict[str, Any]] = None
     confluence_result: Optional[Dict[str, Any]] = None
     workflow_progress: Optional[List[Dict[str, Any]]] = None
@@ -51,6 +55,9 @@ class RequirementWorkflowService:
         jira_tool: Optional[Any] = None,
         jira_evaluator: Optional[Any] = None,
         confluence_tool: Optional[Any] = None,
+        evaluation_settings: Optional[RequirementEvaluationSettings] = None,
+        gate_service: Optional[Any] = None,
+        judge_service: Optional[Any] = None,
     ) -> None:
         self.llm_provider = llm_provider
         self.jira_issue_port = jira_issue_port or (
@@ -63,6 +70,10 @@ class RequirementWorkflowService:
             DirectConfluencePageAdapter(confluence_tool) if confluence_tool else None
         )
         self.rag_ingestion_service = RagIngestionService(rag_service=rag_service)
+        self._show_quality_review_progress = evaluation_settings is not None
+        self.evaluation_settings = evaluation_settings or RequirementEvaluationSettings()
+        self.gate_service = gate_service or RequirementGateService()
+        self.judge_service = judge_service or RequirementJudgeService(llm_provider)
 
     def _normalize_port_result(self, result: Any) -> Dict[str, Any]:
         """Accept DTOs, namespaces, or dicts during the Phase 3 transition."""
@@ -111,12 +122,18 @@ class RequirementWorkflowService:
         return {key: value for key, value in result.items() if key != "tool_used"}
 
     def _initial_workflow_progress(self) -> List[Dict[str, Any]]:
-        return [
+        progress = [
             {"step": "jira", "label": "Create Jira", "status": "skipped"},
             {"step": "evaluation", "label": "Evaluate Requirement", "status": "skipped"},
             {"step": "confluence", "label": "Create Confluence Page", "status": "skipped"},
             {"step": "rag", "label": "Ingest to RAG", "status": "skipped"},
         ]
+        if self._show_quality_review_progress:
+            progress.insert(
+                0,
+                {"step": "quality_review", "label": "Review Quality", "status": "skipped"},
+            )
+        return progress
 
     @staticmethod
     def _set_progress_status(
@@ -323,12 +340,60 @@ class RequirementWorkflowService:
         """Expose evaluation formatting for agent/chat surfaces."""
         return self._format_evaluation_result(evaluation_result)
 
+    def _run_quality_review(
+        self,
+        *,
+        backlog_data: Dict[str, Any],
+        workflow_progress: List[Dict[str, Any]],
+    ) -> tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
+        """Run pre-Jira deterministic and advisory quality review."""
+        if not self.evaluation_settings.gate_enabled and not self.evaluation_settings.judge_enabled:
+            return None, None, None
+
+        detail_parts = []
+        if self.evaluation_settings.gate_enabled:
+            gate_result = self.gate_service.evaluate(backlog_data)
+            if gate_result.blocked:
+                self._set_progress_status(
+                    workflow_progress,
+                    "quality_review",
+                    "blocked",
+                    detail=gate_result.blocking_reason,
+                )
+                return None, gate_result.blocking_reason, gate_result.blocking_reason
+            detail_parts.append("Deterministic checks passed.")
+
+        quality_review_result = None
+        advisory_text = None
+        if self.evaluation_settings.judge_enabled:
+            try:
+                quality_review_result = self.judge_service.review(backlog_data)
+                score = quality_review_result.get("overall_score", "N/A")
+                detail_parts.append(f"Judge score: {score}")
+                advisory_text = self._format_quality_review_result(quality_review_result)
+            except Exception as error:
+                logger.warning("Requirement judge review failed: %s", error, exc_info=True)
+                quality_review_result = {"error": str(error), "advisory": True}
+                detail_parts.append(f"Judge warning: {error}")
+                advisory_text = f"Quality review warning: {error}\n\n"
+
+        if detail_parts:
+            self._set_progress_status(
+                workflow_progress,
+                "quality_review",
+                "completed",
+                detail=" ".join(detail_parts),
+            )
+
+        return quality_review_result, None, advisory_text
+
     def execute_backlog_data(
         self,
         backlog_data: Dict[str, Any],
     ) -> RequirementWorkflowResult:
         """Run the workflow from an already-approved backlog draft."""
         workflow_progress = self._initial_workflow_progress()
+        quality_review_result = None
 
         if not self.jira_issue_port:
             self._set_progress_status(
@@ -344,6 +409,19 @@ class RequirementWorkflowService:
                     "Please check your Jira credentials."
                 ),
                 backlog_data=backlog_data,
+                workflow_progress=workflow_progress,
+            )
+
+        quality_review_result, blocking_reason, advisory_text = self._run_quality_review(
+            backlog_data=backlog_data,
+            workflow_progress=workflow_progress,
+        )
+        if blocking_reason:
+            return RequirementWorkflowResult(
+                success=False,
+                response_text=blocking_reason,
+                backlog_data=backlog_data,
+                quality_review_result=quality_review_result,
                 workflow_progress=workflow_progress,
             )
 
@@ -381,7 +459,10 @@ class RequirementWorkflowService:
             )
 
         issue_key = jira_result_payload.get("key")
-        response_parts = [self._format_jira_success(jira_result_payload, backlog_data)]
+        response_parts = []
+        if advisory_text:
+            response_parts.append(advisory_text)
+        response_parts.append(self._format_jira_success(jira_result_payload, backlog_data))
         evaluation_result = None
         confluence_result = None
 
@@ -392,7 +473,14 @@ class RequirementWorkflowService:
             link=jira_result_payload.get("link"),
         )
 
-        if self.jira_evaluation_port:
+        if not self.evaluation_settings.evaluation_enabled:
+            self._set_progress_status(
+                workflow_progress,
+                "evaluation",
+                "skipped",
+                detail="Post-Jira maturity evaluation disabled by configuration.",
+            )
+        elif self.jira_evaluation_port:
             try:
                 logger.info(f"Evaluating maturity for {issue_key}...")
                 evaluation_result = self.evaluate_issue(issue_key)
@@ -487,6 +575,7 @@ class RequirementWorkflowService:
             response_text="".join(response_parts),
             backlog_data=backlog_data,
             jira_result=self._legacy_result_payload(jira_result_payload),
+            quality_review_result=quality_review_result,
             evaluation_result=evaluation_result,
             confluence_result=self._legacy_result_payload(confluence_result),
             workflow_progress=workflow_progress,
@@ -638,6 +727,27 @@ class RequirementWorkflowService:
             for criterion, score in evaluation_result["detailed_scores"].items():
                 criterion_name = criterion.replace("_", " ").title()
                 response_text += f"  - {criterion_name}: {score}/100\n"
+
+        return response_text
+
+    def _format_quality_review_result(self, review_result: Dict[str, Any]) -> str:
+        response_text = (
+            "Quality Review (Advisory):\n"
+            f"Overall Judge Score: **{review_result.get('overall_score', 'N/A')}/100**\n"
+            f"Decision: {review_result.get('decision', 'needs_review')}\n\n"
+        )
+
+        if review_result.get("findings"):
+            response_text += "**Findings:**\n"
+            for finding in review_result["findings"]:
+                response_text += f"  - {finding}\n"
+            response_text += "\n"
+
+        if review_result.get("suggested_improvements"):
+            response_text += "**Suggested Improvements:**\n"
+            for improvement in review_result["suggested_improvements"]:
+                response_text += f"  - {improvement}\n"
+            response_text += "\n"
 
         return response_text
 

@@ -61,6 +61,15 @@ class Config:
     
     # Evaluation Settings
     MAX_BACKLOG_ITEMS: int = int(os.getenv('MAX_BACKLOG_ITEMS', '50'))
+    REQUIREMENT_EVALUATION_ENABLED: bool = os.getenv(
+        'REQUIREMENT_EVALUATION_ENABLED', 'true'
+    ).lower() in ('true', '1', 'yes')
+    REQUIREMENT_EVALUATION_GATE_ENABLED: bool = os.getenv(
+        'REQUIREMENT_EVALUATION_GATE_ENABLED', 'false'
+    ).lower() in ('true', '1', 'yes')
+    REQUIREMENT_JUDGE_ENABLED: bool = os.getenv(
+        'REQUIREMENT_JUDGE_ENABLED', 'false'
+    ).lower() in ('true', '1', 'yes')
     
     # Optional: Custom field ID to store maturity score in Jira
     JIRA_MATURITY_SCORE_FIELD: Optional[str] = os.getenv('JIRA_MATURITY_SCORE_FIELD', None)
