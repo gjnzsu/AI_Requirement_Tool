@@ -174,6 +174,9 @@ JIRA_PROJECT_KEY=PROJ
 USE_MCP=true # Enable MCP integration
 
 # RAG Configuration (optional)
+RAG_PROVIDER=embedded # embedded or external
+AI_RAG_SERVICE_URL=http://localhost:8000 # required when RAG_PROVIDER=external
+AI_RAG_SERVICE_TIMEOUT_SECONDS=10
 RAG_ENABLE_CACHE=true
 RAG_CACHE_TTL_HOURS=24
 ```
@@ -608,8 +611,27 @@ Set `LLM_PROVIDER` in your `.env`:
 
 ### RAG Configuration
 
+- `RAG_PROVIDER=embedded` - Use the in-process RAG implementation. This is the default and rollback setting.
+- `RAG_PROVIDER=external` - Use the platform `ai-rag-service` lifecycle APIs.
+- `AI_RAG_SERVICE_URL=http://localhost:8000` - Base URL for `ai-rag-service` when using external RAG.
+- `AI_RAG_SERVICE_TIMEOUT_SECONDS=10` - Timeout for external RAG requests.
 - `RAG_ENABLE_CACHE=true` - Enable RAG caching
 - `RAG_CACHE_TTL_HOURS=24` - Cache TTL in hours
+
+External RAG parity smoke scenarios before rollout:
+- ingest a Jira issue and related Confluence page,
+- query by Jira key such as `PROJ-123`,
+- verify related Confluence context is returned,
+- verify metadata-filtered retrieval works,
+- verify ingestion timeout does not block Jira or Confluence creation.
+
+Opt-in external RAG pipeline e2e:
+
+```bash
+RUN_REAL_RAG_PIPELINE_E2E=true RAG_PROVIDER=external AI_RAG_SERVICE_URL=http://localhost:8000 pytest tests/integration/e2e/test_real_rag_pipeline_e2e.py -m "e2e and integration"
+```
+
+This writes synthetic Jira and Confluence lifecycle documents to `ai-rag-service`.
 
 ### Coze Configuration
 

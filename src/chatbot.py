@@ -12,7 +12,7 @@ from src.tools.jira_tool import JiraTool
 from src.tools.confluence_tool import ConfluenceTool
 
 from src.llm import LLMRouter, LLMProviderManager
-from src.runtime import build_application_services
+from src.runtime import build_application_services, build_rag_ports
 from src.services.jira_maturity_evaluator import JiraMaturityEvaluator
 from src.services.memory_manager import MemoryManager
 from src.services.memory_summarizer import MemorySummarizer
@@ -144,13 +144,28 @@ class Chatbot:
         
         # Initialize RAG service if enabled
         self.rag_service = None
+        self.rag_query_port = None
+        self.rag_ingestion_port = None
         if self.use_rag:
             try:
                 logger.info("=" * 70)
                 logger.info("Initializing RAG Service")
                 logger.info("=" * 70)
-                # Check if OpenAI API key is available (required for embeddings)
-                if self.config.OPENAI_API_KEY:
+                rag_provider = getattr(self.config, 'RAG_PROVIDER', 'embedded').lower()
+                if rag_provider == "external":
+                    rag_ports = build_rag_ports(
+                        config=self.config,
+                        embedded_rag_service=None,
+                    )
+                    self.rag_query_port = rag_ports.query_port
+                    self.rag_ingestion_port = rag_ports.ingestion_port
+                    if not self.rag_query_port:
+                        logger.warning("RAG disabled: AI_RAG_SERVICE_URL not configured")
+                        self.use_rag = False
+                    else:
+                        logger.info("Initialized external RAG provider")
+                    logger.info("=" * 70)
+                elif self.config.OPENAI_API_KEY:
                     # Use configured RAG vector store path from Config
                     vector_store_path = getattr(self.config, 'RAG_VECTOR_STORE_PATH', None)
                     self.rag_service = RAGService(
@@ -165,6 +180,12 @@ class Chatbot:
                     if vector_store_path:
                         logger.info(f"RAG database: {vector_store_path}")
                     logger.info(f"Initialized RAG Service ({cache_status})")
+                    rag_ports = build_rag_ports(
+                        config=self.config,
+                        embedded_rag_service=self.rag_service,
+                    )
+                    self.rag_query_port = rag_ports.query_port
+                    self.rag_ingestion_port = rag_ports.ingestion_port
                     logger.info("=" * 70)
                 else:
                     logger.warning("RAG disabled: OPENAI_API_KEY not found (required for embeddings)")
@@ -209,6 +230,8 @@ class Chatbot:
                     temperature=self.temperature,
                     enable_tools=self.enable_mcp_tools,
                     rag_service=self.rag_service if self.use_rag else None,
+                    rag_query_port=self.rag_query_port if self.use_rag else None,
+                    rag_ingestion_port=self.rag_ingestion_port if self.use_rag else None,
                     use_mcp=self.use_mcp  # Use the configured MCP setting
                 )
                 self.agent.set_selected_agent_mode(
@@ -408,6 +431,8 @@ class Chatbot:
             confluence_tool=self.confluence_tool,
             jira_evaluator=self.jira_evaluator,
             rag_service=self.rag_service if self.use_rag else None,
+            rag_ingestion_port=self.rag_ingestion_port if self.use_rag else None,
+            rag_query_port=self.rag_query_port if self.use_rag else None,
             mcp_integration=None,
             use_mcp=False,
         )
@@ -477,9 +502,10 @@ class Chatbot:
         """
         # Get RAG context if enabled
         rag_context = ""
-        if self.use_rag and self.rag_service:
+        rag_query_port = self.rag_query_port or self.rag_service
+        if self.use_rag and rag_query_port:
             try:
-                rag_context = self.rag_service.get_context(user_input, top_k=self.rag_top_k)
+                rag_context = rag_query_port.get_context(user_input, top_k=self.rag_top_k)
             except Exception as e:
                 logger.warning(f"RAG retrieval error: {e}")
                 rag_context = ""

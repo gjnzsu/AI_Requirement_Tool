@@ -69,3 +69,26 @@ class ConfluencePageResult:
             payload.setdefault("tool_used", self.tool_used)
         return payload
 
+
+@dataclass
+class RagRetrievedChunk:
+    """Normalized retrieved RAG chunk for application code."""
+
+    content: str
+    document_id: str = ""
+    chunk_id: str = ""
+    metadata: Optional[Dict[str, Any]] = None
+    score: Optional[float] = None
+    source_url: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "content": self.content,
+            "document_id": self.document_id,
+            "chunk_id": self.chunk_id,
+            "metadata": self.metadata or {},
+            "source_url": self.source_url,
+        }
+        if self.score is not None:
+            payload["score"] = self.score
+        return payload

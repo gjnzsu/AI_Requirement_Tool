@@ -58,6 +58,7 @@ class RequirementWorkflowService:
         evaluation_settings: Optional[RequirementEvaluationSettings] = None,
         gate_service: Optional[Any] = None,
         judge_service: Optional[Any] = None,
+        confluence_space_key: str = "",
     ) -> None:
         self.llm_provider = llm_provider
         self.jira_issue_port = jira_issue_port or (
@@ -74,6 +75,7 @@ class RequirementWorkflowService:
         self.evaluation_settings = evaluation_settings or RequirementEvaluationSettings()
         self.gate_service = gate_service or RequirementGateService()
         self.judge_service = judge_service or RequirementJudgeService(llm_provider)
+        self.confluence_space_key = confluence_space_key
 
     def _normalize_port_result(self, result: Any) -> Dict[str, Any]:
         """Accept DTOs, namespaces, or dicts during the Phase 3 transition."""
@@ -167,8 +169,8 @@ class RequirementWorkflowService:
             return "Jira evaluation returned an incomplete result."
         return None
 
-    @staticmethod
     def _build_rag_metadata(
+        self,
         *,
         issue_key: str,
         page_title: str,
@@ -178,8 +180,10 @@ class RequirementWorkflowService:
             "type": "confluence_page",
             "title": page_title,
             "related_jira": issue_key,
+            "url": confluence_result.get("link", ""),
             "link": confluence_result.get("link", ""),
             "page_id": confluence_result.get("id", ""),
+            "space_key": confluence_result.get("space_key") or self.confluence_space_key,
         }
 
     def _ingest_confluence_to_rag(
