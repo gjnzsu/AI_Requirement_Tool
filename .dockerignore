@@ -13,9 +13,16 @@ tests/
 *.ps1
 *.sh
 .claude/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.worktrees/
 pdf_folder/
 docs/
 examples/
 scripts/
+k8s/secret.yaml
+mcp_tokens.json
+openspec/
 *.txt.bak
 node_modules/
