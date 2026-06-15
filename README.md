@@ -405,21 +405,18 @@ Source: [main-request-flow.drawio](docs/architecture/diagrams/main-request-flow.
 
 #### Logical Architecture
 
-This layered architecture diagram shows the logical components, their relationships, and data flow:
+This current logical architecture diagram shows the Requirement Copilot runtime boundaries, RAG/MCP integration paths, and provider calls:
 
-![AI Requirement Tool Architecture](docs/architecture/diagrams/ai-requirement-tool-architecture-comprehensive.drawio.png)
+![Requirement Copilot RAG and MCP Architecture](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio.svg)
 
-**Layers:**
-- **User Layer**: Web UI and API clients
-- **Web Layer**: Flask app with REST API routes (auth, core, conversations, jobs)
-- **Core Services**: Chatbot orchestrator, LangGraph agent, memory manager, authentication
-- **Agent Execution Paths**: Sync paths (chat, RAG, Jira, Confluence, SDLC) and async path (Coze via Celery)
-- **Integration Layer**: Multi-provider LLM routing, MCP integration, direct tools, and an optional undeployed gateway scaffold
-- **Data Layer**: RAG service, memory DB (SQLite), Redis (Celery broker)
-- **External Systems**: Atlassian (Jira/Confluence), Coze platform
-- **Observability**: Prometheus metrics, Grafana dashboards
+**Shows:**
+- **Requirement Copilot pod**: Web API, chatbot, LangGraph agent, requirement workflow, RAG query/ingestion, Coze service, and integration adapters
+- **MCP tool boundary**: Jira and Confluence actions through `MCPIntegration`, with direct REST retained as fallback
+- **Platform RAG service**: External `ai-rag-service` lifecycle APIs for document upsert, retrieval, Jira context, embeddings, and Chroma vector storage
+- **Provider APIs**: OpenAI, DeepSeek, Gemini, and Coze calls routed from provider adapters or service clients
+- **Arrow conventions**: Blue internal Python calls, purple dashed MCP calls, green RAG HTTP calls, and orange provider calls
 
-Source: [ai-requirement-tool-architecture-comprehensive.drawio](docs/architecture/diagrams/ai-requirement-tool-architecture-comprehensive.drawio)
+Source: [requirement-copilot-rag-mcp-current.drawio](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio)
 
 #### Deployment Architecture
 
