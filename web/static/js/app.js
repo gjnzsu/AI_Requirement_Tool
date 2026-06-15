@@ -4,6 +4,7 @@ let currentConversationId = null;
 let conversations = [];
 let currentModel = 'openai'; // Default model
 let currentAgentMode = 'auto';
+let appInitialized = false;
 const CHAT_JOB_POLL_INTERVAL_MS = 3000;
 const ASYNC_JOB_ERROR_MESSAGE = "Sorry, I couldn't complete that request right now. Please try again.";
 
@@ -19,7 +20,12 @@ const modelSelect = document.getElementById('modelSelect');
 const agentModeSelect = document.getElementById('agentModeSelect');
 
 // Initialize
-document.addEventListener('DOMContentLoaded', async () => {
+async function initializeApp() {
+    if (appInitialized) {
+        return;
+    }
+    appInitialized = true;
+
     // Wait a moment for auth.js to fully load and set up fetch override
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -44,7 +50,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     setupEventListeners();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    initializeApp();
+}
 
 // Load current model from backend
 async function loadCurrentModel() {

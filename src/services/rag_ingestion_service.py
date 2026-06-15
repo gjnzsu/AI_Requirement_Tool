@@ -78,13 +78,17 @@ class RagIngestionService:
         acceptance_criteria = backlog_data.get("acceptance_criteria", [])
         if acceptance_criteria:
             parts.append(f"Acceptance Criteria: {len(acceptance_criteria)} items")
-            for criterion in acceptance_criteria:
+            listed_criteria = acceptance_criteria[:5]
+            for criterion in listed_criteria:
                 if not criterion:
                     continue
                 truncated = (
                     f"{criterion[:80]}..." if len(criterion) > 80 else criterion
                 )
                 parts.append(f"  - {truncated}")
+            omitted_count = len(acceptance_criteria) - len(listed_criteria)
+            if omitted_count > 0:
+                parts.append(f"  - ... {omitted_count} more criteria omitted")
 
         if evaluation and "overall_maturity_score" in evaluation:
             parts.append(f"Maturity Score: {evaluation['overall_maturity_score']}/100")

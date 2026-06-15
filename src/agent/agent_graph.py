@@ -432,7 +432,15 @@ class ChatbotAgent:
             if hasattr(Config, "COZE_API_TIMEOUT")
             else 300.0
         )
-        if coze_client is not None or getattr(self, "coze_agent_service", None) is None:
+        existing_coze_service = getattr(self, "coze_agent_service", None)
+        if (
+            coze_client is not None
+            or existing_coze_service is None
+            or (
+                isinstance(existing_coze_service, CozeAgentService)
+                and getattr(existing_coze_service, "coze_client", None) is not coze_client
+            )
+        ):
             self.coze_agent_service = CozeAgentService(
                 coze_client=coze_client,
                 timeout_seconds=coze_timeout,
