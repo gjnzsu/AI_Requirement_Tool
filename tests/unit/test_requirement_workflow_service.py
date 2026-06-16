@@ -499,6 +499,7 @@ def test_execute_backlog_data_marks_rag_completed_when_ingestion_succeeds():
         jira_evaluation_port=FakeJiraEvaluationPort(),
         confluence_page_port=FakeConfluencePagePort(),
         rag_service=rag_service,
+        confluence_space_key="TEAM",
     )
 
     result = service.execute_backlog_data(
@@ -541,6 +542,9 @@ def test_execute_backlog_data_marks_rag_completed_when_ingestion_succeeds():
     assert rag_service.calls[0]["metadata"]["type"] == "confluence_page"
     assert rag_service.calls[0]["metadata"]["related_jira"] == "PROJ-123"
     assert rag_service.calls[0]["metadata"]["title"] == "PROJ-123: Add login auditing"
+    assert rag_service.calls[0]["metadata"]["url"] == "https://wiki.example/pages/123"
+    assert rag_service.calls[0]["metadata"]["link"] == "https://wiki.example/pages/123"
+    assert rag_service.calls[0]["metadata"]["space_key"] == "TEAM"
 
 
 def test_execute_backlog_data_marks_rag_failed_when_ingestion_returns_none():
@@ -565,6 +569,38 @@ def test_execute_backlog_data_marks_rag_failed_when_ingestion_returns_none():
     )
 
     assert result.success is True
+    assert result.workflow_progress[-1] == {
+        "step": "rag",
+        "label": "Ingest to RAG",
+        "status": "failed",
+        "detail": "RAG ingestion did not return a document id.",
+    }
+
+
+def test_execute_backlog_data_marks_rag_failed_when_ingestion_raises():
+    rag_service = FakeRagService(error=RuntimeError("RAG service request failed: slow"))
+    service = RequirementWorkflowService(
+        llm_provider=FakeLLMProvider("unused"),
+        jira_issue_port=FakeJiraIssuePort(),
+        jira_evaluation_port=FakeJiraEvaluationPort(),
+        confluence_page_port=FakeConfluencePagePort(),
+        rag_service=rag_service,
+    )
+
+    result = service.execute_backlog_data(
+        {
+            "summary": "Add login auditing",
+            "business_value": "Improves security traceability",
+            "acceptance_criteria": ["Every login is recorded"],
+            "priority": "High",
+            "invest_analysis": "Small and testable",
+            "description": "Business Value: Improves security traceability",
+        }
+    )
+
+    assert result.success is True
+    assert result.workflow_progress[0]["status"] == "completed"
+    assert result.workflow_progress[2]["status"] == "completed"
     assert result.workflow_progress[-1] == {
         "step": "rag",
         "label": "Ingest to RAG",

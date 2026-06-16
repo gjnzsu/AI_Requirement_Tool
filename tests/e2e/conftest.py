@@ -119,8 +119,13 @@ def flask_test_server():
         mock_chatbot_instance.get_response = Mock(return_value="Mocked chatbot response")
         mock_chatbot_instance.switch_provider = Mock(return_value=None)
         mock_chatbot_instance.set_conversation_id = Mock(return_value=None)
+        mock_chatbot_instance.set_selected_agent_mode = Mock(return_value=None)
         mock_chatbot_instance.load_conversation = Mock(return_value=True)
+        mock_chatbot_instance.export_runtime_state = Mock(return_value={})
+        mock_chatbot_instance.load_runtime_state = Mock(return_value=None)
         mock_chatbot_instance.conversation_history = []
+        mock_chatbot_instance.last_usage = None
+        mock_chatbot_instance.agent = None
         mock_chatbot_instance.memory_manager = memory_manager
         
         # Patch get_chatbot function to return mock (original_get_chatbot already stored above)
@@ -634,8 +639,13 @@ def mock_chatbot():
     chatbot.get_response = Mock(return_value="Mocked chatbot response")
     chatbot.switch_provider = Mock(return_value=None)
     chatbot.set_conversation_id = Mock(return_value=None)
+    chatbot.set_selected_agent_mode = Mock(return_value=None)
     chatbot.load_conversation = Mock(return_value=True)
+    chatbot.export_runtime_state = Mock(return_value={})
+    chatbot.load_runtime_state = Mock(return_value=None)
     chatbot.conversation_history = []
+    chatbot.last_usage = None
+    chatbot.agent = None
     chatbot.memory_manager = None
     
     # Patch the global chatbot instance

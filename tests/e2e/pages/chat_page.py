@@ -49,6 +49,7 @@ class ChatPage:
     
     def send_message(self, message: Optional[str] = None):
         """Send a message. If message is provided, types it first."""
+        self.page.wait_for_function("() => typeof window.sendMessage === 'function'", timeout=10000)
         if message:
             self.type_message(message)
         # Wait for send button to be ready - try multiple strategies
@@ -64,7 +65,7 @@ class ChatPage:
                 self.page.wait_for_load_state("networkidle", timeout=5000)
                 self.page.wait_for_timeout(1000)
         
-        self.send_button.click()
+        self.chat_input.press("Enter")
         return self
     
     def press_enter_to_send(self):

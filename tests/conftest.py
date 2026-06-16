@@ -100,7 +100,12 @@ def mock_chatbot():
     chatbot.memory_manager = Mock()
     chatbot.conversation_history = []
     chatbot.set_conversation_id = Mock()
+    chatbot.set_selected_agent_mode = Mock(return_value=None)
     chatbot.load_conversation = Mock(return_value=True)
+    chatbot.export_runtime_state = Mock(return_value={})
+    chatbot.load_runtime_state = Mock(return_value=None)
+    chatbot.last_usage = None
+    chatbot.agent = None
     
     # Mock memory_manager methods
     chatbot.memory_manager.get_conversation = Mock(return_value={

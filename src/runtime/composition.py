@@ -24,6 +24,7 @@ class ApplicationServices:
     confluence_page_port: Optional[Any]
     jira_evaluation_port: Optional[Any]
     rag_ingestion_port: Optional[Any] = None
+    rag_query_port: Optional[Any] = None
 
 
 def build_application_services(
@@ -34,6 +35,8 @@ def build_application_services(
     confluence_tool: Optional[Any] = None,
     jira_evaluator: Optional[Any] = None,
     rag_service: Optional[Any] = None,
+    rag_ingestion_port: Optional[Any] = None,
+    rag_query_port: Optional[Any] = None,
     mcp_integration: Optional[Any] = None,
     use_mcp: bool = True,
     get_cloud_id=None,
@@ -76,8 +79,9 @@ def build_application_services(
             jira_issue_port=jira_issue_port,
             jira_evaluation_port=jira_evaluation_port,
             confluence_page_port=confluence_page_port,
-            rag_service=rag_service,
+            rag_service=rag_ingestion_port if rag_ingestion_port is not None else rag_service,
             evaluation_settings=RequirementEvaluationSettings.from_config(config),
+            confluence_space_key=getattr(config, "CONFLUENCE_SPACE_KEY", ""),
         )
 
     return ApplicationServices(
@@ -85,4 +89,6 @@ def build_application_services(
         jira_issue_port=jira_issue_port,
         confluence_page_port=confluence_page_port,
         jira_evaluation_port=jira_evaluation_port,
+        rag_ingestion_port=rag_ingestion_port if rag_ingestion_port is not None else rag_service,
+        rag_query_port=rag_query_port,
     )

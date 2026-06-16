@@ -12,7 +12,6 @@ from src.agent.rag_nodes import (
     build_rag_prompt,
     extract_chunk_contents,
     extract_jira_key,
-    load_direct_jira_context,
 )
 from src.services.chat_response_service import ChatResponseService
 
@@ -20,8 +19,14 @@ from src.services.chat_response_service import ChatResponseService
 class RagQueryService:
     """Handle RAG retrieval and response generation for query turns."""
 
-    def __init__(self, *, rag_service: Any, chat_response_service: ChatResponseService) -> None:
-        self.rag_service = rag_service
+    def __init__(
+        self,
+        *,
+        rag_service: Any = None,
+        rag_query_port: Any = None,
+        chat_response_service: ChatResponseService,
+    ) -> None:
+        self.rag_service = rag_query_port if rag_query_port is not None else rag_service
         self.chat_response_service = chat_response_service
 
     def handle(
@@ -63,7 +68,7 @@ class RagQueryService:
     def _load_context(self, user_input: str) -> str | None:
         jira_key = extract_jira_key(user_input)
         if jira_key:
-            direct_context = load_direct_jira_context(self.rag_service.vector_store, jira_key)
+            direct_context = self.rag_service.get_jira_context(jira_key)
             if direct_context:
                 return direct_context
 

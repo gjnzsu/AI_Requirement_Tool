@@ -99,6 +99,8 @@ class ChatbotAgent:
                  temperature: float = 0.7,
                  enable_tools: bool = True,
                  rag_service: Optional[Any] = None,
+                 rag_query_port: Optional[Any] = None,
+                 rag_ingestion_port: Optional[Any] = None,
                  use_mcp: Optional[bool] = None):
         """
         Initialize the LangGraph agent.
@@ -117,6 +119,10 @@ class ChatbotAgent:
         # Use config value if not explicitly provided
         self.use_mcp = use_mcp if use_mcp is not None else Config.USE_MCP
         self._rag_service = rag_service
+        self._rag_query_port = rag_query_port if rag_query_port is not None else rag_service
+        self._rag_ingestion_port = (
+            rag_ingestion_port if rag_ingestion_port is not None else rag_service
+        )
         
         # Initialize LLM monitoring callback (before LLM initialization)
         # Wrapped in try/except to ensure callback issues don't break LLM init
@@ -365,6 +371,8 @@ class ChatbotAgent:
             confluence_tool=self.confluence_tool,
             jira_evaluator=self.jira_evaluator,
             rag_service=getattr(self, "_rag_service", None),
+            rag_ingestion_port=getattr(self, "_rag_ingestion_port", None),
+            rag_query_port=getattr(self, "_rag_query_port", None),
             mcp_integration=self.mcp_integration,
             use_mcp=self.use_mcp,
             get_cloud_id=self._get_cloud_id,
@@ -380,7 +388,7 @@ class ChatbotAgent:
         """Assemble flow services used by the graph handlers."""
         llm = getattr(self, "llm", None)
         provider_name = getattr(self, "provider_name", None)
-        rag_service = getattr(self, "_rag_service", None)
+        rag_query_port = getattr(self, "_rag_query_port", None)
         coze_client = getattr(self, "coze_client", None)
 
         if llm:
@@ -393,7 +401,7 @@ class ChatbotAgent:
                 retrieve_confluence_page_info=self._retrieve_confluence_page_info,
             )
             self.rag_query_service = RagQueryService(
-                rag_service=rag_service,
+                rag_query_port=rag_query_port,
                 chat_response_service=self.chat_response_service,
             )
             self.requirement_sdlc_agent_service = RequirementSdlcAgentService(
@@ -424,7 +432,15 @@ class ChatbotAgent:
             if hasattr(Config, "COZE_API_TIMEOUT")
             else 300.0
         )
-        if coze_client is not None or getattr(self, "coze_agent_service", None) is None:
+        existing_coze_service = getattr(self, "coze_agent_service", None)
+        if (
+            coze_client is not None
+            or existing_coze_service is None
+            or (
+                isinstance(existing_coze_service, CozeAgentService)
+                and getattr(existing_coze_service, "coze_client", None) is not coze_client
+            )
+        ):
             self.coze_agent_service = CozeAgentService(
                 coze_client=coze_client,
                 timeout_seconds=coze_timeout,
@@ -469,7 +485,7 @@ class ChatbotAgent:
             use_mcp=getattr(self, "use_mcp", False),
         )
         self.rag_ingestion_service = RagIngestionService(
-            rag_service=getattr(self, "_rag_service", None),
+            rag_ingestion_port=getattr(self, "_rag_ingestion_port", None),
         )
 
     def _refresh_helper_services(self) -> None:

@@ -14,8 +14,8 @@ logger = get_logger("chatbot.rag_ingestion")
 class RagIngestionService:
     """Encapsulate RAG ingestion side effects and compact content shaping."""
 
-    def __init__(self, *, rag_service: Any) -> None:
-        self.rag_service = rag_service
+    def __init__(self, *, rag_service: Any = None, rag_ingestion_port: Any = None) -> None:
+        self.rag_service = rag_ingestion_port if rag_ingestion_port is not None else rag_service
 
     def ingest(self, content: str, metadata: Dict[str, Any]) -> Optional[str]:
         """Ingest text into the RAG knowledge base without blocking the main response."""
@@ -29,12 +29,16 @@ class RagIngestionService:
 
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(
-                    self.rag_service.ingest_text,
-                    content,
-                    metadata,
-                    document_id=custom_doc_id,
-                )
+                ingest = getattr(type(self.rag_service), "ingest", None)
+                if callable(ingest):
+                    future = executor.submit(self.rag_service.ingest, content, metadata)
+                else:
+                    future = executor.submit(
+                        self.rag_service.ingest_text,
+                        content,
+                        metadata,
+                        document_id=custom_doc_id,
+                    )
                 try:
                     return future.result(timeout=10)
                 except concurrent.futures.TimeoutError:
@@ -74,12 +78,17 @@ class RagIngestionService:
         acceptance_criteria = backlog_data.get("acceptance_criteria", [])
         if acceptance_criteria:
             parts.append(f"Acceptance Criteria: {len(acceptance_criteria)} items")
-            first_item = acceptance_criteria[0]
-            if first_item:
+            listed_criteria = acceptance_criteria[:5]
+            for criterion in listed_criteria:
+                if not criterion:
+                    continue
                 truncated = (
-                    f"{first_item[:80]}..." if len(first_item) > 80 else first_item
+                    f"{criterion[:80]}..." if len(criterion) > 80 else criterion
                 )
                 parts.append(f"  - {truncated}")
+            omitted_count = len(acceptance_criteria) - len(listed_criteria)
+            if omitted_count > 0:
+                parts.append(f"  - ... {omitted_count} more criteria omitted")
 
         if evaluation and "overall_maturity_score" in evaluation:
             parts.append(f"Maturity Score: {evaluation['overall_maturity_score']}/100")

@@ -40,6 +40,9 @@ class FakeRagService:
         self.get_context_calls.append((user_input, top_k))
         return "Semantic context"
 
+    def get_jira_context(self, jira_key):
+        return "=== Jira Issue Content ===\nDirect Jira content\n\n=== Related Confluence Page ===\nRelated Confluence content"
+
     def retrieve(self, user_input, top_k=3):
         self.retrieve_calls.append((user_input, top_k))
         return [{"content": "Chunk A"}, {"content": "Chunk B"}]

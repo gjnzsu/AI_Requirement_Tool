@@ -106,6 +106,9 @@ class Config:
     RAG_VECTOR_STORE_PATH: Optional[str] = os.getenv('RAG_VECTOR_STORE_PATH', None)
     RAG_ENABLE_CACHE: bool = os.getenv('RAG_ENABLE_CACHE', 'true').lower() == 'true'
     RAG_CACHE_TTL_HOURS: int = int(os.getenv('RAG_CACHE_TTL_HOURS', '24'))
+    RAG_PROVIDER: str = os.getenv('RAG_PROVIDER', 'embedded').lower()
+    AI_RAG_SERVICE_URL: str = os.getenv('AI_RAG_SERVICE_URL', '')
+    AI_RAG_SERVICE_TIMEOUT_SECONDS: float = float(os.getenv('AI_RAG_SERVICE_TIMEOUT_SECONDS', '10.0'))
     
     # MCP Tools Configuration
     ENABLE_MCP_TOOLS: bool = os.getenv('ENABLE_MCP_TOOLS', 'true').lower() == 'true'

@@ -171,6 +171,7 @@ class TestAgentIngestToRag:
         """Test that ingestion is skipped when RAG service is not available."""
         agent, _ = mock_agent
         agent._rag_service = None
+        agent._rag_ingestion_port = None
         
         result = agent._ingest_to_rag("content", {'type': 'test'})
         

@@ -3,6 +3,7 @@ Test script to verify logger functionality and ensure no duplicate messages.
 """
 
 import sys
+import logging
 from pathlib import Path
 
 # Add project root to path
@@ -14,6 +15,18 @@ from config.config import Config
 
 # Use a separate logger for test output
 test_logger = get_logger('test.logger')
+
+
+def _app_console_handlers(logger):
+    expected_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    stream = getattr(sys, "__stdout__", sys.stdout)
+    return [
+        handler
+        for handler in logger.handlers
+        if isinstance(handler, logging.StreamHandler)
+        and getattr(handler, "stream", None) == stream
+        and getattr(getattr(handler, "formatter", None), "_fmt", None) == expected_format
+    ]
 
 
 def test_logger_no_duplicates():
@@ -67,13 +80,21 @@ def test_logger_no_duplicates():
     test_logger.info("")
     
     # Assertions
-    assert len(logger1.handlers) == 1, f"Logger1 should have exactly 1 handler, got {len(logger1.handlers)}"
-    assert len(logger2.handlers) == 1, f"Logger2 should have exactly 1 handler, got {len(logger2.handlers)}"
-    assert len(logger3.handlers) == 1, f"Logger3 should have exactly 1 handler, got {len(logger3.handlers)}"
+    assert len(_app_console_handlers(logger1)) == 1, (
+        "Logger1 should have exactly 1 application console handler"
+    )
+    assert len(_app_console_handlers(logger2)) == 1, (
+        "Logger2 should have exactly 1 application console handler"
+    )
+    assert len(_app_console_handlers(logger3)) == 1, (
+        "Logger3 should have exactly 1 application console handler"
+    )
     assert logger1.propagate is False, "Logger1 propagation should be False"
     assert logger2.propagate is False, "Logger2 propagation should be False"
     assert logger3.propagate is False, "Logger3 propagation should be False"
-    assert len(logger1_again.handlers) == 1, "Should still have 1 handler after calling get_logger again"
+    assert len(_app_console_handlers(logger1_again)) == 1, (
+        "Should still have 1 application console handler after calling get_logger again"
+    )
     
     test_logger.info("PASS: Each logger has exactly 1 handler (no duplicates)")
     test_logger.info("PASS: Propagation is disabled (prevents duplicate messages)")

@@ -34,3 +34,20 @@ def test_build_application_services_returns_ports_and_workflow_service():
     assert services.jira_issue_port is not None
     assert services.confluence_page_port is not None
     assert services.jira_evaluation_port is not None
+
+
+def test_build_application_services_passes_rag_ingestion_port_to_workflow():
+    rag_port = object()
+    services = build_application_services(
+        config=FakeConfig,
+        llm_provider=object(),
+        jira_tool=FakeJiraTool(),
+        confluence_tool=FakeConfluenceTool(),
+        rag_ingestion_port=rag_port,
+        mcp_integration=None,
+        use_mcp=False,
+    )
+
+    assert services.rag_ingestion_port is rag_port
+    assert services.workflow_service.rag_ingestion_service.rag_service is rag_port
+    assert services.workflow_service.confluence_space_key == "TEAM"

@@ -79,8 +79,13 @@ def mock_chatbot():
     chatbot.get_response = Mock(return_value="Mocked chatbot response")
     chatbot.switch_provider = Mock(return_value=None)
     chatbot.set_conversation_id = Mock(return_value=None)
+    chatbot.set_selected_agent_mode = Mock(return_value=None)
     chatbot.load_conversation = Mock(return_value=True)
+    chatbot.export_runtime_state = Mock(return_value={})
+    chatbot.load_runtime_state = Mock(return_value=None)
     chatbot.conversation_history = []
+    chatbot.last_usage = None
+    chatbot.agent = None
     chatbot.memory_manager = None
     return chatbot
 
