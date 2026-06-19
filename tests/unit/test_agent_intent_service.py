@@ -225,6 +225,38 @@ def test_detect_intent_honors_explicit_requirement_sdlc_agent_mode():
     assert state["intent"] == "requirement_sdlc_agent"
 
 
+def test_detect_intent_honors_explicit_pm_status_agent_mode():
+    service = AgentIntentService(
+        config=FakeConfig,
+        detect_keyword_intent_fn=Mock(return_value=None),
+        rag_service_available=True,
+        jira_available=True,
+        coze_client=None,
+        use_mcp=False,
+        mcp_integration=None,
+        jira_tool=None,
+        get_cached_intent=Mock(),
+        cache_intent=Mock(),
+        initialize_intent_detector=Mock(),
+        get_selected_agent_mode=Mock(return_value="pm_status_agent"),
+    )
+
+    state = service.detect_intent({"user_input": "hello", "messages": []})
+
+    assert state["intent"] == "pm_status_agent"
+
+
+def test_keyword_intent_detects_pm_status_request():
+    intent = detect_keyword_intent(
+        "Generate a PM project status update for AIP with blockers and next actions",
+        rag_service_available=True,
+        jira_available=True,
+        coze_enabled=True,
+    )
+
+    assert intent == "pm_status_agent"
+
+
 def test_detect_keyword_intent_treats_model_identity_question_as_general_chat():
     intent = detect_keyword_intent(
         "which llm model are you using?",

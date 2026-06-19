@@ -254,11 +254,10 @@ class AppRuntime:
                 )
                 ui_actions = self._build_ui_actions(runtime_state)
                 workflow_progress = copy.deepcopy(
-                    getattr(
-                        getattr(chatbot, "agent", None),
-                        "export_latest_requirement_workflow_progress",
-                        lambda: None,
-                    )()
+                    self._export_workflow_progress_for_runtime_state(
+                        chatbot,
+                        runtime_state,
+                    )
                 )
 
                 if not memory_manager:
@@ -338,7 +337,32 @@ class AppRuntime:
                 {"label": "Approve", "value": "approve", "kind": "primary"},
                 {"label": "Cancel", "value": "cancel", "kind": "secondary"},
             ]
+        pm_status_state = (runtime_state or {}).get("pm_status_agent_state") or {}
+        if pm_status_state.get("stage") == "confirmation":
+            return [
+                {"label": "Approve", "value": "approve", "kind": "primary"},
+                {"label": "Cancel", "value": "cancel", "kind": "secondary"},
+            ]
         return None
+
+    def _export_workflow_progress_for_runtime_state(
+        self,
+        chatbot: Any,
+        runtime_state: Optional[Dict[str, Any]],
+    ) -> Optional[list[dict[str, Any]]]:
+        """Return progress from the active agent mode."""
+        agent = getattr(chatbot, "agent", None)
+        if (runtime_state or {}).get("agent_mode") == "pm_status_agent":
+            return getattr(
+                agent,
+                "export_latest_pm_status_workflow_progress",
+                lambda: None,
+            )()
+        return getattr(
+            agent,
+            "export_latest_requirement_workflow_progress",
+            lambda: None,
+        )()
 
     def _snapshot_chatbot_state(self, chatbot: Any) -> Dict[str, Any]:
         """Capture mutable chatbot request state so it can be restored after execution."""

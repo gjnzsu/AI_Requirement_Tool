@@ -97,7 +97,7 @@ async function loadCurrentModel() {
     }
 
     const savedAgentMode = localStorage.getItem('selectedAgentMode');
-    if (savedAgentMode && (savedAgentMode === 'auto' || savedAgentMode === 'requirement_sdlc_agent')) {
+    if (savedAgentMode && (savedAgentMode === 'auto' || savedAgentMode === 'requirement_sdlc_agent' || savedAgentMode === 'pm_status_agent')) {
         currentAgentMode = savedAgentMode;
         if (agentModeSelect) {
             agentModeSelect.value = savedAgentMode;
@@ -152,12 +152,15 @@ function handleAgentModeChange(event) {
     const selectedAgentMode = event.target.value;
     currentAgentMode = selectedAgentMode;
     localStorage.setItem('selectedAgentMode', selectedAgentMode);
+    const agentModeLabels = {
+        auto: 'Auto',
+        requirement_sdlc_agent: 'Requirement SDLC Agent',
+        pm_status_agent: 'PM Status Agent'
+    };
 
     const notification = document.createElement('div');
     notification.className = 'model-change-notification';
-    notification.textContent = selectedAgentMode === 'auto'
-        ? 'Agent mode switched to Auto'
-        : 'Agent mode switched to Requirement SDLC Agent';
+    notification.textContent = `Agent mode switched to ${agentModeLabels[selectedAgentMode] || 'Auto'}`;
     document.body.appendChild(notification);
 
     setTimeout(() => {
@@ -326,7 +329,8 @@ function renderMessageContent(messageDiv, role, messageId, content, isLoading = 
 
         const workflowTitle = document.createElement('div');
         workflowTitle.className = 'workflow-progress-title';
-        workflowTitle.textContent = 'Requirement SDLC Progress';
+        const hasPmStatusProgress = options.workflowProgress.some((step) => (step.step || '').startsWith('pm_'));
+        workflowTitle.textContent = hasPmStatusProgress ? 'PM Status Progress' : 'Requirement SDLC Progress';
         workflowProgressDiv.appendChild(workflowTitle);
 
         options.workflowProgress.forEach((step) => {

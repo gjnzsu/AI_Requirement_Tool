@@ -18,6 +18,7 @@ def build_agent_graph(
     handle_rag_query,
     handle_coze_agent,
     handle_requirement_sdlc_agent=lambda state: state,
+    handle_pm_status_agent=lambda state: state,
 ):
     """Build and compile the LangGraph workflow for the chatbot agent."""
     graph = StateGraph(state_type)
@@ -30,6 +31,7 @@ def build_agent_graph(
     graph.add_node("rag_query", handle_rag_query)
     graph.add_node("coze_agent", handle_coze_agent)
     graph.add_node("requirement_sdlc_agent", handle_requirement_sdlc_agent)
+    graph.add_node("pm_status_agent", handle_pm_status_agent)
 
     graph.set_entry_point("intent_detection")
     graph.add_conditional_edges(
@@ -42,6 +44,7 @@ def build_agent_graph(
             "general_chat": "general_chat",
             "coze_agent": "coze_agent",
             "requirement_sdlc_agent": "requirement_sdlc_agent",
+            "pm_status_agent": "pm_status_agent",
             "end": END,
         },
     )
@@ -60,5 +63,6 @@ def build_agent_graph(
     graph.add_edge("general_chat", END)
     graph.add_edge("coze_agent", END)
     graph.add_edge("requirement_sdlc_agent", END)
+    graph.add_edge("pm_status_agent", END)
 
     return graph.compile()

@@ -440,6 +440,9 @@ class Chatbot:
         self.jira_issue_port = services.jira_issue_port
         self.jira_evaluation_port = services.jira_evaluation_port
         self.confluence_page_port = services.confluence_page_port
+        self.jira_project_read_port = services.jira_project_read_port
+        self.confluence_read_port = services.confluence_read_port
+        self.project_status_workflow_service = services.project_status_workflow_service
     
     def _initialize_tools(self):
         """Initialize MCP tools (Jira, Confluence) on demand."""
@@ -1161,11 +1164,21 @@ class Chatbot:
         skill_state = None
         if self.agent and hasattr(self.agent, "export_requirement_sdlc_agent_state"):
             skill_state = self.agent.export_requirement_sdlc_agent_state()
+        pm_status_state = None
+        if (
+            getattr(self, "selected_agent_mode", "auto") == "pm_status_agent"
+            and self.agent
+            and hasattr(self.agent, "export_pm_status_agent_state")
+        ):
+            pm_status_state = self.agent.export_pm_status_agent_state()
 
-        return {
+        payload = {
             "agent_mode": getattr(self, "selected_agent_mode", "auto"),
             "requirement_sdlc_agent_state": skill_state,
         }
+        if getattr(self, "selected_agent_mode", "auto") == "pm_status_agent":
+            payload["pm_status_agent_state"] = pm_status_state
+        return payload
 
     def load_runtime_state(self, runtime_state: Optional[Dict[str, Any]]) -> None:
         """Load conversation-scoped runtime state from persistent metadata."""
@@ -1175,12 +1188,18 @@ class Chatbot:
             if getattr(self, "selected_agent_mode", "auto") == "requirement_sdlc_agent":
                 state = (runtime_state or {}).get("requirement_sdlc_agent_state")
                 self.agent.load_requirement_sdlc_agent_state(state)
+        if self.agent and hasattr(self.agent, "load_pm_status_agent_state"):
+            if getattr(self, "selected_agent_mode", "auto") == "pm_status_agent":
+                state = (runtime_state or {}).get("pm_status_agent_state")
+                self.agent.load_pm_status_agent_state(state)
 
     def set_selected_agent_mode(self, agent_mode: Optional[str]) -> None:
         """Set the selected agent mode for the current conversation."""
         normalized_mode = (agent_mode or "auto").strip().lower()
         self.selected_agent_mode = (
-            normalized_mode if normalized_mode in {"auto", "requirement_sdlc_agent"} else "auto"
+            normalized_mode
+            if normalized_mode in {"auto", "requirement_sdlc_agent", "pm_status_agent"}
+            else "auto"
         )
         if self.agent and hasattr(self.agent, "set_selected_agent_mode"):
             self.agent.set_selected_agent_mode(self.selected_agent_mode)
@@ -1190,6 +1209,12 @@ class Chatbot:
             and hasattr(self.agent, "load_requirement_sdlc_agent_state")
         ):
             self.agent.load_requirement_sdlc_agent_state(None)
+        if (
+            self.selected_agent_mode != "pm_status_agent"
+            and self.agent
+            and hasattr(self.agent, "load_pm_status_agent_state")
+        ):
+            self.agent.load_pm_status_agent_state(None)
 
     def set_precomputed_intent_for_next_response(self, intent: Optional[str]) -> None:
         """Store a one-shot precomputed intent for the next agent turn."""
