@@ -60,6 +60,10 @@ class AgentIntentService:
             state["intent"] = "requirement_sdlc_agent"
             logger.debug("Intent: requirement_sdlc_agent (explicit agent mode)")
             return state
+        if self.get_selected_agent_mode() == "pm_status_agent":
+            state["intent"] = "pm_status_agent"
+            logger.debug("Intent: pm_status_agent (explicit agent mode)")
+            return state
 
         keyword_intent = self.detect_keyword_intent_fn(
             raw_user_input,
@@ -149,6 +153,9 @@ class AgentIntentService:
 
         if intent == "requirement_sdlc_agent":
             return "requirement_sdlc_agent"
+
+        if intent == "pm_status_agent":
+            return "pm_status_agent"
 
         if intent == "confluence_creation":
             return "confluence_creation" if self.confluence_page_port else "general_chat"

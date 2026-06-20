@@ -80,3 +80,4 @@ The system SHALL provide lifecycle operations for deleting or refreshing indexed
 #### Scenario: Related knowledge can be refreshed by Jira key
 - **WHEN** a caller requests reindexing for a Jira key
 - **THEN** `ai-rag-service` SHALL support refreshing or replacing the active indexed records associated with that Jira key
+

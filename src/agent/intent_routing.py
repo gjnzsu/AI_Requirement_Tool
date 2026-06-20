@@ -148,6 +148,18 @@ REQUIREMENT_SKILL_KEYWORDS = [
     "requirement analysis",
 ]
 
+PM_STATUS_KEYWORDS = [
+    "pm status",
+    "project status",
+    "status update",
+    "delivery status",
+    "weekly delivery review",
+    "daily status",
+    "project health",
+    "health report",
+    "blockers and next actions",
+]
+
 COZE_KEYWORDS = ["ai daily report", "ai daily news", "ai news"]
 JIRA_KEY_LOOKUP_PATTERN = r"\b[A-Z]{2,10}-\d+\b"
 
@@ -170,6 +182,9 @@ def detect_keyword_intent(
 
     if any(keyword in normalized_input for keyword in REQUIREMENT_SKILL_KEYWORDS):
         return "requirement_sdlc_agent"
+
+    if any(keyword in normalized_input for keyword in PM_STATUS_KEYWORDS):
+        return "pm_status_agent"
 
     if jira_available and _matches_jira_creation_intent(normalized_input):
         return "jira_creation"

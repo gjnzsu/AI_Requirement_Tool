@@ -20,6 +20,7 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 - **LangGraph Agent Framework** - Stateful agent graph with intent detection and multi-step tool orchestration
 - **Refactored Agent Orchestration** - `src/agent/agent_graph.py` now focuses on orchestration while intent routing, Jira, Confluence, RAG, Coze, and general chat behavior live in focused helper modules
 - **Requirement SDLC Agent Mode** - Staged BA-guided requirement drafting with explicit approval before durable Jira/Confluence/RAG lifecycle execution
+- **PM Status Agent Mode** - Project status analysis from Jira, Confluence, and meeting-note signals with Green/Amber/Red health, risks, blockers, actions, stakeholder update drafts, and approved Confluence write-back
 - **Conversation Memory** - Persistent history with automatic summarization to stay within context limits
 - **Intent Routing** - Automatically distinguishes general chat, document Q&A, and Jira/Confluence actions
 - **Coze Platform Integration** - ByteDance Coze agent support via cozepy SDK with configurable HTTP timeout
@@ -33,6 +34,24 @@ The Requirement SDLC Agentic Skill helps convert raw requirement input into stru
 - **Runtime service** - `src/services/requirement_sdlc_agent_service.py`
 - **Execution service** - `src/services/requirement_workflow_service.py`
 
+### PM Status Agent Mode
+
+The PM Status Agent helps delivery leads produce stakeholder-ready status updates from Jira issue signals, Confluence project context, and optional pasted meeting notes. Select `PM Status Agent` in the web UI agent selector, or pass `"agent_mode": "pm_status_agent"` to `/api/chat`.
+
+Example prompts:
+
+```text
+Generate PM status for AIP for the weekly review.
+
+Generate PM status for AIP.
+Meeting notes:
+- Prompt approval workflow slipped by two days.
+- No active blocker.
+- Action: Engineering Lead to publish recovery plan by 2026-06-20.
+```
+
+The first response includes health color, executive summary, progress, risks, blockers, decisions needed, owner gaps, next actions, source references, and a stakeholder update. If Confluence write-back is configured, the agent presents a draft status page and waits for `approve` or `cancel`; it does not publish without approval.
+
 ### Document Q&A (RAG)
 - **RAG Service** - Retrieval-Augmented Generation over internal documents with vector embeddings
 - **Vector Store & Caching** - Fast similarity search with a TTL-based RAG cache to reduce redundant embedding calls
@@ -40,6 +59,7 @@ The Requirement SDLC Agentic Skill helps convert raw requirement input into stru
 
 ### Jira & Confluence Workflows
 - **Shared Requirement Workflow Service** - Centralized requirement backlog generation, Jira creation, maturity evaluation, and Confluence-page assembly in `src/services/requirement_workflow_service.py`
+- **PM Status Workflow Service** - Jira/Confluence read-side delivery signal collection and deterministic PM health analysis in `src/services/project_status_workflow_service.py`
 - **Direct Confluence Creation Service** - Freeform Confluence-page drafting and creation in `src/services/confluence_creation_service.py`
 - **MCP Integration** - Model Context Protocol server for Jira and Confluence, enabling natural-language issue creation, search, and page management
 - **Custom Tools** - Direct REST API tools for Jira issue management and Confluence content operations

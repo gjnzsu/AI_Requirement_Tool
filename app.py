@@ -310,8 +310,8 @@ def chat():
         # Validate model
         if model not in ['openai', 'gemini', 'deepseek']:
             return jsonify({'error': f'Invalid model: {model}. Supported models: openai, gemini, deepseek'}), 400
-        if agent_mode not in ['auto', 'requirement_sdlc_agent']:
-            return jsonify({'error': f'Invalid agent mode: {agent_mode}. Supported agent modes: auto, requirement_sdlc_agent'}), 400
+        if agent_mode not in ['auto', 'requirement_sdlc_agent', 'pm_status_agent']:
+            return jsonify({'error': f'Invalid agent mode: {agent_mode}. Supported agent modes: auto, requirement_sdlc_agent, pm_status_agent'}), 400
         
         runtime = get_app_runtime(app_runtime)
         title = message[:50] + ('...' if len(message) > 50 else '')

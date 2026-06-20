@@ -175,3 +175,38 @@ def test_build_agent_graph_routes_direct_confluence_creation_to_end():
 
     assert result["confluence_result"]["success"] is True
     assert calls == ["detect", "confluence"]
+
+
+def test_build_agent_graph_routes_pm_status_agent_to_end():
+    calls = []
+
+    def detect(state):
+        calls.append("detect")
+        state["intent"] = "pm_status_agent"
+        return state
+
+    def route_after_intent(state):
+        return "pm_status_agent"
+
+    def pm_status_agent(state):
+        calls.append("pm_status_agent")
+        state["pm_status_result"] = {"health": "Green"}
+        return state
+
+    graph = build_agent_graph(
+        detect_intent=detect,
+        route_after_intent=route_after_intent,
+        handle_general_chat=lambda state: state,
+        handle_jira_creation=lambda state: state,
+        handle_evaluation=lambda state: state,
+        route_after_evaluation=lambda state: "end",
+        handle_confluence_creation=lambda state: state,
+        handle_rag_query=lambda state: state,
+        handle_coze_agent=lambda state: state,
+        handle_pm_status_agent=pm_status_agent,
+    )
+
+    result = graph.invoke({"messages": [], "user_input": "project status"})
+
+    assert result["pm_status_result"]["health"] == "Green"
+    assert calls == ["detect", "pm_status_agent"]

@@ -14,7 +14,7 @@
                 <span class="section-label">Workspace</span>
                 <div class="brand-block">
                     <h1 class="logo">CHAT A.I+</h1>
-                    <p class="brand-copy">Requirement conversations with a calmer, more intentional interface.</p>
+                    <p class="brand-copy">AI delivery work across requirements, PM status, Jira, and Confluence.</p>
                 </div>
 
                 <button class="btn-new-chat" id="newChatBtn">
@@ -42,6 +42,7 @@
                         <select id="agentModeSelect" class="model-dropdown">
                             <option value="auto">Auto</option>
                             <option value="requirement_sdlc_agent">Requirement SDLC Agent</option>
+                            <option value="pm_status_agent">PM Status Agent</option>
                         </select>
                     </div>
 
@@ -86,10 +87,25 @@
                 <div class="chat-stage-header">
                     <div class="chat-stage-copy">
                         <span class="section-label">Conversation</span>
-                        <h2 class="chat-stage-title">Shape requirements with more clarity.</h2>
-                        <p class="chat-stage-subtitle">Switch models, search prior threads, and keep your working context in one focused space.</p>
+                        <h2 class="chat-stage-title">Plan, analyze, and manage delivery work.</h2>
+                        <p class="chat-stage-subtitle">Switch agents, search prior threads, and keep project context in one focused space.</p>
                     </div>
                     <div class="status-pill">Live workspace</div>
+                </div>
+                <div class="pm-demo-scenarios" id="pmDemoScenarios" hidden>
+                    <span class="pm-demo-label">PM demo scenarios</span>
+                    <button type="button" class="pm-demo-btn" data-scenario-id="scenario-01-on-track">
+                        <i class="fas fa-circle-check"></i>
+                        <span>On Track</span>
+                    </button>
+                    <button type="button" class="pm-demo-btn" data-scenario-id="scenario-02-delayed-no-blocker">
+                        <i class="fas fa-clock"></i>
+                        <span>Delayed</span>
+                    </button>
+                    <button type="button" class="pm-demo-btn" data-scenario-id="scenario-03-delayed-with-blocker">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>Blocked</span>
+                    </button>
                 </div>
             </div>
 
@@ -101,7 +117,7 @@
                             <span>Balanced workspace mode</span>
                         </div>
                         <h2>Welcome to CHAT A.I+</h2>
-                        <p>Start a new requirement conversation, continue a saved thread, or switch into the Requirement SDLC Agent when you need a more guided workflow.</p>
+                        <p>Start a delivery conversation, continue a saved thread, or switch agents for requirement drafting and PM status updates.</p>
                         <div class="welcome-actions">
                             <button type="button" class="pill-button primary" onclick="document.getElementById('chatInput').focus();">
                                 <i class="fas fa-pen"></i>
@@ -121,7 +137,7 @@
                     <input
                         type="text"
                         id="chatInput"
-                        placeholder="Ask about a requirement, workflow, or decision..."
+                        placeholder="Ask about requirements, PM status, Jira, Confluence, or delivery decisions..."
                         autocomplete="off"
                     >
                     <button class="btn-send" id="sendBtn" aria-label="Send message">
@@ -130,13 +146,6 @@
                 </div>
             </div>
         </main>
-
-        <aside class="upgrade-sidebar" aria-hidden="true">
-            <div class="upgrade-content">
-                <i class="fas fa-star"></i>
-                <span>Pro Workspace</span>
-            </div>
-        </aside>
     </div>
 
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>

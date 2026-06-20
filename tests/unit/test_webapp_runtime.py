@@ -274,6 +274,20 @@ def test_chatbot_export_runtime_state_includes_requirement_sdlc_agent_state():
     }
 
 
+def test_chatbot_export_runtime_state_includes_pm_status_agent_state():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.selected_agent_mode = "pm_status_agent"
+    chatbot.agent = Mock()
+    chatbot.agent.export_requirement_sdlc_agent_state = Mock(return_value=None)
+    chatbot.agent.export_pm_status_agent_state = Mock(return_value={"stage": "preview"})
+
+    assert chatbot.export_runtime_state() == {
+        "agent_mode": "pm_status_agent",
+        "requirement_sdlc_agent_state": None,
+        "pm_status_agent_state": {"stage": "preview"},
+    }
+
+
 def test_chatbot_load_runtime_state_restores_selected_agent_mode():
     chatbot = Chatbot.__new__(Chatbot)
     chatbot.selected_agent_mode = "auto"
@@ -290,6 +304,23 @@ def test_chatbot_load_runtime_state_restores_selected_agent_mode():
     chatbot.agent.set_selected_agent_mode.assert_called_once_with("requirement_sdlc_agent")
 
 
+def test_chatbot_load_runtime_state_restores_pm_status_agent_state():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.selected_agent_mode = "auto"
+    chatbot.agent = Mock()
+
+    chatbot.load_runtime_state(
+        {
+            "agent_mode": "pm_status_agent",
+            "pm_status_agent_state": {"stage": "preview"},
+        }
+    )
+
+    assert chatbot.selected_agent_mode == "pm_status_agent"
+    chatbot.agent.set_selected_agent_mode.assert_called_once_with("pm_status_agent")
+    chatbot.agent.load_pm_status_agent_state.assert_called_once_with({"stage": "preview"})
+
+
 def test_chatbot_set_selected_agent_mode_to_auto_clears_requirement_sdlc_agent_state():
     chatbot = Chatbot.__new__(Chatbot)
     chatbot.selected_agent_mode = "requirement_sdlc_agent"
@@ -300,6 +331,80 @@ def test_chatbot_set_selected_agent_mode_to_auto_clears_requirement_sdlc_agent_s
     assert chatbot.selected_agent_mode == "auto"
     chatbot.agent.set_selected_agent_mode.assert_called_once_with("auto")
     chatbot.agent.load_requirement_sdlc_agent_state.assert_called_once_with(None)
+
+
+def test_chatbot_set_selected_agent_mode_to_auto_clears_pm_status_agent_state():
+    chatbot = Chatbot.__new__(Chatbot)
+    chatbot.selected_agent_mode = "pm_status_agent"
+    chatbot.agent = Mock()
+
+    chatbot.set_selected_agent_mode("auto")
+
+    assert chatbot.selected_agent_mode == "auto"
+    chatbot.agent.set_selected_agent_mode.assert_called_once_with("auto")
+    chatbot.agent.load_pm_status_agent_state.assert_called_once_with(None)
+
+
+def test_runtime_builds_quick_actions_for_pm_status_confirmation():
+    runtime = AppRuntime(config=FakeConfig)
+
+    actions = runtime._build_ui_actions(
+        {
+            "agent_mode": "pm_status_agent",
+            "pm_status_agent_state": {
+                "stage": "confirmation",
+                "awaiting_confirmation": True,
+            },
+        }
+    )
+
+    assert actions == [
+        {"label": "Approve", "value": "approve", "kind": "primary"},
+        {"label": "Cancel", "value": "cancel", "kind": "secondary"},
+    ]
+
+
+def test_runtime_exports_pm_status_workflow_progress_when_pm_mode_selected():
+    runtime = AppRuntime(config=FakeConfig)
+    chatbot = Mock()
+    chatbot.provider_name = "openai"
+    chatbot.provider_manager = Mock()
+    chatbot.llm_provider = Mock()
+    chatbot.conversation_id = "previous-conv"
+    chatbot.conversation_history = []
+    chatbot.last_usage = None
+    chatbot.agent = Mock()
+    chatbot.agent.export_latest_requirement_workflow_progress = Mock(return_value=None)
+    chatbot.agent.export_latest_pm_status_workflow_progress = Mock(
+        return_value=[{"step": "pm_report", "label": "Generate PM status", "status": "completed"}]
+    )
+    chatbot.export_runtime_state = Mock(
+        side_effect=[
+            {"agent_mode": "auto"},
+            {"agent_mode": "pm_status_agent", "pm_status_agent_state": {"stage": "preview"}},
+            {"agent_mode": "pm_status_agent", "pm_status_agent_state": {"stage": "preview"}},
+        ]
+    )
+    chatbot.load_runtime_state = Mock()
+    chatbot.set_selected_agent_mode = Mock()
+    chatbot.switch_provider = Mock()
+    chatbot.set_conversation_id = Mock()
+    chatbot.get_response = Mock(return_value="PM report")
+
+    runtime.conversations["conv-123"] = {"messages": [], "metadata": {}}
+
+    result = runtime.execute_chat_request(
+        message="status",
+        conversation_id="conv-123",
+        model="openai",
+        agent_mode="pm_status_agent",
+        chatbot=chatbot,
+        memory_manager=None,
+    )
+
+    assert result.workflow_progress == [
+        {"step": "pm_report", "label": "Generate PM status", "status": "completed"}
+    ]
 
 
 def test_chatbot_load_runtime_state_drops_requirement_sdlc_agent_state_in_auto_mode():

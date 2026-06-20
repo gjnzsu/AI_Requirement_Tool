@@ -1,0 +1,111 @@
+{
+  "id": "scenario-03-delayed-with-blocker",
+  "name": "AI Platform UAT Readiness - Delayed With Blocker",
+  "expected": {
+    "health": "Red",
+    "summary": "Project is delayed and blocked by unresolved security and environment dependencies.",
+    "must_include": [
+      "blocked",
+      "Security policy not approved",
+      "UAT readiness at risk",
+      "escalation",
+      "owner decision required"
+    ],
+    "must_not_include": [
+      "on track",
+      "no active blocker",
+      "Green"
+    ]
+  },
+  "input": {
+    "project_key": "AIP",
+    "project_name": "Enterprise AI Platform MVP",
+    "time_window": "Past 48h",
+    "audience": "IT Director, Security Manager, AI Platform Sponsor",
+    "jira": {
+      "jql": "project = AIP AND fixVersion = MVP-1 AND statusCategory != Done ORDER BY priority DESC",
+      "issues": [
+        {
+          "key": "AIP-121",
+          "summary": "Automate Azure OpenAI key rotation",
+          "status": "Blocked",
+          "status_category": "In Progress",
+          "assignee": "Omar Ali",
+          "due_date": "2026-06-20",
+          "priority": "Highest",
+          "comments": [
+            "Blocked until Security approves secret rotation policy.",
+            "Cannot proceed with UAT environment because key rotation approach is not approved.",
+            "Manual workaround proposed but not yet accepted."
+          ],
+          "links": [
+            {
+              "type": "blocks",
+              "key": "AIP-134",
+              "summary": "Provision UAT environment"
+            }
+          ]
+        },
+        {
+          "key": "AIP-134",
+          "summary": "Provision UAT environment",
+          "status": "Blocked",
+          "status_category": "In Progress",
+          "assignee": "Infra Queue",
+          "due_date": "2026-06-21",
+          "priority": "High",
+          "comments": [
+            "Network whitelist approval is still pending.",
+            "Environment provisioning cannot complete without Security and Network approvals.",
+            "No named owner for final Network approval."
+          ],
+          "links": [
+            {
+              "type": "is blocked by",
+              "key": "AIP-121",
+              "summary": "Automate Azure OpenAI key rotation"
+            }
+          ]
+        },
+        {
+          "key": "AIP-151",
+          "summary": "Define AI usage audit trail owner",
+          "status": "Open",
+          "status_category": "To Do",
+          "assignee": null,
+          "due_date": "2026-06-20",
+          "priority": "High",
+          "comments": [
+            "Data Governance and AI Platform have not agreed ownership.",
+            "Governance sign-off cannot complete until owner is assigned."
+          ],
+          "links": []
+        }
+      ]
+    },
+    "confluence": {
+      "pages": [
+        {
+          "id": "873001",
+          "title": "Enterprise AI Platform MVP - Delivery Plan",
+          "url": "https://example.atlassian.net/wiki/spaces/AIP/pages/873001",
+          "content": "UAT target is 2026-06-28. Entry criteria: key rotation policy approved, UAT environment provisioned, audit trail owner assigned, logging schema signed off."
+        },
+        {
+          "id": "873019",
+          "title": "AI Platform RAID Log",
+          "url": "https://example.atlassian.net/wiki/spaces/AIP/pages/873019",
+          "content": "Issue: key rotation policy not approved. Issue: UAT environment blocked by whitelist approval. Risk: audit trail owner missing. Escalation required to IT Director and Security Manager."
+        }
+      ]
+    },
+    "meeting_notes": [
+      "Security manager said UAT should not proceed until key rotation policy is approved.",
+      "Infra team cannot complete UAT environment provisioning because network whitelist approval is pending.",
+      "No owner was named for final Network approval.",
+      "Data Governance says AI usage audit trail owner must be assigned before governance sign-off.",
+      "Decision needed: allow temporary manual key rotation for UAT or delay UAT entry.",
+      "Action: PM to escalate policy and owner decisions to IT Director today."
+    ]
+  }
+}

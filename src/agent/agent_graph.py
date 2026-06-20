@@ -37,6 +37,7 @@ from src.services.intent_detector import IntentDetector
 from src.services.requirement_sdlc_agent_service import (
     RequirementSdlcAgentService,
 )
+from src.services.project_status_agent_service import ProjectStatusAgentService
 from src.mcp.mcp_integration import MCPIntegration
 from src.agent.graph_builder import build_agent_graph
 from src.agent.callbacks import LLMMonitoringCallback
@@ -74,6 +75,7 @@ class AgentState(TypedDict):
     confluence_result: Optional[Dict[str, Any]]
     rag_context: Optional[List[str]]
     coze_result: Optional[Dict[str, Any]]
+    pm_status_result: Optional[Dict[str, Any]]
     conversation_history: List[Dict[str, str]]
     next_action: Optional[str]  # Next node to execute
 
@@ -157,7 +159,9 @@ class ChatbotAgent:
         self.confluence_page_port = None
         self.jira_evaluation_port = None
         self.requirement_workflow_service = None
+        self.project_status_workflow_service = None
         self.requirement_sdlc_agent_service = None
+        self.project_status_agent_service = None
         self.chat_response_service = None
         self.general_chat_service = None
         self.confluence_creation_service = None
@@ -167,8 +171,10 @@ class ChatbotAgent:
         self.rag_ingestion_service = None
         self.intent_service = None
         self._requirement_sdlc_agent_state: Optional[Dict[str, Any]] = None
+        self._pm_status_agent_state: Optional[Dict[str, Any]] = None
         self._selected_agent_mode: str = "auto"
         self._latest_requirement_workflow_progress: Optional[List[Dict[str, Any]]] = None
+        self._latest_pm_status_workflow_progress: Optional[List[Dict[str, Any]]] = None
         
         if self.enable_tools:
             self._initialize_tools()
@@ -383,6 +389,9 @@ class ChatbotAgent:
         self.jira_issue_port = services.jira_issue_port
         self.confluence_page_port = services.confluence_page_port
         self.jira_evaluation_port = services.jira_evaluation_port
+        self.jira_project_read_port = services.jira_project_read_port
+        self.confluence_read_port = services.confluence_read_port
+        self.project_status_workflow_service = services.project_status_workflow_service
 
     def _compose_flow_services(self) -> None:
         """Assemble flow services used by the graph handlers."""
@@ -408,6 +417,12 @@ class ChatbotAgent:
                 llm_provider=llm,
                 workflow_service=getattr(self, "requirement_workflow_service", None),
             )
+            if getattr(self, "project_status_workflow_service", None):
+                self.project_status_agent_service = ProjectStatusAgentService(
+                    workflow_service=self.project_status_workflow_service,
+                    default_project_key=getattr(Config, "JIRA_PROJECT_KEY", ""),
+                    confluence_page_port=getattr(self, "confluence_page_port", None),
+                )
             self.confluence_creation_service = ConfluenceCreationService(
                 llm_provider=llm,
                 confluence_page_port=getattr(self, "confluence_page_port", None),
@@ -419,6 +434,11 @@ class ChatbotAgent:
             self.requirement_sdlc_agent_service = getattr(
                 self,
                 "requirement_sdlc_agent_service",
+                None,
+            )
+            self.project_status_agent_service = getattr(
+                self,
+                "project_status_agent_service",
                 None,
             )
             self.confluence_creation_service = getattr(
@@ -629,6 +649,7 @@ class ChatbotAgent:
             handle_rag_query=self._handle_rag_query,
             handle_coze_agent=self._handle_coze_agent,
             handle_requirement_sdlc_agent=self._handle_requirement_sdlc_agent,
+            handle_pm_status_agent=self._handle_pm_status_agent,
         )
 
     def load_requirement_sdlc_agent_state(
@@ -641,6 +662,22 @@ class ChatbotAgent:
     def export_requirement_sdlc_agent_state(self) -> Optional[Dict[str, Any]]:
         """Return a copy of the current Requirement SDLC Agent runtime state."""
         return copy.deepcopy(getattr(self, "_requirement_sdlc_agent_state", None))
+
+    def load_pm_status_agent_state(
+        self,
+        state: Optional[Dict[str, Any]],
+    ) -> None:
+        """Restore persisted PM Status Agent state into the agent runtime."""
+        self._pm_status_agent_state = copy.deepcopy(state) if state else None
+
+    def export_pm_status_agent_state(self) -> Optional[Dict[str, Any]]:
+        """Return a copy of the current PM Status Agent runtime state."""
+        return copy.deepcopy(getattr(self, "_pm_status_agent_state", None))
+
+    def has_pending_pm_status_agent_state(self) -> bool:
+        """Report whether the PM Status Agent has an active staged turn."""
+        state = self.export_pm_status_agent_state()
+        return bool(state and state.get("stage") in {"analysis", "confirmation", "preview"})
 
     def has_pending_requirement_sdlc_agent_state(self) -> bool:
         """Report whether the Requirement SDLC Agent has an active staged turn."""
@@ -665,14 +702,33 @@ class ChatbotAgent:
         """Return a copy of the latest workflow progress for UI rendering."""
         return copy.deepcopy(getattr(self, "_latest_requirement_workflow_progress", None))
 
+    def load_latest_pm_status_workflow_progress(
+        self,
+        workflow_progress: Optional[List[Dict[str, Any]]],
+    ) -> None:
+        """Restore the latest PM status workflow progress snapshot."""
+        self._latest_pm_status_workflow_progress = (
+            copy.deepcopy(workflow_progress) if workflow_progress else None
+        )
+
+    def export_latest_pm_status_workflow_progress(
+        self,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Return a copy of the latest PM status workflow progress for UI rendering."""
+        return copy.deepcopy(getattr(self, "_latest_pm_status_workflow_progress", None))
+
     def set_selected_agent_mode(self, agent_mode: Optional[str]) -> None:
         """Persist the currently selected agent mode for intent routing."""
         normalized_mode = (agent_mode or "auto").strip().lower()
         self._selected_agent_mode = (
-            normalized_mode if normalized_mode in {"auto", "requirement_sdlc_agent"} else "auto"
+            normalized_mode
+            if normalized_mode in {"auto", "requirement_sdlc_agent", "pm_status_agent"}
+            else "auto"
         )
         if self._selected_agent_mode != "requirement_sdlc_agent":
             self.load_requirement_sdlc_agent_state(None)
+        if self._selected_agent_mode != "pm_status_agent":
+            self.load_pm_status_agent_state(None)
 
     def get_selected_agent_mode(self) -> str:
         """Return the currently selected agent mode."""
@@ -750,6 +806,39 @@ class ChatbotAgent:
         if result.workflow_result is not None:
             workflow_progress = getattr(result.workflow_result, "workflow_progress", None)
         self.load_latest_requirement_workflow_progress(workflow_progress)
+        state["messages"].append(AIMessage(content=result.response_text))
+        return state
+
+    def _handle_pm_status_agent(self, state: AgentState) -> AgentState:
+        """Delegate PM Status Agent turns to the PM status service."""
+        self._refresh_application_services()
+        skill_service = getattr(self, "project_status_agent_service", None)
+        if not skill_service:
+            state["messages"].append(
+                AIMessage(
+                    content=(
+                        "I apologize, but the PM Status Agent is not configured correctly."
+                    )
+                )
+            )
+            return state
+
+        result = skill_service.handle_turn(
+            user_input=state.get("user_input", ""),
+            conversation_history=state.get("conversation_history", []),
+            pending_state=self.export_pm_status_agent_state(),
+        )
+        self.load_pm_status_agent_state(result.pending_state)
+        self.load_latest_pm_status_workflow_progress(
+            getattr(result, "workflow_progress", None)
+        )
+        workflow_result = getattr(result, "workflow_result", None)
+        if workflow_result is not None:
+            state["pm_status_result"] = (
+                workflow_result.to_dict()
+                if hasattr(workflow_result, "to_dict")
+                else workflow_result
+            )
         state["messages"].append(AIMessage(content=result.response_text))
         return state
     

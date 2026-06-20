@@ -18,6 +18,7 @@ const clearAllBtn = document.getElementById('clearAllBtn');
 const searchInput = document.getElementById('searchInput');
 const modelSelect = document.getElementById('modelSelect');
 const agentModeSelect = document.getElementById('agentModeSelect');
+const pmDemoScenarios = document.getElementById('pmDemoScenarios');
 
 // Initialize
 async function initializeApp() {
@@ -97,12 +98,13 @@ async function loadCurrentModel() {
     }
 
     const savedAgentMode = localStorage.getItem('selectedAgentMode');
-    if (savedAgentMode && (savedAgentMode === 'auto' || savedAgentMode === 'requirement_sdlc_agent')) {
+    if (savedAgentMode && (savedAgentMode === 'auto' || savedAgentMode === 'requirement_sdlc_agent' || savedAgentMode === 'pm_status_agent')) {
         currentAgentMode = savedAgentMode;
         if (agentModeSelect) {
             agentModeSelect.value = savedAgentMode;
         }
     }
+    updatePmDemoScenarioVisibility();
 }
 
 // Event Listeners
@@ -125,6 +127,11 @@ function setupEventListeners() {
     }
     if (agentModeSelect) {
         agentModeSelect.addEventListener('change', handleAgentModeChange);
+    }
+    if (pmDemoScenarios) {
+        pmDemoScenarios.querySelectorAll('[data-scenario-id]').forEach((button) => {
+            button.addEventListener('click', () => runPmDemoScenario(button.dataset.scenarioId));
+        });
     }
 }
 
@@ -152,17 +159,49 @@ function handleAgentModeChange(event) {
     const selectedAgentMode = event.target.value;
     currentAgentMode = selectedAgentMode;
     localStorage.setItem('selectedAgentMode', selectedAgentMode);
+    updatePmDemoScenarioVisibility();
+    const agentModeLabels = {
+        auto: 'Auto',
+        requirement_sdlc_agent: 'Requirement SDLC Agent',
+        pm_status_agent: 'PM Status Agent'
+    };
 
     const notification = document.createElement('div');
     notification.className = 'model-change-notification';
-    notification.textContent = selectedAgentMode === 'auto'
-        ? 'Agent mode switched to Auto'
-        : 'Agent mode switched to Requirement SDLC Agent';
+    notification.textContent = `Agent mode switched to ${agentModeLabels[selectedAgentMode] || 'Auto'}`;
     document.body.appendChild(notification);
 
     setTimeout(() => {
         notification.remove();
     }, 2000);
+}
+
+function updatePmDemoScenarioVisibility() {
+    if (!pmDemoScenarios) {
+        return;
+    }
+    pmDemoScenarios.hidden = currentAgentMode !== 'pm_status_agent';
+}
+
+function runPmDemoScenario(scenarioId) {
+    if (!scenarioId) {
+        return;
+    }
+    if (currentAgentMode !== 'pm_status_agent') {
+        currentAgentMode = 'pm_status_agent';
+        localStorage.setItem('selectedAgentMode', currentAgentMode);
+        if (agentModeSelect) {
+            agentModeSelect.value = currentAgentMode;
+        }
+        updatePmDemoScenarioVisibility();
+    }
+    const scenarioLabels = {
+        'scenario-01-on-track': 'on-track project status',
+        'scenario-02-delayed-no-blocker': 'delayed project status without blocker',
+        'scenario-03-delayed-with-blocker': 'blocked project status with escalation'
+    };
+    const label = scenarioLabels[scenarioId] || 'project status';
+    sendMessage(`Run PM demo scenario: ${scenarioId}. Generate the ${label} update.`);
 }
 
 // Send message
@@ -225,6 +264,7 @@ async function sendMessage(messageOverride = null) {
             if (agentModeSelect) {
                 agentModeSelect.value = currentAgentMode;
             }
+            updatePmDemoScenarioVisibility();
 
             updateMessageInUI(loadingId, data.response, false, {
                 uiActions: data.ui_actions || [],
@@ -326,7 +366,8 @@ function renderMessageContent(messageDiv, role, messageId, content, isLoading = 
 
         const workflowTitle = document.createElement('div');
         workflowTitle.className = 'workflow-progress-title';
-        workflowTitle.textContent = 'Requirement SDLC Progress';
+        const hasPmStatusProgress = options.workflowProgress.some((step) => (step.step || '').startsWith('pm_'));
+        workflowTitle.textContent = hasPmStatusProgress ? 'PM Status Progress' : 'Requirement SDLC Progress';
         workflowProgressDiv.appendChild(workflowTitle);
 
         options.workflowProgress.forEach((step) => {

@@ -1,0 +1,102 @@
+{
+  "id": "scenario-02-delayed-no-blocker",
+  "name": "AI Platform Prompt Approval Flow - Delayed Without Blocker",
+  "expected": {
+    "health": "Amber",
+    "summary": "Project is delayed but not blocked; recovery plan and owner follow-up are needed.",
+    "must_include": [
+      "delayed",
+      "no active blocker",
+      "recovery plan",
+      "approval workflow slipped by two days"
+    ],
+    "must_not_include": [
+      "blocked by Security",
+      "cannot proceed",
+      "Red"
+    ]
+  },
+  "input": {
+    "project_key": "AIP",
+    "project_name": "Enterprise AI Platform MVP",
+    "time_window": "This week",
+    "audience": "Weekly Delivery Review",
+    "jira": {
+      "jql": "project = AIP AND labels in (prompt-management) ORDER BY updated DESC",
+      "issues": [
+        {
+          "key": "AIP-118",
+          "summary": "Prompt Template Management UI",
+          "status": "In Progress",
+          "status_category": "In Progress",
+          "assignee": "Leo Wang",
+          "due_date": "2026-06-24",
+          "priority": "High",
+          "comments": [
+            "Approval workflow UI took longer than expected because reviewer role mapping changed.",
+            "No external blocker. Frontend and backend owners agreed on revised API contract.",
+            "New forecast: complete by 2026-06-26."
+          ],
+          "links": [
+            {
+              "type": "relates to",
+              "key": "AIP-145",
+              "summary": "Reviewer role mapping for prompt approval"
+            }
+          ]
+        },
+        {
+          "key": "AIP-145",
+          "summary": "Reviewer role mapping for prompt approval",
+          "status": "Done",
+          "status_category": "Done",
+          "assignee": "Priya Shah",
+          "due_date": "2026-06-19",
+          "priority": "Medium",
+          "comments": [
+            "Role mapping finalized with Product and Security."
+          ],
+          "links": []
+        },
+        {
+          "key": "AIP-149",
+          "summary": "Approval API contract update",
+          "status": "In Progress",
+          "status_category": "In Progress",
+          "assignee": "Daniel Kim",
+          "due_date": "2026-06-21",
+          "priority": "Medium",
+          "comments": [
+            "Endpoint shape confirmed. Implementation in progress.",
+            "No dependency issue at this time."
+          ],
+          "links": []
+        }
+      ]
+    },
+    "confluence": {
+      "pages": [
+        {
+          "id": "873001",
+          "title": "Enterprise AI Platform MVP - Delivery Plan",
+          "url": "https://example.atlassian.net/wiki/spaces/AIP/pages/873001",
+          "content": "Prompt approval flow moved from 2026-06-24 to 2026-06-26. UAT target remains 2026-06-28 if SIT confirms no Sev1 defects. Recovery plan: keep happy-path demo scope, add approval edge cases after UAT entry."
+        },
+        {
+          "id": "873019",
+          "title": "AI Platform RAID Log",
+          "url": "https://example.atlassian.net/wiki/spaces/AIP/pages/873019",
+          "content": "Risk: prompt approval flow schedule compression. No blocker. Mitigation: narrow demo to happy path and confirm revised API contract by 2026-06-21."
+        }
+      ]
+    },
+    "meeting_notes": [
+      "Prompt approval workflow slipped by two days due to reviewer role mapping changes.",
+      "Security and Product agreed the role mapping is now finalized.",
+      "Team says there is no active blocker, but schedule buffer is reduced.",
+      "Action: Engineering Lead to publish recovery plan by 2026-06-20.",
+      "Action: Product Owner to confirm whether edge-case approval scenarios can move after UAT entry."
+    ]
+  }
+}
+
