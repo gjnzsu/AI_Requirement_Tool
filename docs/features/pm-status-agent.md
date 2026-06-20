@@ -8,6 +8,31 @@ The PM Status Agent is a selectable agent mode for delivery governance. It turns
 - Confluence project context discovered through the configured read adapter.
 - Optional pasted meeting notes under `Meeting notes:`.
 
+The PM Status Agent can override the default configured Atlassian scope from the conversation:
+
+```text
+Generate PM status for Jira project AIP and Confluence space ENG.
+Meeting notes:
+- Security confirmed the logging schema.
+- PM to prepare the SIT checklist.
+```
+
+If no project or space is supplied, the agent falls back to the configured `JIRA_PROJECT_KEY` and `CONFLUENCE_SPACE_KEY`.
+
+## Demo Scenarios
+
+When PM Status Agent mode is selected, the UI exposes three demo scenario buttons:
+
+- `On Track`: generates a Green report from fixture data.
+- `Delayed`: generates an Amber report without live Jira or Confluence calls.
+- `Blocked`: generates a Red escalation report without live Jira or Confluence calls.
+
+The same behavior can be triggered by sending:
+
+```text
+Run PM demo scenario: scenario-03-delayed-with-blocker
+```
+
 ## Output
 
 - Health color: `Green`, `Amber`, or `Red`.

@@ -3,6 +3,17 @@ from src.services.project_status_workflow_service import ProjectStatusWorkflowSe
 from src.application.ports import ConfluencePageResult
 
 
+def test_pm_status_demo_scenarios_are_available_in_runtime_source():
+    from src.services.pm_status_demo_scenarios import PM_STATUS_DEMO_SCENARIOS
+
+    assert set(PM_STATUS_DEMO_SCENARIOS) == {
+        "scenario-01-on-track",
+        "scenario-02-delayed-no-blocker",
+        "scenario-03-delayed-with-blocker",
+    }
+    assert PM_STATUS_DEMO_SCENARIOS["scenario-01-on-track"]["input"]["project_key"] == "AIP"
+
+
 class FakeJiraReader:
     def search_issues(self, jql: str, max_results: int = 50):
         return [
@@ -27,7 +38,11 @@ class FakeJiraReader:
 
 
 class FakeConfluenceReader:
+    def __init__(self):
+        self.seen_space_keys = []
+
     def search_pages(self, query: str, space_key: str | None = None, limit: int = 10):
+        self.seen_space_keys.append(space_key)
         return [
             {
                 "id": "123",
@@ -57,9 +72,10 @@ class FakeConfluencePagePort:
 
 
 def test_project_status_agent_service_handles_one_pm_status_turn():
+    confluence_reader = FakeConfluenceReader()
     workflow = ProjectStatusWorkflowService(
         jira_reader=FakeJiraReader(),
-        confluence_reader=FakeConfluenceReader(),
+        confluence_reader=confluence_reader,
     )
     service = ProjectStatusAgentService(workflow_service=workflow)
 
@@ -73,6 +89,52 @@ def test_project_status_agent_service_handles_one_pm_status_turn():
     assert result.pending_state is None
     assert "Health: Green" in result.response_text
     assert "Build Model Gateway API" in result.response_text
+    assert confluence_reader.seen_space_keys == [None]
+
+
+def test_project_status_agent_service_parses_project_and_confluence_scope_from_conversation():
+    confluence_reader = FakeConfluenceReader()
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=FakeJiraReader(),
+        confluence_reader=confluence_reader,
+    )
+    service = ProjectStatusAgentService(workflow_service=workflow)
+
+    result = service.handle_turn(
+        user_input="Generate PM status for Jira project AIP and Confluence space ENG",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.workflow_result.project_key == "AIP"
+    assert result.workflow_result.project_name == "AIP Project"
+    assert confluence_reader.seen_space_keys == ["ENG"]
+
+
+def test_project_status_agent_service_uses_demo_scenario_without_live_readers():
+    class FailingJiraReader:
+        def search_issues(self, jql: str, max_results: int = 50):
+            raise AssertionError("demo scenario should not call Jira")
+
+    class FailingConfluenceReader:
+        def search_pages(self, query: str, space_key: str | None = None, limit: int = 10):
+            raise AssertionError("demo scenario should not call Confluence")
+
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=FailingJiraReader(),
+        confluence_reader=FailingConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(workflow_service=workflow)
+
+    result = service.handle_turn(
+        user_input="Run PM demo scenario: scenario-03-delayed-with-blocker",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.response_kind == "report"
+    assert result.workflow_result.health == "Red"
+    assert "Security policy not approved" in result.response_text
 
 
 def test_project_status_agent_service_suggests_write_back_without_creating_page():

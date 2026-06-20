@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+from src.services.pm_status_demo_scenarios import PM_STATUS_DEMO_SCENARIOS
 
 
 @dataclass
@@ -21,7 +24,20 @@ class ProjectStatusAgentTurnResult:
 class ProjectStatusAgentService:
     """Handle one PM Status Agent turn."""
 
-    PROJECT_KEY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,9})-\d+\b|\bfor\s+([A-Z][A-Z0-9]{1,9})\b")
+    DEMO_SCENARIO_PATTERN = re.compile(
+        r"\b(?:pm\s+)?demo\s+scenario\s*:\s*([a-z0-9-]+)\b",
+        re.IGNORECASE,
+    )
+    EXPLICIT_PROJECT_PATTERN = re.compile(
+        r"\b(?:jira\s+project|project\s+key|project)\s*:?\s*([A-Z][A-Z0-9]{1,9})\b",
+        re.IGNORECASE,
+    )
+    ISSUE_KEY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,9})-\d+\b")
+    FOR_PROJECT_PATTERN = re.compile(r"\bfor\s+([A-Z][A-Z0-9]{1,9})\b")
+    CONFLUENCE_SPACE_PATTERN = re.compile(
+        r"\b(?:confluence\s+space|space\s+key|space)\s*:?\s*([A-Z][A-Z0-9_-]{1,30})\b",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,
@@ -44,7 +60,22 @@ class ProjectStatusAgentService:
         if pending_state and pending_state.get("awaiting_confirmation"):
             return self._handle_confirmation_turn(user_input, pending_state)
 
+        demo_snapshot = self._load_demo_scenario(user_input)
+        if demo_snapshot:
+            report = self.workflow_service.generate_report_from_snapshot(demo_snapshot["input"])
+            return ProjectStatusAgentTurnResult(
+                response_text=report.to_markdown(),
+                response_kind="report",
+                pending_state=None,
+                workflow_result=report,
+                workflow_progress=[
+                    {"step": "pm_demo", "label": "Load PM demo scenario", "status": "completed"},
+                    {"step": "pm_report", "label": "Generate PM status", "status": "completed"},
+                ],
+            )
+
         project_key = self._extract_project_key(user_input) or self.default_project_key or "PROJECT"
+        confluence_space_key = self._extract_confluence_space_key(user_input)
         meeting_notes = self._extract_meeting_notes(user_input)
         report = self.workflow_service.generate_report(
             project_key=project_key,
@@ -53,6 +84,7 @@ class ProjectStatusAgentService:
             audience=self._extract_audience(user_input),
             jira_jql=f"project = {project_key} ORDER BY priority DESC, updated DESC",
             confluence_query=project_key,
+            confluence_space_key=confluence_space_key,
             meeting_notes=meeting_notes,
         )
         suggested_content = report.suggested_confluence_content
@@ -141,10 +173,32 @@ class ProjectStatusAgentService:
         )
 
     def _extract_project_key(self, text: str) -> Optional[str]:
-        match = self.PROJECT_KEY_PATTERN.search(text or "")
+        text = text or ""
+        for pattern in (
+            self.EXPLICIT_PROJECT_PATTERN,
+            self.ISSUE_KEY_PATTERN,
+            self.FOR_PROJECT_PATTERN,
+        ):
+            match = pattern.search(text)
+            if match:
+                candidate = match.group(1).upper()
+                if candidate not in {"JIRA", "PROJECT", "CONFLUENCE", "SPACE"}:
+                    return candidate
+        return None
+
+    def _extract_confluence_space_key(self, text: str) -> Optional[str]:
+        match = self.CONFLUENCE_SPACE_PATTERN.search(text or "")
+        return match.group(1).upper() if match else None
+
+    def _load_demo_scenario(self, text: str) -> Optional[Dict[str, Any]]:
+        match = self.DEMO_SCENARIO_PATTERN.search(text or "")
         if not match:
             return None
-        return (match.group(1) or match.group(2) or "").upper()
+        scenario_id = match.group(1)
+        scenario = PM_STATUS_DEMO_SCENARIOS.get(scenario_id)
+        if not scenario:
+            return None
+        return copy.deepcopy(scenario)
 
     def _extract_time_window(self, text: str) -> str:
         normalized = (text or "").lower()

@@ -35,13 +35,18 @@ class ProjectStatusWorkflowService:
         jira_jql: str,
         confluence_query: str,
         meeting_notes: List[str],
+        confluence_space_key: Optional[str] = None,
         max_jira_results: int = 50,
         max_confluence_results: int = 10,
     ) -> PmStatusReport:
         """Collect project signals through read ports and generate a PM status report."""
         issues = self.jira_reader.search_issues(jira_jql, max_results=max_jira_results) if self.jira_reader else []
         pages = (
-            self.confluence_reader.search_pages(confluence_query, limit=max_confluence_results)
+            self.confluence_reader.search_pages(
+                confluence_query,
+                space_key=confluence_space_key,
+                limit=max_confluence_results,
+            )
             if self.confluence_reader
             else []
         )

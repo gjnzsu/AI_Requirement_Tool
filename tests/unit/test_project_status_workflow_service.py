@@ -40,6 +40,7 @@ class FakeJiraProjectReadPort:
 class FakeConfluenceReadPort:
     def __init__(self, pages: list[dict]):
         self.pages = pages
+        self.seen_space_keys = []
 
     def get_page(self, page_id: str | None = None, title: str | None = None):
         for page in self.pages:
@@ -48,6 +49,7 @@ class FakeConfluenceReadPort:
         return None
 
     def search_pages(self, query: str, space_key: str | None = None, limit: int = 10):
+        self.seen_space_keys.append(space_key)
         return self.pages[:limit]
 
 
@@ -102,8 +104,10 @@ def test_project_status_workflow_collects_project_data_through_read_ports():
         audience=input_data["audience"],
         jira_jql=input_data["jira"]["jql"],
         confluence_query="AI Platform",
+        confluence_space_key="AIP",
         meeting_notes=input_data["meeting_notes"],
     )
 
     assert report.health == "Amber"
     assert "approval workflow slipped by two days" in report.to_markdown()
+    assert service.confluence_reader.seen_space_keys == ["AIP"]
