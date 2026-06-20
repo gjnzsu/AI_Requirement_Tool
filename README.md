@@ -427,7 +427,7 @@ Source: [main-request-flow.drawio](docs/architecture/diagrams/main-request-flow.
 
 This current logical architecture diagram shows the Requirement Copilot runtime boundaries, RAG/MCP integration paths, and provider calls:
 
-![Requirement Copilot RAG and MCP Architecture](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio.svg)
+![Requirement Copilot RAG and MCP Architecture](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio.png)
 
 **Shows:**
 - **Requirement Copilot pod**: Web API, chatbot, LangGraph agent, requirement workflow, RAG query/ingestion, Coze service, and integration adapters
