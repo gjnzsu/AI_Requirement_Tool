@@ -118,7 +118,11 @@ class LLMRouter:
             from config.config import Config
             if not Config.GATEWAY_ENABLED:
                 return None
-            return GatewayProviderWrapper(model=model, provider=provider)
+            return GatewayProviderWrapper(
+                gateway_url=getattr(Config, "GATEWAY_BASE_URL", "") or None,
+                model=model,
+                provider=provider,
+            )
         except Exception:
             return None
 

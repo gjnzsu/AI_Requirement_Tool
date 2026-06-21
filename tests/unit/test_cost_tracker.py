@@ -3,17 +3,17 @@ import pytest
 from src.llm.cost_tracker import COST_PER_1M_TOKENS, calculate_cost
 
 
-def test_gpt_55_has_explicit_rate_entry():
-    assert COST_PER_1M_TOKENS["openai"]["gpt-5.5"] == {
+def test_gpt_54_has_explicit_rate_entry():
+    assert COST_PER_1M_TOKENS["openai"]["gpt-5.4"] == {
         "prompt": 5.0,
         "completion": 30.0,
     }
 
 
-def test_gpt_55_cost_uses_per_million_token_pricing():
+def test_gpt_54_cost_uses_per_million_token_pricing():
     cost = calculate_cost(
         "openai",
-        "gpt-5.5",
+        "gpt-5.4",
         prompt_tokens=1_000_000,
         completion_tokens=1_000_000,
     )

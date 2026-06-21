@@ -70,7 +70,8 @@
       "Bash(kubectl scale:*)",
       "Bash(python:*)",
       "Bash(rm -f test_startup.py test_startup_simple.py test_summary.py run_all_tests.py run_unit_tests.py run_integration_tests.py test_output.txt check_mcp_config.py check_setup.py verify_mcp_usage.py inspect_memory_db.py fix_all_conflicts.ps1 fix_dependencies.ps1 fix_google_conflicts.ps1 install_langchain_google_genai.ps1 install_requirements.ps1 setup_gemini.ps1 setup_auth.ps1 switch_to_openai.ps1 start_jira_mcp_server.ps1 start_server.ps1 set-env.ps1 enable_mcp.ps1 install_requirements.sh DEPENDENCY_CONFLICTS_FIXED.md DEPENDENCY_CONFLICTS_LATEST.md DEPENDENCY_FIX_SUMMARY.md STARTUP_FIX_SUMMARY.md STARTUP_TROUBLESHOOTING.md AUTH_SETUP.md INSTALLATION_GUIDE.md TEST_RUNNER_GUIDE.md SWAGGER_USAGE.md)",
-      "Bash(ls *.py *.sh *.ps1 *.md *.txt)"
+      "Bash(ls *.py *.sh *.ps1 *.md *.txt)",
+      "Bash(\"/c/Program Files/draw.io/draw.io.exe\" -x -f png -e -b 10 -o docs/architecture/diagrams/ai-requirement-tool-architecture.drawio.png docs/architecture/diagrams/ai-requirement-tool-architecture.drawio)"
     ]
   }
 }

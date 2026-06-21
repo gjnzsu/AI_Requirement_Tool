@@ -60,7 +60,7 @@ JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-jira-api-token
 JIRA_PROJECT_KEY=PROJ
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-5.4
 MAX_BACKLOG_ITEMS=50
 ```
 

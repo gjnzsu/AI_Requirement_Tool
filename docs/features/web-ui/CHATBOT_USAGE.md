@@ -28,7 +28,7 @@ GEMINI_MODEL=gemini-pro-latest
 
 # Or for OpenAI:
 # OPENAI_API_KEY=your-api-key-here
-# OPENAI_MODEL=gpt-5.5
+# OPENAI_MODEL=gpt-5.4
 
 # Or for DeepSeek:
 # DEEPSEEK_API_KEY=your-api-key-here

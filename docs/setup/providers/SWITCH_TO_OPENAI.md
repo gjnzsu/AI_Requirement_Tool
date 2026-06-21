@@ -13,14 +13,14 @@ LLM_PROVIDER=openai
 # Set your OpenAI API key
 OPENAI_API_KEY=your-openai-api-key-here
 
-# Optional: defaults to gpt-5.5 when omitted
-OPENAI_MODEL=gpt-5.5
+# Optional: defaults to gpt-5.4 when omitted
+OPENAI_MODEL=gpt-5.4
 ```
 
 ### Recommended OpenAI Models
 
-- `gpt-5.5` - Current OpenAI target for this project; best for complex reasoning, coding, and agentic work
-- `gpt-4o-mini` - Lower-cost fallback if your API key cannot access `gpt-5.5`
+- `gpt-5.4` - Current OpenAI target for this project; best for complex reasoning, coding, and agentic work
+- `gpt-4o-mini` - Lower-cost fallback if your API key cannot access `gpt-5.4`
 - `gpt-4o` - Older high-capability fallback for general chat and tool workflows
 
 See `OPENAI_MODELS.md` for details and availability notes.
@@ -30,7 +30,7 @@ See `OPENAI_MODELS.md` for details and availability notes.
 ```powershell
 $env:LLM_PROVIDER="openai"
 $env:OPENAI_API_KEY="your-openai-api-key-here"
-$env:OPENAI_MODEL="gpt-5.5"
+$env:OPENAI_MODEL="gpt-5.4"
 ```
 
 ### Option 3: Set Environment Variables (Windows CMD)
@@ -38,7 +38,7 @@ $env:OPENAI_MODEL="gpt-5.5"
 ```cmd
 set LLM_PROVIDER=openai
 set OPENAI_API_KEY=your-openai-api-key-here
-set OPENAI_MODEL=gpt-5.5
+set OPENAI_MODEL=gpt-5.4
 ```
 
 ## Getting Your OpenAI API Key
@@ -60,7 +60,7 @@ python src/chatbot.py
 You should see:
 
 ```text
-Initialized LLM provider: openai (gpt-5.5)
+Initialized LLM provider: openai (gpt-5.4)
 ```
 
 ## Example .env File
@@ -69,7 +69,7 @@ Initialized LLM provider: openai (gpt-5.5)
 # LLM Provider Configuration
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-your-actual-api-key-here
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-5.4
 
 # Optional: Keep other provider keys if you want fallback
 # GEMINI_API_KEY=your-gemini-key
@@ -89,10 +89,10 @@ OPENAI_MODEL=gpt-5.5
 - Verify your API key is valid
 - Check your internet connection
 - Ensure you have credits/quota in your OpenAI account
-- Try a fallback model such as `gpt-4o-mini` if `gpt-5.5` is unavailable for your key
+- Try a fallback model such as `gpt-4o-mini` if `gpt-5.4` is unavailable for your key
 
 ### Model Not Found
 
-- Make sure your API key has access to `gpt-5.5`
+- Make sure your API key has access to `gpt-5.4`
 - Try `gpt-4o-mini` as the lower-cost compatibility fallback
 - Check OpenAI's model availability page

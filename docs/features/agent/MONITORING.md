@@ -114,7 +114,7 @@ The `get_statistics()` method returns:
 ## Cost Estimation
 
 The app exports token and cost metrics through `src/llm/cost_tracker.py` using per-1M-token pricing:
-- **OpenAI `gpt-5.5`**: $5 / 1M prompt tokens, $30 / 1M completion tokens
+- **OpenAI `gpt-5.4`**: $5 / 1M prompt tokens, $30 / 1M completion tokens
 - **DeepSeek `deepseek-v4-flash`**: $0.14 / 1M prompt tokens, $0.28 / 1M completion tokens
 - **Note**: Actual costs vary by model and provider pricing can change. Update `COST_PER_1M_TOKENS` when provider pricing changes.
 
@@ -122,7 +122,7 @@ To customize pricing for your model:
 
 ```python
 # In src/llm/cost_tracker.py, update COST_PER_1M_TOKENS
-COST_PER_1M_TOKENS["openai"]["gpt-5.5"] = {
+COST_PER_1M_TOKENS["openai"]["gpt-5.4"] = {
     "prompt": 5.0,
     "completion": 30.0,
 }

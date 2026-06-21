@@ -49,7 +49,7 @@ class Config:
     DEEPSEEK_API_KEY: str = os.getenv('DEEPSEEK_API_KEY', '')
     
     # Model names (provider-specific)
-    OPENAI_MODEL: str = os.getenv('OPENAI_MODEL', 'gpt-5.5')
+    OPENAI_MODEL: str = os.getenv('OPENAI_MODEL', 'gpt-5.4')
     GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-pro')
     DEEPSEEK_MODEL: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash')
     
@@ -152,6 +152,8 @@ class Config:
     
     # AI Gateway Configuration
     GATEWAY_ENABLED: bool = os.getenv('GATEWAY_ENABLED', 'false').lower() in ('true', '1', 'yes')
+    GATEWAY_BASE_URL: str = os.getenv('GATEWAY_BASE_URL', '')
+    GATEWAY_CONSUMER_SERVICE: str = os.getenv('GATEWAY_CONSUMER_SERVICE', 'ai-requirement-tool')
     GATEWAY_HOST: str = os.getenv('GATEWAY_HOST', 'localhost')
     GATEWAY_PORT: int = int(os.getenv('GATEWAY_PORT', '8000'))
     GATEWAY_CACHE_ENABLED: bool = os.getenv('GATEWAY_CACHE_ENABLED', 'true').lower() in ('true', '1', 'yes')

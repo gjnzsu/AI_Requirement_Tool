@@ -8,8 +8,8 @@ Built for teams that need more than a generic chatbot: structured intent detecti
 
 ### Latest Change Highlights (2026-04-25)
 
-- Updated OpenAI fallback configuration to target `gpt-5.5` when the OpenAI provider is selected
-- Added `gpt-5.5` token pricing to LLM cost tracking so Prometheus and Grafana show OpenAI costs with the right unit
+- Updated OpenAI fallback configuration to target `gpt-5.4` when the OpenAI provider is selected
+- Added `gpt-5.4` token pricing to LLM cost tracking so Prometheus and Grafana show OpenAI costs with the right unit
 - Kept the production default provider on DeepSeek V4 Flash while preserving OpenAI as a selectable provider
 - Added direct `confluence_creation` intent and graph route for freeform Confluence page creation
 - Kept `Requirement SDLC Agent` as the guided multi-step workflow for Jira + evaluation + Confluence orchestration
@@ -66,9 +66,10 @@ The first response includes health color, executive summary, progress, risks, bl
 - **Jira Maturity Evaluator** - Automated assessment of issue quality and completeness
 
 ### Multi-Provider LLM Routing
-- **Provider Support** - OpenAI, Google Gemini, and DeepSeek with a unified interface
-- **Automatic Fallback** - Transparent failover across providers on errors or rate limits
-- **Optional AI Gateway Scaffold** - Included as an experimental FastAPI component for future shared caching, rate-limit enforcement, and cost visibility work, but not part of the default deployed runtime
+- **Central AI Gateway** - LLM traffic is routed through the Kong-fronted `ai-gateway-service` using an OpenAI-compatible `/v1` endpoint
+- **Provider Support** - OpenAI, Google Gemini, and DeepSeek are selected through the shared gateway model/provider catalog
+- **Gateway Policy & Observability** - `X-Consumer-Service: ai-requirement-tool` lets the gateway apply shared routing, policy, cost, and reliability observability by consumer
+- **Local Gateway Scaffold** - `src/gateway/` remains as a compatibility scaffold for local development and legacy tests, but the deployed runtime uses the shared platform gateway
 
 ### Web UI & Observability
 - **Modern Web UI** - Responsive chat interface served by Flask, no build step required
@@ -129,7 +130,7 @@ AI_Requirement_Tool/
 | |-- mcp/ # MCP client and integration logic
 | |-- rag/ # RAG pipeline
 | |-- tools/ # Direct Jira and Confluence tools
-| |-- gateway/ # Optional FastAPI AI Gateway scaffold (not deployed by default)
+| |-- gateway/ # Gateway client/wrapper plus legacy local FastAPI scaffold
 | |-- models/
 | `-- utils/
 |-- web/ # Web UI frontend
@@ -178,7 +179,7 @@ Create a `.env` file in the project root or set environment variables:
 # LLM Provider Configuration
 LLM_PROVIDER=openai # Options: 'openai', 'gemini', 'deepseek'
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-5.4
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-pro
 DEEPSEEK_API_KEY=your-deepseek-api-key
@@ -192,6 +193,12 @@ JIRA_PROJECT_KEY=PROJ
 
 # MCP Configuration
 USE_MCP=true # Enable MCP integration
+
+# Central AI Gateway Configuration
+USE_GATEWAY=true
+GATEWAY_ENABLED=true
+GATEWAY_BASE_URL=http://ai-gateway-kong.ai-gateway.svc.cluster.local/v1
+GATEWAY_CONSUMER_SERVICE=ai-requirement-tool
 
 # RAG Configuration (optional)
 RAG_PROVIDER=embedded # embedded or external
@@ -216,12 +223,12 @@ Then open `http://localhost:5000` in your browser.
 python src/chatbot.py
 ```
 
-**Optional AI Gateway Scaffold (not deployed by default):**
+**Local AI Gateway Scaffold (development compatibility):**
 ```bash
 uvicorn src.gateway.gateway_service:create_gateway_app --factory --reload --port 8001
 ```
 
-The main application does not start or depend on this gateway by default. If you enable `USE_GATEWAY=true`, make sure the gateway process is running and that `GATEWAY_HOST` and `GATEWAY_PORT` match the address the chatbot will call.
+The deployed runtime routes LLM traffic through the shared Kong-fronted `ai-gateway-service` by setting `USE_GATEWAY=true`, `GATEWAY_ENABLED=true`, and `GATEWAY_BASE_URL=http://ai-gateway-kong.ai-gateway.svc.cluster.local/v1`. The local FastAPI scaffold is retained for legacy tests and isolated development; use `GATEWAY_HOST` and `GATEWAY_PORT` only when intentionally running that local scaffold.
 
 ## Usage Examples
 
@@ -401,31 +408,9 @@ Async Coze path
 
 The following diagrams provide different views of the system architecture.
 
-#### Main Request Flow
-
-This flowchart shows how a user request flows through the system from start to finish:
-
-![Main Request Flow](docs/architecture/diagrams/main-request-flow.drawio.png)
-
-**Key decision points:**
-- **Authentication check**: Validates JWT token
-- **Intent detection**: LangGraph agent determines request type
-- **Routing**: Directs to appropriate execution path (6 different intents)
-- **Async vs Sync**: Coze requests can be processed synchronously or asynchronously via Celery
-
-**Execution paths:**
-- `general_chat`: Direct LLM call for conversation
-- `rag_query`: Retrieve documents → LLM with context
-- `jira_creation`: Create Jira issue via MCP/direct tool
-- `confluence_creation`: Create Confluence page via MCP/direct tool
-- `requirement_sdlc_agent`: Multi-step guided workflow
-- `coze_agent`: Handoff to Coze platform (sync or async)
-
-Source: [main-request-flow.drawio](docs/architecture/diagrams/main-request-flow.drawio)
-
 #### Logical Architecture
 
-This current logical architecture diagram shows the Requirement Copilot runtime boundaries, RAG/MCP integration paths, and provider calls:
+This current logical architecture diagram shows the Requirement Copilot runtime boundaries for the external RAG service and central AI gateway deployment:
 
 ![Requirement Copilot RAG and MCP Architecture](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio.png)
 
@@ -433,8 +418,10 @@ This current logical architecture diagram shows the Requirement Copilot runtime 
 - **Requirement Copilot pod**: Web API, chatbot, LangGraph agent, requirement workflow, RAG query/ingestion, Coze service, and integration adapters
 - **MCP tool boundary**: Jira and Confluence actions through `MCPIntegration`, with direct REST retained as fallback
 - **Platform RAG service**: External `ai-rag-service` lifecycle APIs for document upsert, retrieval, Jira context, embeddings, and Chroma vector storage
-- **Provider APIs**: OpenAI, DeepSeek, Gemini, and Coze calls routed from provider adapters or service clients
-- **Arrow conventions**: Blue internal Python calls, purple dashed MCP calls, green RAG HTTP calls, and orange provider calls
+- **Central AI gateway boundary**: Requirement Agent and PM Agent LLM calls go through the `GatewayProviderWrapper` and Kong-fronted `ai-gateway-service` at `GATEWAY_BASE_URL`, carrying `X-Consumer-Service: ai-requirement-tool`
+- **Provider APIs**: OpenAI, DeepSeek, Gemini, and other model providers are reached behind `ai-gateway-service`; Coze remains a separate service-client path
+- **Observability handoff**: Requirement Tool keeps local HTTP/request metrics, while gateway-routed LLM usage is attributable in platform observability through the gateway consumer identity
+- **Arrow conventions**: Blue internal Python calls, purple dashed MCP calls, green RAG HTTP calls, and orange gateway/provider calls
 
 Source: [requirement-copilot-rag-mcp-current.drawio](docs/architecture/diagrams/requirement-copilot-rag-mcp-current.drawio)
 
@@ -452,20 +439,6 @@ This diagram shows the physical deployment topology on Google Kubernetes Engine 
 - Persistent volume for SQLite storage
 
 Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-deployment-engineering.mmd)
-
-#### Runtime Flow Diagram
-
-This diagram shows the runtime execution flow and agent routing logic:
-
-![Logical Architecture Reference](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.png)
-
-**Shows:**
-- Request flow from user to response
-- Intent detection and routing logic
-- Sync vs async execution paths
-- LangGraph agent state transitions
-
-Source: [Mermaid](docs/architecture/diagrams/architecture-diagram-current-2026-04-v5-logical-engineering.mmd)
 
 ### Refactor Status
 
@@ -625,6 +598,14 @@ Set `LLM_PROVIDER` in your `.env`:
 
 - `USE_MCP=true` - Enable MCP integration
 - MCP tools are automatically discovered and used
+
+### Central AI Gateway Configuration
+
+- `USE_GATEWAY=true` - Route LLM calls through the configured gateway provider.
+- `GATEWAY_ENABLED=true` - Allow the gateway provider wrapper to be selected.
+- `GATEWAY_BASE_URL=http://ai-gateway-kong.ai-gateway.svc.cluster.local/v1` - OpenAI-compatible base URL for the Kong-fronted `ai-gateway-service`.
+- `GATEWAY_CONSUMER_SERVICE=ai-requirement-tool` - Consumer identity sent as `X-Consumer-Service` for gateway policy and observability.
+- `OPENAI_MODEL=gpt-5.4` - Default OpenAI model alias matching the current shared gateway model catalog.
 
 ### RAG Configuration
 

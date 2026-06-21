@@ -120,7 +120,7 @@ Set in `.env`:
 ```bash
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-key
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-5.4
 ```
 
 ### Tools Configuration
