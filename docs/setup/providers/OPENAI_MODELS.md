@@ -1,12 +1,12 @@
 # OpenAI ChatGPT Models
 
-This project currently targets `gpt-5.5` for the OpenAI provider. The production default provider can still be DeepSeek, but whenever users select OpenAI, `OPENAI_MODEL=gpt-5.5` is the documented default.
+This project currently targets `gpt-5.4` for the OpenAI provider. The production default provider can still be DeepSeek, but whenever users select OpenAI, `OPENAI_MODEL=gpt-5.4` is the documented default.
 
 ## Current Project Default
 
 ### GPT-5.5
 
-- **Model Name**: `gpt-5.5`
+- **Model Name**: `gpt-5.4`
 - **Description**: OpenAI frontier model for complex reasoning, coding, professional work, and agentic tool use
 - **Best for**: Requirement analysis, SDLC drafting, Jira/Confluence workflow reasoning, coding help, and complex chat turns
 - **Pricing used by this app**: $5 / 1M input tokens and $30 / 1M output tokens
@@ -14,7 +14,7 @@ This project currently targets `gpt-5.5` for the OpenAI provider. The production
 
 ## Compatibility Fallbacks
 
-Use these only if your OpenAI API key cannot call `gpt-5.5`.
+Use these only if your OpenAI API key cannot call `gpt-5.4`.
 
 ### GPT-4o-mini
 
@@ -26,13 +26,13 @@ Use these only if your OpenAI API key cannot call `gpt-5.5`.
 
 - **Model Name**: `gpt-4o`
 - **Description**: Older high-capability OpenAI model
-- **Best for**: General chat and tool workflows when `gpt-5.5` is not available
+- **Best for**: General chat and tool workflows when `gpt-5.4` is not available
 
 ## Model Comparison
 
 | Model | Relative Cost | Capability | Best Use Case |
 |---|---:|---|---|
-| `gpt-5.5` | Higher | Highest | Complex reasoning, coding, agentic workflows |
+| `gpt-5.4` | Higher | Highest | Complex reasoning, coding, agentic workflows |
 | `gpt-4o` | Medium | High | General-purpose fallback |
 | `gpt-4o-mini` | Lower | Medium | Cost-sensitive fallback |
 
@@ -43,13 +43,13 @@ Use these only if your OpenAI API key cannot call `gpt-5.5`.
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-api-key-here
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-5.4
 ```
 
 ### Or set environment variable
 
 ```powershell
-$env:OPENAI_MODEL="gpt-5.5"
+$env:OPENAI_MODEL="gpt-5.4"
 ```
 
 ### Or specify in code
@@ -64,7 +64,7 @@ chatbot = Chatbot(
 ## Model Availability Notes
 
 - Model availability depends on your OpenAI API access level.
-- If `gpt-5.5` is unavailable, use `gpt-4o-mini` as the compatibility fallback.
+- If `gpt-5.4` is unavailable, use `gpt-4o-mini` as the compatibility fallback.
 - Model names are case-sensitive.
 - Provider pricing can change; update `src/llm/cost_tracker.py` when pricing changes.
 

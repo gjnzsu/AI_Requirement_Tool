@@ -128,3 +128,28 @@ Usage notes:
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>
+
+## Project Diagram Guidelines
+
+When creating or updating Draw.io architecture diagrams for this repository:
+
+- Prioritize reader readability over implementation exhaustiveness.
+- Keep the main request flow left-to-right where practical.
+- Avoid arrows crossing blocks that are not the source or target.
+- Prefer short orthogonal arrows over long diagonal arrows.
+- Keep detailed implementation notes out of blocks; use legends or nearby note boxes.
+- Put Requirement Copilot internals, MCP boundary, platform RAG service, provider APIs, and storage in separate visual groups.
+- Route external calls through an integration boundary such as `Integration adapters`, not directly from deep internal business blocks unless that is the architectural point.
+
+Use this arrow color convention for Requirement Copilot diagrams:
+
+- Blue solid: internal Python function calls inside Requirement Copilot.
+- Purple dashed: MCP tool invocation for Jira / Confluence actions.
+- Green solid: HTTP calls to ai-rag-service lifecycle APIs.
+- Orange solid: external model or provider API calls, such as OpenAI, DeepSeek, Gemini, or Coze.
+
+Before finishing a diagram update:
+
+- Export and open the rendered PNG or SVG.
+- Check for overlapping panels, clipped text, and arrows crossing unrelated blocks.
+- Include a legend whenever multiple arrow colors or line styles appear.

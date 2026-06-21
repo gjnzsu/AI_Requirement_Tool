@@ -103,7 +103,8 @@ class ChatbotAgent:
                  rag_service: Optional[Any] = None,
                  rag_query_port: Optional[Any] = None,
                  rag_ingestion_port: Optional[Any] = None,
-                 use_mcp: Optional[bool] = None):
+                 use_mcp: Optional[bool] = None,
+                 llm_provider: Optional[Any] = None):
         """
         Initialize the LangGraph agent.
         
@@ -125,6 +126,7 @@ class ChatbotAgent:
         self._rag_ingestion_port = (
             rag_ingestion_port if rag_ingestion_port is not None else rag_service
         )
+        self._injected_llm_provider = llm_provider
         
         # Initialize LLM monitoring callback (before LLM initialization)
         # Wrapped in try/except to ensure callback issues don't break LLM init
@@ -136,7 +138,7 @@ class ChatbotAgent:
             logger.warning(f"Could not initialize LLM monitoring callback: {e}. Continuing without monitoring.")
         
         # Initialize LLM
-        self.llm = self._initialize_llm(model)
+        self.llm = llm_provider if llm_provider is not None else self._initialize_llm(model)
         
         # Initialize MCP integration if enabled
         self.mcp_integration = None
@@ -228,7 +230,7 @@ class ChatbotAgent:
                 logger.warning("Model 'gpt-4.1' may be invalid. Using 'gpt-4' instead.")
                 model_name = "gpt-4"
             elif "gpt-5" not in model_name.lower() and "gpt-4" not in model_name.lower() and "gpt-3.5" not in model_name.lower():
-                logger.warning(f"Model '{model_name}' may not be valid. Common models: gpt-5.5, gpt-4o, gpt-4o-mini")
+                logger.warning(f"Model '{model_name}' may not be valid. Common models: gpt-5.4, gpt-4o, gpt-4o-mini")
             
             try:
                 # Try with timeout and max_retries (LangChain 0.1.0+)
@@ -337,27 +339,7 @@ class ChatbotAgent:
         # Initialize Jira evaluator if Jira tool is available
         if self.jira_tool:
             try:
-                from src.llm import LLMRouter
-                # Get API key and model based on provider
-                if self.provider_name == "openai":
-                    api_key = Config.OPENAI_API_KEY
-                    model = Config.OPENAI_MODEL
-                elif self.provider_name == "gemini":
-                    api_key = Config.GEMINI_API_KEY
-                    model = Config.GEMINI_MODEL
-                elif self.provider_name == "deepseek":
-                    api_key = Config.DEEPSEEK_API_KEY
-                    model = Config.DEEPSEEK_MODEL
-                else:
-                    # Fallback to OpenAI if provider not recognized
-                    api_key = Config.OPENAI_API_KEY
-                    model = Config.OPENAI_MODEL
-                
-                llm_provider = LLMRouter.get_provider(
-                    provider_name=self.provider_name,
-                    api_key=api_key,
-                    model=model
-                )
+                llm_provider = self._llm_provider_for_generate_response()
                 self.jira_evaluator = JiraMaturityEvaluator(
                     jira_url=Config.JIRA_URL,
                     jira_email=Config.JIRA_EMAIL,
@@ -536,6 +518,17 @@ class ChatbotAgent:
             return self.intent_detector
         
         try:
+            injected_llm = getattr(self, "_injected_llm_provider", None)
+            if injected_llm is not None and callable(
+                getattr(injected_llm, "generate_response", None)
+            ):
+                self.intent_detector = IntentDetector(
+                    llm_provider=injected_llm,
+                    temperature=Config.INTENT_LLM_TEMPERATURE,
+                )
+                logger.info("Intent detector initialized with injected LLM provider")
+                return self.intent_detector
+
             from src.llm import LLMRouter
             
             # Get API key and model based on provider
@@ -577,6 +570,35 @@ class ChatbotAgent:
             logger.warning(f"Failed to initialize intent detector: {e}")
             logger.info("Falling back to keyword-only intent detection")
             return None
+
+    def _llm_provider_for_generate_response(self):
+        """Return an LLM provider compatible with generate_response consumers."""
+        injected_llm = getattr(self, "_injected_llm_provider", None)
+        if injected_llm is not None and callable(
+            getattr(injected_llm, "generate_response", None)
+        ):
+            return injected_llm
+
+        from src.llm import LLMRouter
+
+        if self.provider_name == "openai":
+            api_key = Config.OPENAI_API_KEY
+            model = Config.OPENAI_MODEL
+        elif self.provider_name == "gemini":
+            api_key = Config.GEMINI_API_KEY
+            model = Config.GEMINI_MODEL
+        elif self.provider_name == "deepseek":
+            api_key = Config.DEEPSEEK_API_KEY
+            model = Config.DEEPSEEK_MODEL
+        else:
+            api_key = Config.OPENAI_API_KEY
+            model = Config.OPENAI_MODEL
+
+        return LLMRouter.get_provider(
+            provider_name=self.provider_name,
+            api_key=api_key,
+            model=model,
+        )
     
     def _get_cached_intent(self, user_input: str) -> Optional[Dict[str, Any]]:
         """

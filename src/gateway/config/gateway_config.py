@@ -32,6 +32,8 @@ class GatewayConfig:
     
     # Gateway Service Settings
     GATEWAY_ENABLED: bool = os.getenv('GATEWAY_ENABLED', 'false').lower() in ('true', '1', 'yes')
+    GATEWAY_BASE_URL: str = os.getenv('GATEWAY_BASE_URL', '')
+    GATEWAY_CONSUMER_SERVICE: str = os.getenv('GATEWAY_CONSUMER_SERVICE', 'ai-requirement-tool')
     GATEWAY_HOST: str = os.getenv('GATEWAY_HOST', 'localhost')
     GATEWAY_PORT: int = int(os.getenv('GATEWAY_PORT', '8000'))
     

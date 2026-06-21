@@ -18,6 +18,29 @@ class FakeAgent:
         return "response"
 
 
+class FakeGatewayAgent:
+    def __init__(self):
+        self.llm_callback = SimpleNamespace(
+            total_prompt_tokens=0,
+            total_completion_tokens=0,
+        )
+        self.llm = SimpleNamespace(
+            model="gpt-5.4",
+            last_usage={
+                "prompt_tokens": 12,
+                "completion_tokens": 7,
+                "total_tokens": 19,
+            },
+        )
+        self.selected_agent_mode = None
+
+    def set_selected_agent_mode(self, agent_mode):
+        self.selected_agent_mode = agent_mode
+
+    def invoke(self, user_input, conversation_history, precomputed_intent=None):
+        return "gateway response"
+
+
 class FakeConfig:
     LLM_PROVIDER = "deepseek"
     OPENAI_MODEL = "gpt-4o"
@@ -55,4 +78,19 @@ def test_agent_usage_labels_openai_model_when_provider_switched_from_deepseek_de
         "completion_tokens": 5,
         "provider": "openai",
         "model": "gpt-4o",
+    }
+
+
+def test_agent_usage_falls_back_to_gateway_provider_last_usage():
+    chatbot = make_agent_chatbot("openai")
+    chatbot.agent = FakeGatewayAgent()
+
+    chatbot.get_response("hello")
+
+    assert chatbot.last_usage == {
+        "prompt_tokens": 12,
+        "completion_tokens": 7,
+        "total_tokens": 19,
+        "provider": "openai",
+        "model": "gpt-5.4",
     }

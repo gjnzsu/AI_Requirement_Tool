@@ -26,7 +26,7 @@ The server runs on port `5000` by default (configurable via environment variable
 |---|---|---|
 | `LLM_PROVIDER` | `openai` | LLM provider: `openai`, `gemini`, `deepseek` |
 | `OPENAI_API_KEY` | *(required)* | OpenAI API key |
-| `OPENAI_MODEL` | `gpt-5.5` | OpenAI model name |
+| `OPENAI_MODEL` | `gpt-5.4` | OpenAI model name |
 | `GEMINI_API_KEY` | - | Google Gemini API key |
 | `DEEPSEEK_API_KEY` | - | DeepSeek API key |
 | `DEEPSEEK_MODEL` | `deepseek-v4-flash` | DeepSeek model name |
@@ -76,6 +76,8 @@ The server runs on port `5000` by default (configurable via environment variable
 |---|---|---|
 | `GATEWAY_ENABLED` | `false` | Enable centralized AI gateway |
 | `USE_GATEWAY` | `false` | Route LLM calls through gateway |
+| `GATEWAY_BASE_URL` | - | OpenAI-compatible gateway base URL, for example Kong `/v1` |
+| `GATEWAY_CONSUMER_SERVICE` | `ai-requirement-tool` | Consumer identity sent to gateway |
 | `GATEWAY_CACHE_ENABLED` | `true` | Enable gateway caching |
 
 ## Architecture

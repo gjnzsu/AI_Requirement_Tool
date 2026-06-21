@@ -5,6 +5,7 @@ Wrapper that makes the gateway look like an LLMProvider for drop-in replacement.
 """
 
 from typing import Optional
+from langchain_core.messages import AIMessage
 from src.llm.base_provider import LLMProvider
 from ..client.gateway_client import GatewayClient
 
@@ -74,6 +75,8 @@ class GatewayProviderWrapper(LLMProvider):
             
             # Extract content from response
             if isinstance(response, dict):
+                usage = response.get("usage")
+                self.last_usage = dict(usage) if isinstance(usage, dict) else None
                 choices = response.get('choices', [])
                 if choices and len(choices) > 0:
                     message = choices[0].get('message', {})
@@ -82,6 +85,41 @@ class GatewayProviderWrapper(LLMProvider):
             return str(response)
         except Exception as e:
             raise Exception(f"Gateway error: {str(e)}") from e
+
+    def invoke(self, messages):
+        """Invoke the gateway with LangChain-style messages."""
+        gateway_messages = []
+        for message in messages:
+            message_type = getattr(message, "type", "")
+            role = getattr(message, "role", None)
+            if not role:
+                if message_type == "system":
+                    role = "system"
+                elif message_type == "ai":
+                    role = "assistant"
+                else:
+                    role = "user"
+            gateway_messages.append(
+                {
+                    "role": role,
+                    "content": getattr(message, "content", str(message)),
+                }
+            )
+
+        response = self.gateway_client.chat_completion_sync(
+            messages=gateway_messages,
+            model=self.model if self.model != "gateway" else None,
+            provider=self.provider,
+            temperature=0.3,
+        )
+        if isinstance(response, dict):
+            usage = response.get("usage")
+            self.last_usage = dict(usage) if isinstance(usage, dict) else None
+            choices = response.get("choices", [])
+            if choices:
+                message = choices[0].get("message", {})
+                return AIMessage(content=message.get("content", ""))
+        return AIMessage(content=str(response))
     
     def supports_json_mode(self) -> bool:
         """Gateway supports JSON mode through providers."""

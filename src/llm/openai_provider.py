@@ -10,13 +10,13 @@ from .base_provider import LLMProvider
 class OpenAIProvider(LLMProvider):
     """OpenAI provider implementation."""
     
-    def __init__(self, api_key: str, model: str = "gpt-5.5", **kwargs):
+    def __init__(self, api_key: str, model: str = "gpt-5.4", **kwargs):
         """
         Initialize OpenAI provider.
         
         Args:
             api_key: OpenAI API key
-            model: Model name (e.g., 'gpt-5.5', 'gpt-4o-mini', 'gpt-4o')
+            model: Model name (e.g., 'gpt-5.4', 'gpt-4o-mini', 'gpt-4o')
             **kwargs: Additional OpenAI client parameters
         """
         super().__init__(api_key, model, **kwargs)

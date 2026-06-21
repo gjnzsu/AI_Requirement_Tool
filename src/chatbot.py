@@ -224,6 +224,10 @@ class Chatbot:
                 logger.info(f"Tools Enabled: {self.enable_mcp_tools}")
                 logger.info("=" * 70)
                 
+                use_gateway = (
+                    getattr(self.config, "USE_GATEWAY", False)
+                    and getattr(self.config, "GATEWAY_ENABLED", False)
+                )
                 self.agent = ChatbotAgent(
                     provider_name=self.provider_name,
                     model=None,  # Use default from Config
@@ -232,7 +236,8 @@ class Chatbot:
                     rag_service=self.rag_service if self.use_rag else None,
                     rag_query_port=self.rag_query_port if self.use_rag else None,
                     rag_ingestion_port=self.rag_ingestion_port if self.use_rag else None,
-                    use_mcp=self.use_mcp  # Use the configured MCP setting
+                    use_mcp=self.use_mcp,  # Use the configured MCP setting
+                    llm_provider=self.llm_provider if use_gateway else None,
                 )
                 self.agent.set_selected_agent_mode(
                     getattr(self, "selected_agent_mode", "auto")
@@ -361,6 +366,34 @@ class Chatbot:
         
         if provider_name not in ['openai', 'gemini', 'deepseek']:
             raise ValueError(f"Unknown provider '{provider_name}'. Available: openai, gemini, deepseek")
+
+        use_gateway = (
+            getattr(self.config, "USE_GATEWAY", False)
+            and getattr(self.config, "GATEWAY_ENABLED", False)
+        )
+        if use_gateway:
+            gateway_provider = LLMRouter.get_gateway_provider(
+                model=self._get_model_for_provider(provider_name),
+                provider=provider_name,
+            )
+            if gateway_provider is None:
+                raise ValueError("Gateway is enabled but no gateway provider is available.")
+
+            self.provider_name = provider_name
+            self.llm_provider = gateway_provider
+            self.provider_manager = None
+            if self.use_agent and self.agent:
+                self.agent.provider_name = provider_name
+                self.agent.llm = gateway_provider
+                self.agent._injected_llm_provider = gateway_provider
+                self.agent.intent_detector = None
+                self.agent._compose_application_services()
+                self.agent._compose_flow_services()
+                self.agent._compose_intent_service()
+            if self.requirement_workflow_service or self._tools_initialized:
+                self._compose_application_services()
+            logger.info(f"Switched LLM provider through gateway to: {provider_name}")
+            return
         
         # Get API key and model for the new provider
         if provider_name == 'openai':
@@ -409,6 +442,16 @@ class Chatbot:
 
         if self.requirement_workflow_service or self._tools_initialized:
             self._compose_application_services()
+
+    def _get_model_for_provider(self, provider_name: str) -> str:
+        provider_name = (provider_name or "").lower()
+        if provider_name == "openai":
+            return self.config.OPENAI_MODEL
+        if provider_name == "gemini":
+            return self.config.GEMINI_MODEL
+        if provider_name == "deepseek":
+            return self.config.DEEPSEEK_MODEL
+        return self.config.get_llm_model()
 
     def _get_current_provider_model(self) -> str:
         """Return the model configured for the currently active provider."""
@@ -604,7 +647,16 @@ class Chatbot:
                         'model': self._get_current_provider_model(),
                     }
                 else:
-                    self.last_usage = None
+                    raw = getattr(getattr(self.agent, 'llm', None), 'last_usage', None)
+                    if raw:
+                        raw = dict(raw)
+                        raw['provider'] = self.provider_name
+                        raw['model'] = getattr(
+                            getattr(self.agent, 'llm', None),
+                            'model',
+                            self._get_current_provider_model(),
+                        )
+                    self.last_usage = raw
 
                 # Save to memory
                 if self.use_persistent_memory and self.memory_manager:

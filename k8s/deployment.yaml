@@ -25,9 +25,17 @@ spec:
             - containerPort: 5000
           env:
             - name: LLM_PROVIDER
-              value: "deepseek"
+              value: "openai"
             - name: OPENAI_MODEL
-              value: "gpt-5.5"
+              value: "gpt-5.4"
+            - name: USE_GATEWAY
+              value: "true"
+            - name: GATEWAY_ENABLED
+              value: "true"
+            - name: GATEWAY_BASE_URL
+              value: "http://ai-gateway-kong.ai-gateway.svc.cluster.local/v1"
+            - name: GATEWAY_CONSUMER_SERVICE
+              value: "ai-requirement-tool"
             - name: DEEPSEEK_MODEL
               value: "deepseek-v4-flash"
             - name: FLASK_ENV
