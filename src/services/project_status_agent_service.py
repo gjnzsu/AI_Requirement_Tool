@@ -5,8 +5,10 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from src.application.ports import PmStatusReport
 from src.services.pm_status_demo_scenarios import PM_STATUS_DEMO_SCENARIOS
 
 
@@ -29,7 +31,7 @@ class ProjectStatusAgentService:
         re.IGNORECASE,
     )
     EXPLICIT_PROJECT_PATTERN = re.compile(
-        r"\b(?:jira\s+project|project\s+key|project)\s*:?\s*([A-Z][A-Z0-9]{1,9})\b",
+        r"\b(?:jira\s+project|project\s+key|project)\s*:?\s*[\"']?([A-Z][A-Z0-9]{1,9})[\"']?\b",
         re.IGNORECASE,
     )
     ISSUE_KEY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,9})-\d+\b")
@@ -45,10 +47,12 @@ class ProjectStatusAgentService:
         workflow_service: Any,
         default_project_key: str = "",
         confluence_page_port: Optional[Any] = None,
+        timestamp_provider: Optional[Callable[[], Any]] = None,
     ) -> None:
         self.workflow_service = workflow_service
         self.default_project_key = default_project_key
         self.confluence_page_port = confluence_page_port
+        self.timestamp_provider = timestamp_provider or self._current_utc_timestamp
 
     def handle_turn(
         self,
@@ -155,13 +159,13 @@ class ProjectStatusAgentService:
                 ],
             )
 
-        content = pending_state.get("suggested_confluence_content") or {}
+        title, body_markdown = self._build_confluence_publish_content(pending_state)
         result = self.confluence_page_port.create_page(
-            content.get("title", "PM Status Update"),
-            content.get("body_markdown", ""),
+            title,
+            body_markdown,
         )
         link = getattr(result, "link", None) or (result.get("link") if isinstance(result, dict) else "")
-        title = getattr(result, "title", None) or content.get("title", "PM Status Update")
+        title = getattr(result, "title", None) or title
         return ProjectStatusAgentTurnResult(
             response_text=f"Published PM status page: {title}\n{link}".strip(),
             response_kind="completed",
@@ -171,6 +175,40 @@ class ProjectStatusAgentService:
                 {"step": "pm_writeback", "label": "Publish PM status", "status": "completed", "detail": link}
             ],
         )
+
+    def _build_confluence_publish_content(
+        self,
+        pending_state: Dict[str, Any],
+    ) -> Tuple[str, str]:
+        content = pending_state.get("suggested_confluence_content") or {}
+        title = content.get("title", "PM Status Update")
+        body_markdown = content.get("body_markdown", "")
+
+        report_payload = pending_state.get("report")
+        if isinstance(report_payload, dict):
+            try:
+                report = PmStatusReport(**report_payload)
+                if report.suggested_confluence_content:
+                    title = report.suggested_confluence_content.title
+                body_markdown = report.to_markdown()
+            except (TypeError, ValueError):
+                pass
+
+        return self._with_timestamp_suffix(title), body_markdown
+
+    def _with_timestamp_suffix(self, title: str) -> str:
+        timestamp = self.timestamp_provider()
+        if isinstance(timestamp, datetime):
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            timestamp_text = timestamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        else:
+            timestamp_text = str(timestamp).strip()
+        return f"{title} - {timestamp_text}" if timestamp_text else title
+
+    @staticmethod
+    def _current_utc_timestamp() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     def _extract_project_key(self, text: str) -> Optional[str]:
         text = text or ""

@@ -36,6 +36,15 @@ class GatewayProviderWrapper(LLMProvider):
         super().__init__(api_key="gateway", model=model or "gateway")
         self.gateway_client = GatewayClient(base_url=gateway_url)
         self.provider = provider
+
+    def _gateway_model(self) -> Optional[str]:
+        """Return the model name expected by the OpenAI-compatible gateway."""
+        if self.model == "gateway":
+            return None
+        provider = (self.provider or "").lower()
+        if provider == "deepseek" and "/" not in self.model:
+            return f"deepseek/{self.model}"
+        return self.model
     
     def generate_response(
         self,
@@ -66,7 +75,7 @@ class GatewayProviderWrapper(LLMProvider):
         try:
             response = self.gateway_client.chat_completion_sync(
                 messages=messages,
-                model=self.model if self.model != "gateway" else None,
+                model=self._gateway_model(),
                 provider=self.provider,
                 temperature=temperature,
                 json_mode=json_mode,
@@ -108,7 +117,7 @@ class GatewayProviderWrapper(LLMProvider):
 
         response = self.gateway_client.chat_completion_sync(
             messages=gateway_messages,
-            model=self.model if self.model != "gateway" else None,
+            model=self._gateway_model(),
             provider=self.provider,
             temperature=0.3,
         )

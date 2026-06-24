@@ -4,10 +4,11 @@ import httpx
 import pytest
 
 from src.gateway.client.gateway_client import GatewayClient
+from src.gateway.providers.gateway_provider_wrapper import GatewayProviderWrapper
 
 
 @pytest.mark.asyncio
-async def test_gateway_client_uses_openai_compatible_payload_and_consumer_header():
+async def test_gateway_client_omits_openai_provider_from_openai_compatible_payload():
     captured = {}
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -57,11 +58,12 @@ async def test_gateway_client_uses_openai_compatible_payload_and_consumer_header
     }
 
 
-def test_gateway_client_sync_uses_injected_sync_transport():
+def test_gateway_client_sync_omits_openai_provider_from_openai_compatible_payload():
     captured = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["url"] = str(request.url)
+        captured["json"] = request.read().decode("utf-8")
         return httpx.Response(
             200,
             json={"choices": [{"message": {"content": "sync ok"}}]},
@@ -79,8 +81,66 @@ def test_gateway_client_sync_uses_injected_sync_transport():
     response = client.chat_completion_sync(
         messages=[{"role": "user", "content": "hello"}],
         model="gpt-5.4",
+        provider="openai",
     )
     sync_client.close()
 
     assert captured["url"] == "http://gateway.example/v1/chat/completions"
+    payload = json.loads(captured["json"])
+    assert "provider" not in payload
     assert response["choices"][0]["message"]["content"] == "sync ok"
+
+
+def test_gateway_client_sync_keeps_non_openai_provider_for_gateway_routing():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["json"] = request.read().decode("utf-8")
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "sync ok"}}]},
+        )
+
+    sync_client = httpx.Client(
+        base_url="http://gateway.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    client = GatewayClient(
+        base_url="http://gateway.example/v1",
+        sync_http_client=sync_client,
+    )
+
+    response = client.chat_completion_sync(
+        messages=[{"role": "user", "content": "hello"}],
+        model="deepseek/deepseek-v4-flash",
+        provider="deepseek",
+    )
+    sync_client.close()
+
+    payload = json.loads(captured["json"])
+    assert payload["provider"] == "deepseek"
+    assert response["choices"][0]["message"]["content"] == "sync ok"
+
+
+def test_gateway_provider_wrapper_prefixes_deepseek_model_for_litellm():
+    captured = {}
+
+    class FakeGatewayClient:
+        def chat_completion_sync(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    provider = GatewayProviderWrapper(
+        model="deepseek-v4-flash",
+        provider="deepseek",
+    )
+    provider.gateway_client = FakeGatewayClient()
+
+    response = provider.generate_response(
+        system_prompt="system",
+        user_prompt="hello",
+    )
+
+    assert response == "ok"
+    assert captured["model"] == "deepseek/deepseek-v4-flash"
+    assert captured["provider"] == "deepseek"

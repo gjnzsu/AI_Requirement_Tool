@@ -57,6 +57,10 @@ class GatewayClient:
         if self.base_url.endswith("/v1"):
             return f"{self.base_url[:-3]}/health"
         return f"{self.base_url}/health"
+
+    @staticmethod
+    def _should_send_provider(provider: Optional[str]) -> bool:
+        return bool(provider and provider.lower() != "openai")
     
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -115,6 +119,8 @@ class GatewayClient:
         
         if model:
             payload["model"] = model
+        if self._should_send_provider(provider):
+            payload["provider"] = provider
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens:
@@ -156,6 +162,7 @@ class GatewayClient:
         """
         payload = {"messages": messages}
         model = kwargs.get("model")
+        provider = kwargs.get("provider")
         temperature = kwargs.get("temperature")
         max_tokens = kwargs.get("max_tokens")
         json_mode = kwargs.get("json_mode", False)
@@ -163,6 +170,8 @@ class GatewayClient:
 
         if model:
             payload["model"] = model
+        if self._should_send_provider(provider):
+            payload["provider"] = provider
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens:

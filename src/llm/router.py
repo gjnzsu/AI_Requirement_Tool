@@ -10,13 +10,29 @@ from .openai_provider import OpenAIProvider
 from .gemini_provider import GeminiProvider
 from .deepseek_provider import DeepSeekProvider
 
-# Try to import gateway provider wrapper (optional)
-try:
-    from src.gateway.providers.gateway_provider_wrapper import GatewayProviderWrapper
+# Gateway support is loaded lazily to avoid a circular import between
+# src.llm.router -> src.gateway.providers -> adapter_factory -> src.llm.router.
+GATEWAY_AVAILABLE = None
+GatewayProviderWrapper = None
+
+
+def _get_gateway_provider_wrapper_class():
+    """Return the gateway wrapper class, loading it after router import settles."""
+    global GATEWAY_AVAILABLE, GatewayProviderWrapper
+    if GatewayProviderWrapper is not None:
+        GATEWAY_AVAILABLE = True
+        return GatewayProviderWrapper
+    try:
+        from src.gateway.providers.gateway_provider_wrapper import (
+            GatewayProviderWrapper as LoadedGatewayProviderWrapper,
+        )
+    except ImportError:
+        GATEWAY_AVAILABLE = False
+        return None
+
+    GatewayProviderWrapper = LoadedGatewayProviderWrapper
     GATEWAY_AVAILABLE = True
-except ImportError:
-    GATEWAY_AVAILABLE = False
-    GatewayProviderWrapper = None
+    return GatewayProviderWrapper
 
 
 class LLMRouter:
@@ -96,7 +112,7 @@ class LLMRouter:
         """
         provider_name = provider_name.lower()
         if provider_name == 'gateway':
-            return GATEWAY_AVAILABLE
+            return _get_gateway_provider_wrapper_class() is not None
         return provider_name in cls._providers
     
     @classmethod
@@ -111,14 +127,15 @@ class LLMRouter:
         Returns:
             GatewayProviderWrapper instance or None if gateway not available
         """
-        if not GATEWAY_AVAILABLE or GatewayProviderWrapper is None:
+        gateway_provider_wrapper = _get_gateway_provider_wrapper_class()
+        if gateway_provider_wrapper is None:
             return None
         
         try:
             from config.config import Config
             if not Config.GATEWAY_ENABLED:
                 return None
-            return GatewayProviderWrapper(
+            return gateway_provider_wrapper(
                 gateway_url=getattr(Config, "GATEWAY_BASE_URL", "") or None,
                 model=model,
                 provider=provider,
@@ -180,7 +197,7 @@ class LLMProviderManager:
                 if provider == providers[-1]:  # Last provider
                     raise e
                 print(f"Provider {provider.get_provider_name()} failed: {e}")
-                print(f"Falling back to next provider...")
+                print("Falling back to next provider...")
                 continue
         
         raise Exception("All providers failed")

@@ -1,6 +1,6 @@
 from src.services.project_status_agent_service import ProjectStatusAgentService
 from src.services.project_status_workflow_service import ProjectStatusWorkflowService
-from src.application.ports import ConfluencePageResult
+from src.application.ports import ConfluencePageResult, PmStatusReport, SuggestedConfluenceContent
 
 
 def test_pm_status_demo_scenarios_are_available_in_runtime_source():
@@ -111,6 +111,25 @@ def test_project_status_agent_service_parses_project_and_confluence_scope_from_c
     assert confluence_reader.seen_space_keys == ["ENG"]
 
 
+def test_project_status_agent_service_parses_quoted_jira_project_key():
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=FakeJiraReader(),
+        confluence_reader=FakeConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(
+        workflow_service=workflow,
+        default_project_key="DEFAULT",
+    )
+
+    result = service.handle_turn(
+        user_input='pls help to give me the pm status of jira project "AIPLAT"',
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.workflow_result.project_key == "AIPLAT"
+
+
 def test_project_status_agent_service_uses_demo_scenario_without_live_readers():
     class FailingJiraReader:
         def search_issues(self, jql: str, max_results: int = 50):
@@ -161,7 +180,7 @@ def test_project_status_agent_service_suggests_write_back_without_creating_page(
     assert "Reply with 'approve' to publish" in result.response_text
 
 
-def test_project_status_agent_service_approve_publishes_only_pending_confluence_page():
+def test_project_status_agent_service_approve_publishes_full_report_with_timestamped_title():
     workflow = ProjectStatusWorkflowService(
         jira_reader=FakeJiraReader(),
         confluence_reader=FakeConfluenceReader(),
@@ -170,6 +189,66 @@ def test_project_status_agent_service_approve_publishes_only_pending_confluence_
     service = ProjectStatusAgentService(
         workflow_service=workflow,
         confluence_page_port=confluence_page_port,
+        timestamp_provider=lambda: "2026-06-24 15:30:00 UTC",
+    )
+    report = PmStatusReport(
+        project_key="AIP",
+        project_name="AIP Project",
+        time_window="This week",
+        audience="Weekly Delivery Review",
+        health="Green",
+        executive_summary="MVP remains on track.",
+        progress=["Gateway API is in review."],
+        risks=["Approval workflow has limited test coverage."],
+        blockers=["Security policy sign-off is pending."],
+        decisions_needed=["Confirm launch readiness by Friday."],
+        owner_gaps=["Release owner missing for rollout checklist."],
+        next_actions=["Maya to close gateway review."],
+        stakeholder_update="Delivery remains on track with one policy dependency.",
+        suggested_confluence_content=SuggestedConfluenceContent(
+            title="AIP Project - PM Status Update",
+            body_markdown="## Health\nGreen",
+        ),
+    )
+    pending_state = {
+        "stage": "confirmation",
+        "awaiting_confirmation": True,
+        "report": report.to_dict(),
+        "suggested_confluence_content": {
+            "title": "AIP Project - PM Status Update",
+            "body_markdown": "## Health\nGreen",
+        },
+    }
+
+    result = service.handle_turn(
+        user_input="approve",
+        conversation_history=[],
+        pending_state=pending_state,
+    )
+
+    assert result.response_kind == "completed"
+    assert result.pending_state is None
+    assert confluence_page_port.created_pages[0]["title"] == (
+        "AIP Project - PM Status Update - 2026-06-24 15:30:00 UTC"
+    )
+    created_content = confluence_page_port.created_pages[0]["content"]
+    assert "# AIP Project Status" in created_content
+    assert "## Blockers" in created_content
+    assert "Security policy sign-off is pending." in created_content
+    assert "## Stakeholder Update" in created_content
+    assert "https://example.atlassian.net/wiki/pages/999" in result.response_text
+
+
+def test_project_status_agent_service_approve_timestamps_legacy_pending_content():
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=FakeJiraReader(),
+        confluence_reader=FakeConfluenceReader(),
+    )
+    confluence_page_port = FakeConfluencePagePort()
+    service = ProjectStatusAgentService(
+        workflow_service=workflow,
+        confluence_page_port=confluence_page_port,
+        timestamp_provider=lambda: "2026-06-24 15:31:00 UTC",
     )
     pending_state = {
         "stage": "confirmation",
@@ -187,11 +266,12 @@ def test_project_status_agent_service_approve_publishes_only_pending_confluence_
     )
 
     assert result.response_kind == "completed"
-    assert result.pending_state is None
     assert confluence_page_port.created_pages == [
-        {"title": "AIP Project - PM Status Update", "content": "## Health\nGreen"}
+        {
+            "title": "AIP Project - PM Status Update - 2026-06-24 15:31:00 UTC",
+            "content": "## Health\nGreen",
+        }
     ]
-    assert "https://example.atlassian.net/wiki/pages/999" in result.response_text
 
 
 def test_project_status_agent_service_cancel_does_not_write_back():
