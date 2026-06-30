@@ -17,3 +17,6 @@ class JiraProjectReadPort(Protocol):
 
     def get_issue_comments(self, issue_key: str) -> List[Dict[str, Any]]:
         """Return comments for the given Jira issue."""
+
+    def list_sprints(self, project_key: str, states: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Return Jira sprint metadata for boards associated with a project."""

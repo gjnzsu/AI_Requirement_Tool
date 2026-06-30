@@ -15,7 +15,12 @@ def test_pm_status_demo_scenarios_are_available_in_runtime_source():
 
 
 class FakeJiraReader:
+    def __init__(self, sprints=None):
+        self.seen_searches = []
+        self.sprints = sprints
+
     def search_issues(self, jql: str, max_results: int = 50):
+        self.seen_searches.append({"jql": jql, "max_results": max_results})
         return [
             {
                 "key": "AIP-1",
@@ -35,6 +40,11 @@ class FakeJiraReader:
 
     def get_issue_comments(self, issue_key: str):
         return []
+
+    def list_sprints(self, project_key: str, states=None):
+        if self.sprints is None:
+            raise NotImplementedError("Sprint metadata unavailable")
+        return self.sprints
 
 
 class FakeConfluenceReader:
@@ -72,9 +82,10 @@ class FakeConfluencePagePort:
 
 
 def test_project_status_agent_service_handles_one_pm_status_turn():
+    jira_reader = FakeJiraReader(sprints=None)
     confluence_reader = FakeConfluenceReader()
     workflow = ProjectStatusWorkflowService(
-        jira_reader=FakeJiraReader(),
+        jira_reader=jira_reader,
         confluence_reader=confluence_reader,
     )
     service = ProjectStatusAgentService(workflow_service=workflow)
@@ -89,7 +100,93 @@ def test_project_status_agent_service_handles_one_pm_status_turn():
     assert result.pending_state is None
     assert "Health: Green" in result.response_text
     assert "Build Model Gateway API" in result.response_text
+    assert jira_reader.seen_searches == [
+        {
+            "jql": "project = AIP AND sprint in openSprints() ORDER BY priority DESC, updated DESC",
+            "max_results": 50,
+        }
+    ]
     assert confluence_reader.seen_space_keys == [None]
+
+
+def test_project_status_agent_service_analyzes_active_sprints_and_latest_closed_sprint():
+    jira_reader = FakeJiraReader(
+        sprints=[
+            {"id": 101, "name": "Sprint 10", "state": "active", "startDate": "2026-06-20T00:00:00.000Z"},
+            {"id": 102, "name": "Sprint 11", "state": "active", "startDate": "2026-06-24T00:00:00.000Z"},
+            {
+                "id": 99,
+                "name": "Sprint 9",
+                "state": "closed",
+                "completeDate": "2026-06-19T12:00:00.000Z",
+            },
+            {
+                "id": 98,
+                "name": "Sprint 8",
+                "state": "closed",
+                "completeDate": "2026-06-12T12:00:00.000Z",
+            },
+        ]
+    )
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=jira_reader,
+        confluence_reader=FakeConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(workflow_service=workflow)
+
+    service.handle_turn(
+        user_input="Generate PM status for AIP for the weekly review",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert jira_reader.seen_searches == [
+        {
+            "jql": "project = AIP AND sprint in (101, 102) ORDER BY priority DESC, updated DESC",
+            "max_results": 50,
+        },
+        {
+            "jql": "project = AIP AND sprint = 99 ORDER BY priority DESC, updated DESC",
+            "max_results": 50,
+        },
+    ]
+
+
+def test_project_status_agent_service_uses_latest_closed_sprint_when_no_active_sprint():
+    jira_reader = FakeJiraReader(
+        sprints=[
+            {
+                "id": 201,
+                "name": "Sprint 20",
+                "state": "closed",
+                "completeDate": "2026-06-26T12:00:00.000Z",
+            },
+            {
+                "id": 200,
+                "name": "Sprint 19",
+                "state": "closed",
+                "completeDate": "2026-06-19T12:00:00.000Z",
+            },
+        ]
+    )
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=jira_reader,
+        confluence_reader=FakeConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(workflow_service=workflow)
+
+    service.handle_turn(
+        user_input="Generate PM status for AIP",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert jira_reader.seen_searches == [
+        {
+            "jql": "project = AIP AND sprint = 201 ORDER BY priority DESC, updated DESC",
+            "max_results": 50,
+        }
+    ]
 
 
 def test_project_status_agent_service_parses_project_and_confluence_scope_from_conversation():
@@ -128,6 +225,27 @@ def test_project_status_agent_service_parses_quoted_jira_project_key():
     )
 
     assert result.workflow_result.project_key == "AIPLAT"
+
+
+def test_project_status_agent_service_does_not_treat_status_as_project_key():
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=FakeJiraReader(),
+        confluence_reader=FakeConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(
+        workflow_service=workflow,
+        default_project_key="AIP",
+    )
+
+    result = service.handle_turn(
+        user_input="please generate project status report",
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.workflow_result.project_key == "AIP"
+    assert "# AIP Project Status" in result.response_text
+    assert "STATUS Project" not in result.response_text
 
 
 def test_project_status_agent_service_uses_demo_scenario_without_live_readers():

@@ -36,6 +36,21 @@ class ProjectStatusAgentService:
     )
     ISSUE_KEY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,9})-\d+\b")
     FOR_PROJECT_PATTERN = re.compile(r"\bfor\s+([A-Z][A-Z0-9]{1,9})\b")
+    PROJECT_KEY_STOP_WORDS = {
+        "CONFLUENCE",
+        "CURRENT",
+        "DAILY",
+        "JIRA",
+        "PM",
+        "PROJECT",
+        "REPORT",
+        "REVIEW",
+        "SPACE",
+        "SPRINT",
+        "STATUS",
+        "TODAY",
+        "WEEKLY",
+    }
     CONFLUENCE_SPACE_PATTERN = re.compile(
         r"\b(?:confluence\s+space|space\s+key|space)\s*:?\s*([A-Z][A-Z0-9_-]{1,30})\b",
         re.IGNORECASE,
@@ -86,7 +101,7 @@ class ProjectStatusAgentService:
             project_name=f"{project_key} Project",
             time_window=self._extract_time_window(user_input),
             audience=self._extract_audience(user_input),
-            jira_jql=f"project = {project_key} ORDER BY priority DESC, updated DESC",
+            jira_jql=self._build_sprint_scope_jqls(project_key),
             confluence_query=project_key,
             confluence_space_key=confluence_space_key,
             meeting_notes=meeting_notes,
@@ -220,9 +235,65 @@ class ProjectStatusAgentService:
             match = pattern.search(text)
             if match:
                 candidate = match.group(1).upper()
-                if candidate not in {"JIRA", "PROJECT", "CONFLUENCE", "SPACE"}:
+                if candidate not in self.PROJECT_KEY_STOP_WORDS:
                     return candidate
         return None
+
+    def _build_sprint_scope_jqls(self, project_key: str) -> List[str]:
+        jira_reader = getattr(self.workflow_service, "jira_reader", None)
+        list_sprints = getattr(jira_reader, "list_sprints", None)
+        if not callable(list_sprints):
+            return [self._build_open_sprints_jql(project_key)]
+
+        try:
+            sprints = list_sprints(project_key, states=["active", "closed"])
+        except Exception:
+            return [self._build_open_sprints_jql(project_key)]
+
+        active_sprint_ids = [
+            str(sprint.get("id"))
+            for sprint in sprints
+            if str(sprint.get("state") or "").lower() == "active" and sprint.get("id") is not None
+        ]
+        latest_closed = self._latest_closed_sprint(sprints)
+
+        jqls: List[str] = []
+        if active_sprint_ids:
+            jqls.append(
+                f"project = {project_key} AND sprint in ({', '.join(active_sprint_ids)}) "
+                "ORDER BY priority DESC, updated DESC"
+            )
+        if latest_closed and latest_closed.get("id") is not None:
+            jqls.append(
+                f"project = {project_key} AND sprint = {latest_closed['id']} "
+                "ORDER BY priority DESC, updated DESC"
+            )
+        return jqls or [self._build_open_sprints_jql(project_key)]
+
+    def _build_open_sprints_jql(self, project_key: str) -> str:
+        return f"project = {project_key} AND sprint in openSprints() ORDER BY priority DESC, updated DESC"
+
+    def _latest_closed_sprint(self, sprints: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        closed_sprints = [
+            sprint
+            for sprint in sprints
+            if str(sprint.get("state") or "").lower() == "closed" and sprint.get("id") is not None
+        ]
+        if not closed_sprints:
+            return None
+        return max(
+            closed_sprints,
+            key=lambda sprint: (
+                str(sprint.get("completeDate") or sprint.get("endDate") or sprint.get("startDate") or ""),
+                self._sprint_id_sort_value(sprint.get("id")),
+            ),
+        )
+
+    def _sprint_id_sort_value(self, sprint_id: Any) -> int:
+        try:
+            return int(sprint_id or 0)
+        except (TypeError, ValueError):
+            return 0
 
     def _extract_confluence_space_key(self, text: str) -> Optional[str]:
         match = self.CONFLUENCE_SPACE_PATTERN.search(text or "")

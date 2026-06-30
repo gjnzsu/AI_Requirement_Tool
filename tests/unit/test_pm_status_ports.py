@@ -11,6 +11,9 @@ class FakeJiraProjectReader:
     def get_issue_comments(self, issue_key: str):
         return [{"issue_key": issue_key, "body": "No blockers"}]
 
+    def list_sprints(self, project_key: str, states=None):
+        return [{"id": 1, "project_key": project_key, "state": "active", "states": states}]
+
 
 class FakeConfluenceReader:
     def get_page(self, page_id: str | None = None, title: str | None = None):
@@ -27,6 +30,7 @@ def test_jira_project_read_port_accepts_fake_implementation():
     assert reader.search_issues("project = AI")[0]["key"] == "AI-1"
     assert reader.get_issue("AI-1")["status"] == "In Progress"
     assert reader.get_issue_comments("AI-1")[0]["body"] == "No blockers"
+    assert reader.list_sprints("AI", states=["active"])[0]["state"] == "active"
 
 
 def test_confluence_read_port_accepts_fake_implementation():

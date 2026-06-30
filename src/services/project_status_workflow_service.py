@@ -32,7 +32,7 @@ class ProjectStatusWorkflowService:
         project_name: str,
         time_window: str,
         audience: str,
-        jira_jql: str,
+        jira_jql: str | List[str],
         confluence_query: str,
         meeting_notes: List[str],
         confluence_space_key: Optional[str] = None,
@@ -40,7 +40,7 @@ class ProjectStatusWorkflowService:
         max_confluence_results: int = 10,
     ) -> PmStatusReport:
         """Collect project signals through read ports and generate a PM status report."""
-        issues = self.jira_reader.search_issues(jira_jql, max_results=max_jira_results) if self.jira_reader else []
+        issues = self._search_jira_issues(jira_jql, max_results=max_jira_results)
         pages = (
             self.confluence_reader.search_pages(
                 confluence_query,
@@ -61,6 +61,27 @@ class ProjectStatusWorkflowService:
                 "meeting_notes": meeting_notes,
             }
         )
+
+    def _search_jira_issues(
+        self,
+        jira_jql: str | List[str],
+        *,
+        max_results: int,
+    ) -> List[Dict[str, Any]]:
+        if not self.jira_reader:
+            return []
+
+        jqls = [jira_jql] if isinstance(jira_jql, str) else list(jira_jql)
+        issues_by_key: Dict[str, Dict[str, Any]] = {}
+        anonymous_issues: List[Dict[str, Any]] = []
+        for jql in jqls:
+            for issue in self.jira_reader.search_issues(jql, max_results=max_results):
+                key = str(issue.get("key") or "")
+                if key:
+                    issues_by_key.setdefault(key, issue)
+                else:
+                    anonymous_issues.append(issue)
+        return list(issues_by_key.values()) + anonymous_issues
 
     def generate_report_from_snapshot(self, snapshot: Dict[str, Any]) -> PmStatusReport:
         """Generate a structured PM status report from already-collected project data."""
@@ -87,6 +108,7 @@ class ProjectStatusWorkflowService:
             delayed,
             blockers,
             text_corpus,
+            issues,
         )
         stakeholder_update = self._build_stakeholder_update(
             snapshot.get("project_name", "Project"),
@@ -125,12 +147,13 @@ class ProjectStatusWorkflowService:
         for issue in issues:
             status = str(issue.get("status") or "")
             status_category = str(issue.get("status_category") or "")
-            if _is_blocked_issue(issue):
+            if _is_active_blocked_issue(issue):
                 continue
             if status_category.lower() in {"done", "in progress"}:
+                prefix = "Resolved blocker: " if _is_resolved_blocker_issue(issue) else ""
                 progress.append(
                     StatusItem(
-                        summary=f"{issue.get('summary', 'Jira issue')}: {status}",
+                        summary=f"{prefix}{issue.get('summary', 'Jira issue')}: {status}",
                         owner=issue.get("assignee"),
                         due_date=issue.get("due_date"),
                         source_key=issue.get("key"),
@@ -177,7 +200,7 @@ class ProjectStatusWorkflowService:
     ) -> List[StatusItem]:
         blockers: List[StatusItem] = []
         for issue in issues:
-            if _is_blocked_issue(issue):
+            if _is_active_blocked_issue(issue):
                 summary = str(issue.get("summary") or "Blocked Jira issue")
                 comments = " ".join(str(comment) for comment in issue.get("comments") or [])
                 if "security" in comments.lower() and "not approved" in comments.lower():
@@ -253,6 +276,7 @@ class ProjectStatusWorkflowService:
         delayed: bool,
         blockers: List[StatusItem],
         text_corpus: str,
+        issues: List[Dict[str, Any]],
     ) -> str:
         if health == "Red":
             return (
@@ -265,7 +289,31 @@ class ProjectStatusWorkflowService:
                 f"{project_name} is delayed but has no active blocker. {detail}; "
                 "recovery plan and owner follow-up are needed."
             )
-        return f"{project_name} is progressing as planned with no active blocker."
+        return self._build_green_summary(project_name, issues)
+
+    def _build_green_summary(self, project_name: str, issues: List[Dict[str, Any]]) -> str:
+        if not issues:
+            return (
+                f"{project_name} has no Jira issues in the selected sprint scope and no active blocker "
+                "detected in the available evidence."
+            )
+
+        counts = _count_issue_categories(issues)
+        summary_parts = [
+            f"{counts['total']} Jira issues",
+            f"{counts['in_progress']} in progress",
+            f"{counts['done']} done",
+            f"{counts['todo']} to do",
+        ]
+        if counts["without_owner"]:
+            summary_parts.append(f"{counts['without_owner']} without owner")
+
+        active_work = _summarize_active_work(issues)
+        active_work_text = f" Key active work: {active_work}." if active_work else ""
+        return (
+            f"{project_name} is Green across {', '.join(summary_parts)} in the selected sprint scope. "
+            f"no active blocker detected.{active_work_text}"
+        )
 
     def _build_stakeholder_update(
         self,
@@ -276,7 +324,10 @@ class ProjectStatusWorkflowService:
     ) -> str:
         action_text = "; ".join(item.summary for item in next_actions[:2])
         if action_text:
-            return f"{project_name} status is {health}. {executive_summary} Next: {action_text}."
+            return (
+                f"{project_name} status is {health}. {executive_summary} "
+                f"Next: {action_text.rstrip('.')}."
+            )
         return f"{project_name} status is {health}. {executive_summary}"
 
     def _suggest_jira_updates(
@@ -295,7 +346,8 @@ class ProjectStatusWorkflowService:
                 rationale="Blocked project dependency needs active escalation.",
             )
             for issue in issues
-            if _is_blocked_issue(issue) and str(issue.get("priority") or "").lower() != "highest"
+            if _is_active_blocked_issue(issue)
+            and str(issue.get("priority") or "").lower() != "highest"
         ]
 
     def _suggest_confluence_content(
@@ -384,6 +436,59 @@ def _is_blocked_issue(issue: Dict[str, Any]) -> bool:
     comments = " ".join(str(comment) for comment in issue.get("comments") or []).lower()
     links = " ".join(str(link.get("type") or "") for link in issue.get("links") or []).lower()
     return any(signal in f"{status} {comments} {links}" for signal in ["blocked", "cannot proceed"])
+
+
+def _is_active_blocked_issue(issue: Dict[str, Any]) -> bool:
+    return _is_blocked_issue(issue) and not _is_done_issue(issue)
+
+
+def _is_resolved_blocker_issue(issue: Dict[str, Any]) -> bool:
+    return _is_blocked_issue(issue) and _is_done_issue(issue)
+
+
+def _is_done_issue(issue: Dict[str, Any]) -> bool:
+    category = str(issue.get("status_category") or "").lower()
+    status = str(issue.get("status") or "").lower()
+    return category == "done" or status in {"done", "closed", "resolved"}
+
+
+def _count_issue_categories(issues: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts = {
+        "total": len(issues),
+        "in_progress": 0,
+        "done": 0,
+        "todo": 0,
+        "without_owner": 0,
+    }
+    for issue in issues:
+        category = str(issue.get("status_category") or issue.get("status") or "").lower()
+        if category == "done":
+            counts["done"] += 1
+        elif category == "in progress":
+            counts["in_progress"] += 1
+        else:
+            counts["todo"] += 1
+        if issue.get("assignee") in (None, "", "Infra Queue"):
+            counts["without_owner"] += 1
+    return counts
+
+
+def _summarize_active_work(issues: List[Dict[str, Any]]) -> str:
+    active_issues = [
+        issue
+        for issue in issues
+        if str(issue.get("status_category") or issue.get("status") or "").lower()
+        in {"in progress", "done"}
+    ]
+    snippets = []
+    for issue in active_issues[:3]:
+        key = str(issue.get("key") or "").strip()
+        summary = str(issue.get("summary") or "Jira issue").strip()
+        status = str(issue.get("status") or "").strip()
+        prefix = f"{key} " if key else ""
+        suffix = f" ({status})" if status else ""
+        snippets.append(f"{prefix}{summary}{suffix}")
+    return "; ".join(snippets)
 
 
 def _split_sentences(text: str) -> List[str]:

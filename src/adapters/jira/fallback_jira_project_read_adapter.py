@@ -20,6 +20,12 @@ class FallbackJiraProjectReadAdapter:
         "get_jira_issue_comments",
         "jira_get_issue_comments",
     )
+    SPRINT_TOOL_NAMES = (
+        "listJiraSprints",
+        "list_jira_sprints",
+        "getJiraSprints",
+        "jira_list_sprints",
+    )
 
     def __init__(
         self,
@@ -64,6 +70,24 @@ class FallbackJiraProjectReadAdapter:
             return self.direct_adapter.get_issue_comments(issue_key)
         issue = self.get_issue(issue_key) or {}
         return [{"body": comment} for comment in issue.get("comments", [])]
+
+    def list_sprints(self, project_key: str, states: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        selected_states = states or ["active", "closed"]
+        payload = self._invoke_first_tool(
+            self.SPRINT_TOOL_NAMES,
+            {
+                "projectKey": project_key,
+                "project_key": project_key,
+                "states": selected_states,
+                "state": ",".join(selected_states),
+            },
+        )
+        sprints = self._extract_items(payload, "sprints")
+        if sprints is not None:
+            return sprints
+        if self.direct_adapter and hasattr(self.direct_adapter, "list_sprints"):
+            return self.direct_adapter.list_sprints(project_key, states=selected_states)
+        return []
 
     def _invoke_first_tool(self, names: tuple[str, ...], args: Dict[str, Any]) -> Any:
         if not (self.use_mcp and self.mcp_integration):

@@ -22,8 +22,10 @@ def _load_scenario(name: str) -> dict:
 class FakeJiraProjectReadPort:
     def __init__(self, issues: list[dict]):
         self.issues = issues
+        self.seen_jqls = []
 
     def search_issues(self, jql: str, max_results: int = 50):
+        self.seen_jqls.append(jql)
         return self.issues[:max_results]
 
     def get_issue(self, issue_key: str):
@@ -111,3 +113,146 @@ def test_project_status_workflow_collects_project_data_through_read_ports():
     assert report.health == "Amber"
     assert "approval workflow slipped by two days" in report.to_markdown()
     assert service.confluence_reader.seen_space_keys == ["AIP"]
+
+
+def test_project_status_workflow_collects_multiple_jira_queries_and_deduplicates_issues():
+    class MultiQueryJiraReader(FakeJiraProjectReadPort):
+        def search_issues(self, jql: str, max_results: int = 50):
+            self.seen_jqls.append(jql)
+            if "sprint in" in jql:
+                return [
+                    {"key": "AIP-1", "summary": "Active work", "status": "In Progress"},
+                    {"key": "AIP-2", "summary": "Carry-over work", "status": "In Review"},
+                ]
+            return [
+                {"key": "AIP-2", "summary": "Carry-over work", "status": "In Review"},
+                {"key": "AIP-3", "summary": "Closed sprint context", "status": "Done"},
+            ]
+
+    jira_reader = MultiQueryJiraReader([])
+    service = ProjectStatusWorkflowService(
+        jira_reader=jira_reader,
+        confluence_reader=FakeConfluenceReadPort([]),
+    )
+
+    report = service.generate_report(
+        project_key="AIP",
+        project_name="AIP Project",
+        time_window="Current status",
+        audience="Project stakeholders",
+        jira_jql=[
+            "project = AIP AND sprint in (101, 102)",
+            "project = AIP AND sprint = 99",
+        ],
+        confluence_query="AIP",
+        meeting_notes=[],
+    )
+
+    assert jira_reader.seen_jqls == [
+        "project = AIP AND sprint in (101, 102)",
+        "project = AIP AND sprint = 99",
+    ]
+    assert [ref.key for ref in report.source_references] == ["AIP-1", "AIP-2", "AIP-3"]
+
+
+def test_project_status_workflow_green_summary_includes_jira_evidence():
+    service = ProjectStatusWorkflowService()
+
+    report = service.generate_report_from_snapshot(
+        {
+            "project_key": "AIP",
+            "project_name": "AIP Project",
+            "time_window": "Current status",
+            "audience": "Project stakeholders",
+            "jira": {
+                "issues": [
+                    {
+                        "key": "AIP-1",
+                        "summary": "Build checkout API",
+                        "status": "In Progress",
+                        "status_category": "In Progress",
+                        "assignee": "Ada",
+                    },
+                    {
+                        "key": "AIP-2",
+                        "summary": "Payment callback",
+                        "status": "Done",
+                        "status_category": "Done",
+                        "assignee": "Ben",
+                    },
+                    {
+                        "key": "AIP-3",
+                        "summary": "Release checklist",
+                        "status": "To Do",
+                        "status_category": "To Do",
+                    },
+                ]
+            },
+            "confluence": {"pages": []},
+            "meeting_notes": [],
+        }
+    )
+
+    report_text = report.to_markdown()
+
+    assert report.health == "Green"
+    assert "3 Jira issues" in report.executive_summary
+    assert "1 in progress" in report.executive_summary
+    assert "1 done" in report.executive_summary
+    assert "1 without owner" in report.executive_summary
+    assert "AIP-1 Build checkout API" in report.executive_summary
+    assert "- Build checkout API: In Progress (source: AIP-1, owner: Ada)" in report_text
+
+
+def test_project_status_workflow_done_blocker_does_not_drive_red_health():
+    service = ProjectStatusWorkflowService()
+
+    report = service.generate_report_from_snapshot(
+        {
+            "project_key": "AIPLAT",
+            "project_name": "AIPLAT Project",
+            "time_window": "Current status",
+            "audience": "Project stakeholders",
+            "jira": {
+                "issues": [
+                    {
+                        "key": "AIPLAT-16",
+                        "summary": "Retrieve grounded context for RAG queries",
+                        "status": "Done",
+                        "status_category": "Done",
+                        "assignee": "Raymond Gao",
+                        "comments": ["Previously blocked by security policy not approved."],
+                    },
+                    {
+                        "key": "AIPLAT-46",
+                        "summary": "RAG retrieval returns unauthorized chunks across knowledge domains",
+                        "status": "In Review",
+                        "status_category": "In Progress",
+                        "assignee": "Raymond Gao",
+                    },
+                ]
+            },
+            "confluence": {
+                "pages": [
+                    {
+                        "id": "24838146",
+                        "title": "AIPLAT risks",
+                        "content": (
+                            "Risk: Security policy not approved and UAT readiness at risk; "
+                            "escalation and owner decision required."
+                        ),
+                    }
+                ]
+            },
+            "meeting_notes": [],
+        }
+    )
+
+    report_text = report.to_markdown()
+
+    assert report.health == "Amber"
+    assert report.blockers == []
+    assert "## Blockers" not in report_text
+    assert "Resolved blocker: Retrieve grounded context for RAG queries: Done" in report_text
+    assert "owner decision required for escalation path" not in report_text
+    assert "escalation to accountable owners required today" not in report_text

@@ -35,6 +35,36 @@ class FakeJiraClient:
     def issue(self, issue_key):
         return FakeJiraIssue(key=issue_key)
 
+    def boards(self, projectKeyOrID=None):
+        self.last_board_project = projectKeyOrID
+        return [type("Board", (), {"id": 7})()]
+
+    def sprints(self, board_id, state=None):
+        self.last_sprint_board_id = board_id
+        self.last_sprint_state = state
+        return [
+            type(
+                "Sprint",
+                (),
+                {
+                    "id": 101,
+                    "name": "Sprint 10",
+                    "state": "active",
+                    "startDate": "2026-06-20T00:00:00.000Z",
+                },
+            )(),
+            type(
+                "Sprint",
+                (),
+                {
+                    "id": 99,
+                    "name": "Sprint 9",
+                    "state": "closed",
+                    "completeDate": "2026-06-19T12:00:00.000Z",
+                },
+            )(),
+        ]
+
 
 class FakeJiraTool:
     def __init__(self):
@@ -128,6 +158,31 @@ def test_direct_jira_project_read_adapter_normalizes_search_and_comments():
     assert adapter.get_issue_comments("AIP-1") == [{"body": "No blocker"}]
 
 
+def test_direct_jira_project_read_adapter_lists_project_sprints():
+    jira_tool = FakeJiraTool()
+    adapter = DirectJiraProjectReadAdapter(jira_tool, jira_url="https://jira.example")
+
+    sprints = adapter.list_sprints("AIP", states=["active", "closed"])
+
+    assert jira_tool.jira.last_board_project == "AIP"
+    assert jira_tool.jira.last_sprint_board_id == 7
+    assert jira_tool.jira.last_sprint_state == "active,closed"
+    assert sprints == [
+        {
+            "id": 101,
+            "name": "Sprint 10",
+            "state": "active",
+            "startDate": "2026-06-20T00:00:00.000Z",
+        },
+        {
+            "id": 99,
+            "name": "Sprint 9",
+            "state": "closed",
+            "completeDate": "2026-06-19T12:00:00.000Z",
+        },
+    ]
+
+
 def test_fallback_jira_project_read_adapter_uses_mcp_when_available():
     mcp = FakeMcpIntegration(
         {"searchJiraIssuesUsingJql": FakeMcpTool({"issues": [{"key": "AIP-9"}]})}
@@ -135,6 +190,22 @@ def test_fallback_jira_project_read_adapter_uses_mcp_when_available():
     adapter = FallbackJiraProjectReadAdapter(mcp_integration=mcp, use_mcp=True)
 
     assert adapter.search_issues("project = AIP") == [{"key": "AIP-9"}]
+
+
+def test_fallback_jira_project_read_adapter_lists_sprints_from_mcp():
+    mcp_tool = FakeMcpTool({"sprints": [{"id": 301, "state": "active"}]})
+    mcp = FakeMcpIntegration({"listJiraSprints": mcp_tool})
+    adapter = FallbackJiraProjectReadAdapter(mcp_integration=mcp, use_mcp=True)
+
+    assert adapter.list_sprints("AIP", states=["active", "closed"]) == [
+        {"id": 301, "state": "active"}
+    ]
+    assert mcp_tool.last_input == {
+        "projectKey": "AIP",
+        "project_key": "AIP",
+        "states": ["active", "closed"],
+        "state": "active,closed",
+    }
 
 
 def test_direct_confluence_read_adapter_normalizes_page_and_search_results():

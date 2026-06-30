@@ -241,6 +241,8 @@ def _render_items(title: str, items: Sequence[StatusItem]) -> str:
     lines = [f"## {title}"]
     for item in items:
         details = []
+        if item.source_key:
+            details.append(f"source: {item.source_key}")
         if item.owner:
             details.append(f"owner: {item.owner}")
         if item.due_date:

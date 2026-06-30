@@ -29,6 +29,29 @@ class DirectJiraProjectReadAdapter:
             return []
         return [{"body": comment} for comment in issue.get("comments", [])]
 
+    def list_sprints(self, project_key: str, states: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        state_filter = ",".join(states or ["active", "closed"])
+        sprints_by_id: Dict[str, Dict[str, Any]] = {}
+        try:
+            boards = self.jira.boards(projectKeyOrID=project_key)
+        except Exception:
+            return []
+
+        for board in boards or []:
+            board_id = getattr(board, "id", None) or (board.get("id") if isinstance(board, dict) else None)
+            if board_id is None:
+                continue
+            try:
+                sprints = self.jira.sprints(board_id, state=state_filter)
+            except Exception:
+                continue
+            for sprint in sprints or []:
+                payload = self._normalize_sprint(sprint)
+                sprint_id = str(payload.get("id") or "")
+                if sprint_id:
+                    sprints_by_id.setdefault(sprint_id, payload)
+        return list(sprints_by_id.values())
+
     def _normalize_issue(self, issue: Any) -> Dict[str, Any]:
         if isinstance(issue, dict):
             key = issue.get("key", "")
@@ -56,6 +79,17 @@ class DirectJiraProjectReadAdapter:
         }
         if key and self.jira_url:
             payload["url"] = f"{self.jira_url}/browse/{key}"
+        return payload
+
+    def _normalize_sprint(self, sprint: Any) -> Dict[str, Any]:
+        if isinstance(sprint, dict):
+            return dict(sprint)
+
+        payload: Dict[str, Any] = {}
+        for field in ("id", "name", "state", "startDate", "endDate", "completeDate", "goal"):
+            value = getattr(sprint, field, None)
+            if value is not None:
+                payload[field] = value
         return payload
 
     def _extract_comments(self, comment_container: Any) -> List[str]:
