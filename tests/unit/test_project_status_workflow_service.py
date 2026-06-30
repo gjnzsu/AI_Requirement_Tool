@@ -256,3 +256,67 @@ def test_project_status_workflow_done_blocker_does_not_drive_red_health():
     assert "Resolved blocker: Retrieve grounded context for RAG queries: Done" in report_text
     assert "owner decision required for escalation path" not in report_text
     assert "escalation to accountable owners required today" not in report_text
+
+
+def test_project_status_workflow_separates_completed_items_and_deduplicates_risks():
+    service = ProjectStatusWorkflowService()
+
+    report = service.generate_report_from_snapshot(
+        {
+            "project_key": "AIPLAT",
+            "project_name": "AIPLAT Project",
+            "time_window": "Current status",
+            "audience": "Project stakeholders",
+            "jira": {
+                "issues": [
+                    {
+                        "key": "AIPLAT-27",
+                        "summary": "Create compliance review checklist",
+                        "status": "Done",
+                        "status_category": "Done",
+                        "assignee": "Raymond Gao",
+                    },
+                    {
+                        "key": "AIPLAT-4",
+                        "summary": "Capture routing audit events",
+                        "status": "In Progress",
+                        "status_category": "In Progress",
+                        "assignee": "Raymond Gao",
+                    },
+                ]
+            },
+            "confluence": {
+                "pages": [
+                    {
+                        "id": "25821185",
+                        "title": "AIPLAT Risk Register",
+                        "content": (
+                            "Risk: Security policy not approved and UAT readiness at risk; "
+                            "escalation and owner decision required."
+                        ),
+                    },
+                    {
+                        "id": "24838146",
+                        "title": "AIPLAT Weekly Status",
+                        "content": (
+                            "Risk: Security policy not approved and UAT readiness at risk; "
+                            "escalation and owner decision required."
+                        ),
+                    },
+                ]
+            },
+            "meeting_notes": [],
+        }
+    )
+
+    report_text = report.to_markdown()
+
+    assert "## Progress" in report_text
+    assert "- Capture routing audit events: In Progress" in report_text
+    assert "## Completed" in report_text
+    assert "- Create compliance review checklist: Done" in report_text
+    assert report_text.index("## Progress") < report_text.index("## Completed")
+    assert "Create compliance review checklist: Done" not in report_text.split("## Completed")[0]
+    assert report_text.count("Security policy not approved and UAT readiness at risk") == 1
+    assert "source: AIPLAT Risk Register" in report_text
+    assert "source: 25821185" not in report_text

@@ -97,6 +97,7 @@ class ProjectStatusWorkflowService:
         health = "Red" if blockers else "Amber" if delayed else "Green"
 
         progress = self._extract_progress(issues, meeting_notes, health)
+        completed = self._extract_completed(issues)
         risks = self._extract_risks(pages, meeting_notes, health, delayed)
         decisions_needed = self._extract_decisions(issues, meeting_notes, health)
         owner_gaps = self._extract_owner_gaps(issues, meeting_notes)
@@ -125,6 +126,7 @@ class ProjectStatusWorkflowService:
             health=health,
             executive_summary=executive_summary,
             progress=progress,
+            completed=completed,
             risks=risks,
             blockers=blockers,
             decisions_needed=decisions_needed,
@@ -149,11 +151,10 @@ class ProjectStatusWorkflowService:
             status_category = str(issue.get("status_category") or "")
             if _is_active_blocked_issue(issue):
                 continue
-            if status_category.lower() in {"done", "in progress"}:
-                prefix = "Resolved blocker: " if _is_resolved_blocker_issue(issue) else ""
+            if status_category.lower() == "in progress":
                 progress.append(
                     StatusItem(
-                        summary=f"{prefix}{issue.get('summary', 'Jira issue')}: {status}",
+                        summary=f"{issue.get('summary', 'Jira issue')}: {status}",
                         owner=issue.get("assignee"),
                         due_date=issue.get("due_date"),
                         source_key=issue.get("key"),
@@ -167,6 +168,26 @@ class ProjectStatusWorkflowService:
             progress.append(StatusItem(summary="Prompt Template UI is progressing"))
         return progress
 
+    def _extract_completed(
+        self,
+        issues: List[Dict[str, Any]],
+    ) -> List[StatusItem]:
+        completed: List[StatusItem] = []
+        for issue in issues:
+            if not _is_done_issue(issue):
+                continue
+            status = str(issue.get("status") or "")
+            prefix = "Resolved blocker: " if _is_resolved_blocker_issue(issue) else ""
+            completed.append(
+                StatusItem(
+                    summary=f"{prefix}{issue.get('summary', 'Jira issue')}: {status}",
+                    owner=issue.get("assignee"),
+                    due_date=issue.get("due_date"),
+                    source_key=issue.get("key"),
+                )
+            )
+        return completed
+
     def _extract_risks(
         self,
         pages: List[Dict[str, Any]],
@@ -179,7 +200,12 @@ class ProjectStatusWorkflowService:
             for sentence in _split_sentences(str(page.get("content") or "")):
                 lower = sentence.lower()
                 if "risk:" in lower or "risk" in lower or "schedule compression" in lower:
-                    risks.append(StatusItem(summary=sentence, source_key=str(page.get("id") or "")))
+                    risks.append(
+                        StatusItem(
+                            summary=_strip_prefix(sentence, "Risk:"),
+                            source_key=_source_label(page),
+                        )
+                    )
 
         for note in meeting_notes:
             lower = note.lower()
@@ -190,7 +216,7 @@ class ProjectStatusWorkflowService:
             risks.insert(0, StatusItem(summary="UAT readiness at risk"))
         elif delayed and health == "Amber":
             risks.insert(0, StatusItem(summary="Schedule is delayed but no active blocker is present"))
-        return risks
+        return _dedupe_status_items(risks)
 
     def _extract_blockers(
         self,
@@ -450,6 +476,25 @@ def _is_done_issue(issue: Dict[str, Any]) -> bool:
     category = str(issue.get("status_category") or "").lower()
     status = str(issue.get("status") or "").lower()
     return category == "done" or status in {"done", "closed", "resolved"}
+
+
+def _source_label(page: Dict[str, Any]) -> str:
+    title = str(page.get("title") or "").strip()
+    if title:
+        return title
+    return str(page.get("id") or "").strip()
+
+
+def _dedupe_status_items(items: List[StatusItem]) -> List[StatusItem]:
+    deduped: List[StatusItem] = []
+    seen = set()
+    for item in items:
+        key = " ".join(item.summary.lower().split())
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
 
 
 def _count_issue_categories(issues: List[Dict[str, Any]]) -> Dict[str, int]:

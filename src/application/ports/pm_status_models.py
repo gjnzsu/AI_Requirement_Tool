@@ -128,6 +128,7 @@ class PmStatusReport:
     health: str
     executive_summary: str
     progress: Sequence[StatusInput] = field(default_factory=list)
+    completed: Sequence[StatusInput] = field(default_factory=list)
     risks: Sequence[StatusInput] = field(default_factory=list)
     blockers: Sequence[StatusInput] = field(default_factory=list)
     decisions_needed: Sequence[StatusInput] = field(default_factory=list)
@@ -147,6 +148,7 @@ class PmStatusReport:
         self.health = _normalize_health(self.health)
         self.executive_summary = self.executive_summary.strip()
         self.progress = _normalize_status_items(self.progress)
+        self.completed = _normalize_status_items(self.completed)
         self.risks = _normalize_status_items(self.risks)
         self.blockers = _normalize_status_items(self.blockers)
         self.decisions_needed = _normalize_status_items(self.decisions_needed)
@@ -175,6 +177,7 @@ class PmStatusReport:
             "health": self.health,
             "executive_summary": self.executive_summary,
             "progress": [item.to_dict() for item in self.progress],
+            "completed": [item.to_dict() for item in self.completed],
             "risks": [item.to_dict() for item in self.risks],
             "blockers": [item.to_dict() for item in self.blockers],
             "decisions_needed": [item.to_dict() for item in self.decisions_needed],
@@ -197,6 +200,7 @@ class PmStatusReport:
             f"## Health: {self.health}",
             self.executive_summary,
             _render_items("Progress", self.progress),
+            _render_items("Completed", self.completed),
             _render_items("Risks", self.risks),
             _render_items("Blockers", self.blockers),
             _render_items("Decisions Needed", self.decisions_needed),
