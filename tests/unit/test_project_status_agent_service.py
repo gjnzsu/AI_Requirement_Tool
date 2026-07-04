@@ -227,6 +227,30 @@ def test_project_status_agent_service_parses_quoted_jira_project_key():
     assert result.workflow_result.project_key == "AIPLAT"
 
 
+def test_project_status_agent_service_parses_quoted_project_key_before_project_word():
+    jira_reader = FakeJiraReader()
+    workflow = ProjectStatusWorkflowService(
+        jira_reader=jira_reader,
+        confluence_reader=FakeConfluenceReader(),
+    )
+    service = ProjectStatusAgentService(
+        workflow_service=workflow,
+        default_project_key="SCRUM",
+    )
+
+    result = service.handle_turn(
+        user_input='pls give me the status report of "AIPLAT" project',
+        conversation_history=[],
+        pending_state=None,
+    )
+
+    assert result.workflow_result.project_key == "AIPLAT"
+    assert result.workflow_result.project_name == "AIPLAT Project"
+    assert jira_reader.seen_searches[0]["jql"] == (
+        "project = AIPLAT AND sprint in openSprints() ORDER BY priority DESC, updated DESC"
+    )
+
+
 def test_project_status_agent_service_does_not_treat_status_as_project_key():
     workflow = ProjectStatusWorkflowService(
         jira_reader=FakeJiraReader(),

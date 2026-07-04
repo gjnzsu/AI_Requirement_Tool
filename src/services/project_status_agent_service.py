@@ -36,6 +36,14 @@ class ProjectStatusAgentService:
     )
     ISSUE_KEY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,9})-\d+\b")
     FOR_PROJECT_PATTERN = re.compile(r"\bfor\s+([A-Z][A-Z0-9]{1,9})\b")
+    QUOTED_PROJECT_NOUN_PATTERN = re.compile(
+        r"[\"']([A-Z][A-Z0-9]{1,9})[\"']\s+(?:jira\s+)?project\b",
+        re.IGNORECASE,
+    )
+    OF_PROJECT_NOUN_PATTERN = re.compile(
+        r"\b(?:of|for)\s+([A-Z][A-Z0-9]{1,9})\s+(?:jira\s+)?project\b",
+        re.IGNORECASE,
+    )
     PROJECT_KEY_STOP_WORDS = {
         "CONFLUENCE",
         "CURRENT",
@@ -231,6 +239,8 @@ class ProjectStatusAgentService:
             self.EXPLICIT_PROJECT_PATTERN,
             self.ISSUE_KEY_PATTERN,
             self.FOR_PROJECT_PATTERN,
+            self.QUOTED_PROJECT_NOUN_PATTERN,
+            self.OF_PROJECT_NOUN_PATTERN,
         ):
             match = pattern.search(text)
             if match:
