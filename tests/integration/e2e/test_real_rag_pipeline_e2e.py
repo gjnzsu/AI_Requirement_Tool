@@ -29,7 +29,7 @@ def _real_rag_pipeline_e2e_enabled() -> bool:
 def _has_external_rag_config() -> bool:
     base_url = getattr(Config, "AI_RAG_SERVICE_URL", "")
     return (
-        getattr(Config, "RAG_PROVIDER", "embedded") == "external"
+        getattr(Config, "RAG_PROVIDER", "external") == "external"
         and bool(base_url)
         and not str(base_url).startswith("your-")
     )

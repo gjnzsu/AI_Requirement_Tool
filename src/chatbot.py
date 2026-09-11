@@ -151,7 +151,7 @@ class Chatbot:
                 logger.info("=" * 70)
                 logger.info("Initializing RAG Service")
                 logger.info("=" * 70)
-                rag_provider = getattr(self.config, 'RAG_PROVIDER', 'embedded').lower()
+                rag_provider = getattr(self.config, 'RAG_PROVIDER', 'external').lower()
                 if rag_provider == "external":
                     rag_ports = build_rag_ports(
                         config=self.config,

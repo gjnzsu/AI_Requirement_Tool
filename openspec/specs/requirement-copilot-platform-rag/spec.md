@@ -6,8 +6,12 @@ Define how Requirement Copilot selects embedded versus platform RAG, routes retr
 ### Requirement: Configurable RAG provider
 Requirement Copilot SHALL support runtime selection between embedded RAG and external platform RAG.
 
-#### Scenario: Embedded provider preserves existing behavior
-- **WHEN** `RAG_PROVIDER` is unset or set to `embedded`
+#### Scenario: External provider is the default
+- **WHEN** `RAG_PROVIDER` is unset
+- **THEN** Requirement Copilot SHALL select the external platform RAG provider
+
+#### Scenario: Embedded provider remains available by explicit configuration
+- **WHEN** `RAG_PROVIDER` is set to `embedded`
 - **THEN** Requirement Copilot SHALL use the local embedded RAG implementation behind the RAG ports
 
 #### Scenario: External provider uses ai-rag-service

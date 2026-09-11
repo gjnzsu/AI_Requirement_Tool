@@ -19,7 +19,7 @@ class RagPorts:
 
 def build_rag_ports(*, config: Any, embedded_rag_service: Optional[Any]) -> RagPorts:
     """Build selected RAG query and ingestion ports."""
-    provider = str(getattr(config, "RAG_PROVIDER", "embedded") or "embedded").lower()
+    provider = str(getattr(config, "RAG_PROVIDER", "external") or "external").lower()
 
     if provider == "external":
         base_url = getattr(config, "AI_RAG_SERVICE_URL", "")

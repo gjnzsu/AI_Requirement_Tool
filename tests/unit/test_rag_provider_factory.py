@@ -14,6 +14,11 @@ class EmbeddedConfig:
     AI_RAG_SERVICE_TIMEOUT_SECONDS = 4.0
 
 
+class DefaultConfig:
+    AI_RAG_SERVICE_URL = ""
+    AI_RAG_SERVICE_TIMEOUT_SECONDS = 4.0
+
+
 def test_build_rag_ports_returns_external_adapter_when_configured():
     ports = build_rag_ports(config=ExternalConfig, embedded_rag_service=None)
 
@@ -22,7 +27,15 @@ def test_build_rag_ports_returns_external_adapter_when_configured():
     assert ports.provider == "external"
 
 
-def test_build_rag_ports_wraps_embedded_service_by_default():
+def test_build_rag_ports_defaults_to_external_provider_when_unset():
+    ports = build_rag_ports(config=DefaultConfig, embedded_rag_service=object())
+
+    assert ports.query_port is None
+    assert ports.ingestion_port is None
+    assert ports.provider == "external"
+
+
+def test_build_rag_ports_wraps_embedded_service_when_configured():
     service = object()
 
     ports = build_rag_ports(config=EmbeddedConfig, embedded_rag_service=service)

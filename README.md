@@ -200,8 +200,8 @@ GATEWAY_ENABLED=true
 GATEWAY_BASE_URL=http://ai-gateway-kong.ai-gateway.svc.cluster.local/v1
 GATEWAY_CONSUMER_SERVICE=ai-requirement-tool
 
-# RAG Configuration (optional)
-RAG_PROVIDER=embedded # embedded or external
+# RAG Configuration (shared ai-rag-service by default)
+RAG_PROVIDER=external # external uses shared ai-rag-service; embedded is local fallback
 AI_RAG_SERVICE_URL=http://localhost:8000 # required when RAG_PROVIDER=external
 AI_RAG_SERVICE_TIMEOUT_SECONDS=10
 RAG_ENABLE_CACHE=true
@@ -609,8 +609,8 @@ Set `LLM_PROVIDER` in your `.env`:
 
 ### RAG Configuration
 
-- `RAG_PROVIDER=embedded` - Use the in-process RAG implementation. This is the default and rollback setting.
-- `RAG_PROVIDER=external` - Use the platform `ai-rag-service` lifecycle APIs.
+- `RAG_PROVIDER=external` - Use the platform `ai-rag-service` lifecycle APIs. This is the default setting.
+- `RAG_PROVIDER=embedded` - Use the in-process RAG implementation as a local fallback or rollback setting.
 - `AI_RAG_SERVICE_URL=http://localhost:8000` - Base URL for `ai-rag-service` when using external RAG.
 - `AI_RAG_SERVICE_TIMEOUT_SECONDS=10` - Timeout for external RAG requests.
 - `RAG_ENABLE_CACHE=true` - Enable RAG caching

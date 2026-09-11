@@ -48,6 +48,12 @@ spec:
               value: "redis://redis-service:6379/0"
             - name: ASYNC_COZE_ENABLED
               value: "true"
+            - name: RAG_PROVIDER
+              value: "external"
+            - name: AI_RAG_SERVICE_URL
+              value: "http://rag-service.rag-service.svc.cluster.local"
+            - name: AI_RAG_SERVICE_TIMEOUT_SECONDS
+              value: "10"
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
