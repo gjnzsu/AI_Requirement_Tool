@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: ai-tool-service
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: ai-tool
   ports:
