@@ -2,6 +2,11 @@ name: CD -- Deploy to GKE
 
 on:
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Shared gateway HTTP(S) origin; use the configured route hostname'
+        required: true
+        type: string
 
 env:
   GCP_REGION: us-central1
@@ -17,6 +22,25 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Validate gateway base URL before cloud access
+        env:
+          REQUESTED_BASE_URL: ${{ inputs.base_url }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          value = os.environ['REQUESTED_BASE_URL']
+          url = urlsplit(value)
+          assert value and not any(c.isspace() or ord(c) < 32 for c in value), 'Invalid base URL'
+          assert url.scheme in ('http', 'https') and url.hostname, 'HTTP(S) origin required'
+          assert not url.username and not url.password, 'Credentials are not allowed'
+          assert url.path in ('', '/') and not url.query and not url.fragment, 'Origin only'
+          assert '?' not in value and '#' not in value, 'Query and fragment are not allowed'
+          assert url.port is None or 1 <= url.port <= 65535, 'Invalid port'
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f"BASE_URL={value.rstrip('/')}\n")
+          PY
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -56,30 +80,29 @@ jobs:
           kubectl rollout status deployment/ai-tool --timeout=120s
           kubectl rollout status deployment/celery-worker --timeout=120s
 
-      - name: Print external IP
+      - name: Verify service endpoints
         run: |
-          echo "Waiting for LoadBalancer external IP..."
-          for i in $(seq 1 12); do
-            EXTERNAL_IP=$(kubectl get service ai-tool-service \
-              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-            if [ -n "$EXTERNAL_IP" ]; then
-              echo "Service is available at: http://${EXTERNAL_IP}/"
-              break
+          for service in redis-service ai-tool-service; do
+            READY=false
+            for i in $(seq 1 6); do
+              ADDRESSES=$(kubectl get endpointslice \
+                --selector "kubernetes.io/service-name=${service}" \
+                -o jsonpath='{.items[*].endpoints[*].addresses[*]}')
+              if [ -n "$ADDRESSES" ]; then
+                READY=true
+                break
+              fi
+              sleep 5
+            done
+            if [ "$READY" != true ]; then
+              echo "FAIL: ${service} has no endpoints"
+              exit 1
             fi
-            echo "Attempt $i/12: IP not yet assigned, waiting 10s..."
-            sleep 10
           done
-          if [ -z "$EXTERNAL_IP" ]; then
-            echo "External IP not assigned within timeout. Check: kubectl get svc"
-          fi
-
       - name: Smoke test -- verify app and metrics pipeline
         run: |
-          EXTERNAL_IP=$(kubectl get service ai-tool-service \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
           echo "=== 1. Health endpoint ==="
-          curl -sf http://${EXTERNAL_IP}/api/health | grep -q 'ok\|healthy\|status' \
+          curl -sf "${BASE_URL}/api/health" | grep -q 'ok\|healthy\|status' \
             && echo "OK: /api/health responded" \
             || { echo "FAIL: /api/health did not respond"; exit 1; }
 
@@ -87,7 +110,7 @@ jobs:
           kubectl exec deploy/ai-tool -- python3 -c "import sys; sys.path.insert(0,'/app'); from src.auth.user_service import UserService; us=UserService(); u=us.get_user_by_username('smoketest'); us.update_password(u['id'],'smoketest123') if u else us.create_user('smoketest','smoketest@ci.local','smoketest123'); print('ready')"
 
           echo "=== 3. Login to get JWT token ==="
-          TOKEN=$(curl -s -X POST http://${EXTERNAL_IP}/api/auth/login \
+          TOKEN=$(curl -s -X POST "${BASE_URL}/api/auth/login" \
             -H "Content-Type: application/json" \
             -d '{"username":"smoketest","password":"smoketest123"}' \
             | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
@@ -99,7 +122,7 @@ jobs:
 
           echo "=== 4. Trigger a chat request to exercise LLM metrics ==="
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST http://${EXTERNAL_IP}/api/chat \
+            -X POST "${BASE_URL}/api/chat" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${TOKEN}" \
             -d '{"message":"ping","conversation_id":"smoke-test-deploy"}')

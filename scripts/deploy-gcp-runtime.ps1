@@ -7,12 +7,18 @@ param(
     [string]$ImageName = "ai-requirement-tool",
     [string]$Tag = "",
     [int]$TimeoutSeconds = 300,
+    [string]$BaseUrl = $env:AI_TOOL_BASE_URL,
     [switch]$SkipBuild = $false,
     [switch]$SkipHealthCheck = $false,
     [switch]$SkipRag = $false
 )
 
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "runtime-base-url.ps1")
+if (-not $SkipHealthCheck) {
+    $BaseUrl = Resolve-RuntimeBaseUrl -BaseUrl $BaseUrl
+}
 
 function Invoke-Checked {
     param(
@@ -62,7 +68,7 @@ Invoke-Checked kubectl @("apply", "-f", "k8s\service.yaml")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $startScript = Join-Path $scriptDir "start-gcp-runtime.ps1"
-& $startScript -Profile $Profile -TimeoutSeconds $TimeoutSeconds -SkipHealthCheck:$SkipHealthCheck -SkipRag:$SkipRag
+& $startScript -Profile $Profile -TimeoutSeconds $TimeoutSeconds -BaseUrl $BaseUrl -SkipHealthCheck:$SkipHealthCheck -SkipRag:$SkipRag
 if ($LASTEXITCODE -ne 0) {
     throw "$startScript failed with exit code $LASTEXITCODE"
 }

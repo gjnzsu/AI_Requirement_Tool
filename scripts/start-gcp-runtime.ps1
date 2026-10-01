@@ -2,11 +2,17 @@ param(
     [ValidateSet("smoke", "full")]
     [string]$Profile = "smoke",
     [int]$TimeoutSeconds = 300,
+    [string]$BaseUrl = $env:AI_TOOL_BASE_URL,
     [switch]$SkipHealthCheck = $false,
     [switch]$SkipRag = $false
 )
 
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "runtime-base-url.ps1")
+if (-not $SkipHealthCheck) {
+    $BaseUrl = Resolve-RuntimeBaseUrl -BaseUrl $BaseUrl
+}
 
 function Invoke-Kubectl {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
@@ -66,12 +72,7 @@ function Assert-Endpoint {
 }
 
 function Invoke-HealthCheck {
-    $ip = kubectl get service ai-tool-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-    if ([string]::IsNullOrWhiteSpace($ip)) {
-        throw "ai-tool-service has no external LoadBalancer IP."
-    }
-
-    $url = "http://$ip/api/health"
+    $url = "$BaseUrl/api/health"
     Write-Host "Checking $url..." -ForegroundColor Cyan
     for ($attempt = 1; $attempt -le 6; $attempt++) {
         try {
